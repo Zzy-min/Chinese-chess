@@ -563,7 +563,7 @@ public class XiangqiFrame extends JFrame {
 
     private void openInBrowser() {
         try {
-            URI uri = URI.create("http://127.0.0.1:" + BrowserModeMain.PORT + "/");
+            URI uri = URI.create("http://" + BrowserModeMain.TRUSTED_HOST + ":" + BrowserModeMain.PORT + "/");
             if (!isBrowserServerAlive(uri)) {
                 launchStandaloneBrowserServer();
                 waitBrowserServerReady(uri, 6000);
