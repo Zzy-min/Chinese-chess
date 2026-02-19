@@ -1,0 +1,16 @@
+# Build
+target/
+out/
+bin/
+*.class
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scripts/logs
+*.log

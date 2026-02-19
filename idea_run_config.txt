@@ -1,0 +1,15 @@
+# IDEA 运行配置 - VM Options
+
+## 将以下 VM options 添加到运行配置中
+
+### VM Options (复制全部)
+-Dfile.encoding=UTF-8 -Duser.language=zh -Duser.country=CN
+
+## 配置步骤
+
+1. 点击 IDEA 顶部工具栏的运行配置下拉框
+2. 选择 "Edit Configurations..."
+3. 找到 XiangqiFrame 或主类配置
+4. 在 "VM options" 输入框中粘贴上面的参数
+5. 点击 "Apply" 和 "OK"
+6. 重新运行程序
