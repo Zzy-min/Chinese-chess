@@ -128,9 +128,10 @@ public class MinimaxAI {
         EndgameStudySet.Tier studyTier = EndgameStudySet.getTier(board);
         boolean inStudySet = studyTier != null;
         boolean inLearnedSet = XqipuLearnedSet.contains(board);
+        boolean inEventSet = EventLearnedSet.contains(board);
         EndgameCurve endgameCurve = inStudySet ? curveFor(studyTier, difficulty) : new EndgameCurve(0, 0, false);
 
-        if (!endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet
+        if (!endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
             && difficulty.getRandomPickChance() > 0 && RANDOM.nextDouble() < difficulty.getRandomPickChance()) {
             int topN = Math.max(1, Math.min(4, validMoves.size()));
             return validMoves.get(RANDOM.nextInt(topN));
@@ -150,6 +151,18 @@ public class MinimaxAI {
                 extraTime += 1000;
             } else {
                 extraTime += 600;
+            }
+        }
+        if (inEventSet) {
+            // 赛事局面更偏实战，给中高难度更多预算，提高中后盘质量。
+            if (difficulty == Difficulty.HARD) {
+                maxDepth = Math.min(maxDepth + 1, 10);
+                extraTime += 1800;
+            } else if (difficulty == Difficulty.MEDIUM) {
+                maxDepth = Math.min(maxDepth + 1, 9);
+                extraTime += 1200;
+            } else {
+                extraTime += 700;
             }
         }
 
