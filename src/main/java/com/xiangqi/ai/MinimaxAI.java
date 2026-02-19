@@ -24,6 +24,9 @@ public class MinimaxAI {
     private static final int TT_UPPER = 2;
 
     private static final int MAX_PLY = 64;
+    private static final int ASPIRATION_WINDOW = 80;
+    private static final int TIME_CHECK_MASK = 1023;
+    private static final int TT_MAX_ENTRIES = 220000;
     private static final long ZOBRIST_TURN_KEY = 0x9E3779B97F4A7C15L;
     private static final long[][][] ZOBRIST = initZobrist();
 
@@ -97,6 +100,7 @@ public class MinimaxAI {
     private long searchStartTime;
     private int searchTimeLimitMs;
     private boolean timeUp;
+    private int timeCheckCounter;
 
     private final Map<Long, TTEntry> transpositionTable = new HashMap<Long, TTEntry>(1 << 15);
     private final int[][][] historyHeuristic = new int[2][90][90];
@@ -169,39 +173,62 @@ public class MinimaxAI {
         searchStartTime = System.currentTimeMillis();
         searchTimeLimitMs = Math.max(500, difficulty.getTimeLimitMs() + extraTime);
         timeUp = false;
+        timeCheckCounter = 0;
         transpositionTable.clear();
 
         Move bestMove = validMoves.get(0);
         Move pvMove = null;
+        int prevScore = 0;
 
         for (int depth = 1; depth <= maxDepth && !timeUp; depth++) {
-            SearchResult result = searchRoot(board, aiColor, validMoves, depth, pvMove);
+            SearchResult result;
+            if (depth >= 3) {
+                int alpha = prevScore - ASPIRATION_WINDOW;
+                int beta = prevScore + ASPIRATION_WINDOW;
+                result = searchRoot(board, aiColor, validMoves, depth, pvMove, alpha, beta);
+                if (!timeUp && result.bestMove != null && (result.score <= alpha || result.score >= beta)) {
+                    // aspiration 失败时回退到全窗口
+                    result = searchRoot(board, aiColor, validMoves, depth, pvMove, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
+                }
+            } else {
+                result = searchRoot(board, aiColor, validMoves, depth, pvMove, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
+            }
             if (!timeUp && result.bestMove != null) {
                 bestMove = result.bestMove;
                 pvMove = result.bestMove;
+                prevScore = result.score;
             }
         }
 
         return bestMove;
     }
 
-    private SearchResult searchRoot(Board board, PieceColor aiColor, List<Move> rootMoves, int depth, Move pvMove) {
-        int alpha = Integer.MIN_VALUE + 1;
-        int beta = Integer.MAX_VALUE;
+    private SearchResult searchRoot(Board board, PieceColor aiColor, List<Move> rootMoves, int depth, Move pvMove, int alpha, int beta) {
+        int localAlpha = alpha;
         int bestScore = Integer.MIN_VALUE;
         Move bestMove = null;
 
         List<Move> ordered = new ArrayList<Move>(rootMoves);
         orderMoves(ordered, board, pvMove, 0);
 
-        for (Move move : ordered) {
+        for (int i = 0; i < ordered.size(); i++) {
+            Move move = ordered.get(i);
             if (isTimeUp()) {
                 break;
             }
             Board testBoard = new Board(board);
             testBoard.movePiece(move);
 
-            int score = -negamax(testBoard, depth - 1, -beta, -alpha, 1, aiColor);
+            int score;
+            if (i == 0) {
+                score = -negamax(testBoard, depth - 1, -beta, -localAlpha, 1, aiColor);
+            } else {
+                // PVS: 先进行零窗口试探，提升速度
+                score = -negamax(testBoard, depth - 1, -localAlpha - 1, -localAlpha, 1, aiColor);
+                if (!timeUp && score > localAlpha && score < beta) {
+                    score = -negamax(testBoard, depth - 1, -beta, -localAlpha, 1, aiColor);
+                }
+            }
             if (timeUp) {
                 break;
             }
@@ -209,8 +236,11 @@ public class MinimaxAI {
                 bestScore = score;
                 bestMove = move;
             }
-            if (score > alpha) {
-                alpha = score;
+            if (score > localAlpha) {
+                localAlpha = score;
+            }
+            if (localAlpha >= beta) {
+                break;
             }
         }
 
@@ -305,6 +335,7 @@ public class MinimaxAI {
 
         int bestScore = Integer.MIN_VALUE;
         Move bestMove = null;
+        boolean firstMove = true;
         for (Move move : validMoves) {
             if (isTimeUp()) {
                 break;
@@ -313,7 +344,17 @@ public class MinimaxAI {
             boolean isCapture = board.getPiece(move.getToRow(), move.getToCol()) != null;
             Board next = new Board(board);
             next.movePiece(move);
-            int score = -negamax(next, depth - 1, -beta, -alpha, Math.min(MAX_PLY - 1, ply + 1), aiColor);
+            int nextPly = Math.min(MAX_PLY - 1, ply + 1);
+            int score;
+            if (firstMove) {
+                score = -negamax(next, depth - 1, -beta, -alpha, nextPly, aiColor);
+                firstMove = false;
+            } else {
+                score = -negamax(next, depth - 1, -alpha - 1, -alpha, nextPly, aiColor);
+                if (!timeUp && score > alpha && score < beta) {
+                    score = -negamax(next, depth - 1, -beta, -alpha, nextPly, aiColor);
+                }
+            }
 
             if (score > bestScore) {
                 bestScore = score;
@@ -338,6 +379,9 @@ public class MinimaxAI {
             } else if (bestScore >= beta) {
                 flag = TT_LOWER;
             }
+            if (transpositionTable.size() >= TT_MAX_ENTRIES) {
+                transpositionTable.clear();
+            }
             transpositionTable.put(hash, new TTEntry(depth, bestScore, flag, copyMove(bestMove)));
         }
         return bestScore;
@@ -346,6 +390,10 @@ public class MinimaxAI {
     private boolean isTimeUp() {
         if (timeUp) {
             return true;
+        }
+        timeCheckCounter++;
+        if ((timeCheckCounter & TIME_CHECK_MASK) != 0) {
+            return false;
         }
         if (System.currentTimeMillis() - searchStartTime >= searchTimeLimitMs) {
             timeUp = true;
