@@ -28,6 +28,7 @@
 - 杀招术语居中闪现（0.5s），支持扩展术语判定
 - 浏览器模式性能优化：一步一刷新、移动动画、抗缓存请求
 - 浏览器模式独立进程启动：不受桌面程序关闭影响
+- 浏览器模式可信地址：`http://xiangqi.localhost:18388/`
 
 ## AI 与算法
 
@@ -40,10 +41,14 @@
 - 残局学习集成：
   - `EndgameStudySet`：174 个残局局面，按 `初/中/高` 三档权重
   - `XqipuLearnedSet`：来自 xqipu 的学习局面集合
+- 赛事学习集成：
+  - `EventLearnedSet`：来自 `xqipu.com/eventlist` 的实战局面学习集（当前采样 2384 局面）
 - 残局专用难度曲线：
   - 初级更快应手
   - 中级速度与稳定平衡
   - 高级偏稳求解（更深/更久）
+- 赛事局面搜索增强：
+  - 命中赛事学习局面后提高搜索预算（中高难度更明显）
 
 ## 规则与胜负
 
@@ -59,6 +64,7 @@
 
 - `src/main/java/com/xiangqi/model`：棋盘、棋子、走法、术语检测
 - `src/main/java/com/xiangqi/ai`：AI 搜索、开局库、残局学习集
+- `src/main/java/com/xiangqi/ai/EventLearnedSet.java`：赛事局面学习库
 - `src/main/java/com/xiangqi/controller`：对局流程与计时控制
 - `src/main/java/com/xiangqi/ui`：桌面端界面（Swing）
 - `src/main/java/com/xiangqi/web`：浏览器端服务与页面
