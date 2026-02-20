@@ -3,6 +3,8 @@
 一个基于 Java 的中国象棋项目，提供 **桌面版（Swing）** 与 **浏览器版（本地 Web）** 两套对局模式。  
 项目重点是：规则完整、对局流畅、AI 可分级、残局训练与术语提示。
 
+GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
+
 ## 简介
 
 轻·象棋，一款开箱即玩的中国象棋对弈程序。  
@@ -150,10 +152,9 @@ java -cp target/classes com.xiangqi.web.PublicWebMain
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Zzy-min/turbo-octo-lamp)
 
-- 仓库根目录已提供 `render.yaml`
-- Render 会自动执行：
-  - Build: `mvn -DskipTests clean package`
-  - Start: `java -Dfile.encoding=UTF-8 -cp target/classes com.xiangqi.web.PublicWebMain`
+- 仓库根目录已提供 `render.yaml` + `Dockerfile`
+- Blueprint 使用 `runtime: docker`（已适配 Render 当前校验规则）
+- 容器启动入口：`com.xiangqi.web.PublicWebMain`
 - 部署成功后，直接使用 Render 分配的公网 URL 访问即可
 
 ## 音效替换说明
