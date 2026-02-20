@@ -7,16 +7,24 @@ import com.xiangqi.model.PieceColor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 
 /**
- * 开局库（轻量）
- * 参考常见开局思路：中炮、屏风马、顺炮、挺兵/飞相等。
+ * 开局库（优先走法）
+ * 参考常见开局谱系：中炮、屏风马、顺炮、飞相、仙人指路等。
+ * 目标：优先主线，减少开局阶段无谓长考。
  */
 public final class OpeningBook {
-    private static final Random RANDOM = new Random();
-
     private OpeningBook() {
+    }
+
+    private static final class WeightedMove {
+        private final Move move;
+        private final int priority;
+
+        private WeightedMove(Move move, int priority) {
+            this.move = move;
+            this.priority = priority;
+        }
     }
 
     public static Move findOpeningMove(Board board, PieceColor aiColor, List<Move> validMoves) {
@@ -28,82 +36,85 @@ public final class OpeningBook {
             return null;
         }
 
-        List<Move> candidates = getCandidates(ply, aiColor);
-        List<Move> matched = new ArrayList<>();
-        for (Move cand : candidates) {
-            Move m = findMatching(validMoves, cand);
+        List<WeightedMove> candidates = getCandidates(ply, aiColor);
+        Move best = null;
+        int bestPriority = Integer.MIN_VALUE;
+        for (WeightedMove cand : candidates) {
+            Move m = findMatching(validMoves, cand.move);
             if (m != null) {
-                matched.add(m);
+                if (cand.priority > bestPriority) {
+                    best = m;
+                    bestPriority = cand.priority;
+                }
             }
         }
-
-        if (matched.isEmpty()) {
-            return null;
-        }
-
-        // 给开局库少量变化，避免每局固定完全一致。
-        int top = Math.min(2, matched.size());
-        return matched.get(RANDOM.nextInt(top));
+        return best;
     }
 
-    private static List<Move> getCandidates(int ply, PieceColor color) {
+    private static List<WeightedMove> getCandidates(int ply, PieceColor color) {
         if (color == PieceColor.RED) {
             switch (ply) {
                 case 0:
                     return Arrays.asList(
-                        m(7, 1, 7, 4), // 炮二平五
-                        m(9, 1, 7, 2), // 马二进三
-                        m(9, 7, 7, 6), // 马八进七
-                        m(6, 2, 5, 2)  // 兵七进一
+                        wm(7, 1, 7, 4, 100), // 炮二平五（中炮主线）
+                        wm(9, 1, 7, 2, 82),  // 马二进三（屏风马体系）
+                        wm(9, 7, 7, 6, 81),  // 马八进七（柔性开局）
+                        wm(6, 2, 5, 2, 78),  // 兵七进一（仙人指路）
+                        wm(9, 6, 7, 4, 75)   // 相七进五（飞相局）
                     );
                 case 2:
                     return Arrays.asList(
-                        m(9, 1, 7, 2),
-                        m(9, 7, 7, 6),
-                        m(6, 2, 5, 2),
-                        m(7, 7, 7, 4)
+                        wm(9, 1, 7, 2, 98),  // 中炮配马二进三
+                        wm(9, 7, 7, 6, 96),  // 中炮配马八进七
+                        wm(6, 2, 5, 2, 90),  // 挺七兵稳固中腹
+                        wm(7, 7, 7, 4, 86),  // 炮八平五（双炮）
+                        wm(9, 2, 7, 4, 80)   // 车九进一预备出车
                     );
                 case 4:
                 case 6:
                 case 8:
                     return Arrays.asList(
-                        m(9, 7, 7, 6),
-                        m(9, 1, 7, 2),
-                        m(7, 7, 7, 4),
-                        m(6, 6, 5, 6),
-                        m(9, 2, 7, 4)
+                        wm(9, 7, 7, 6, 95),
+                        wm(9, 1, 7, 2, 94),
+                        wm(7, 7, 7, 4, 90),
+                        wm(6, 6, 5, 6, 88),  // 挺三兵争先
+                        wm(9, 2, 7, 4, 86),  // 车九进一
+                        wm(7, 4, 4, 4, 84)   // 炮五进四（中路压制）
                     );
                 default:
-                    return new ArrayList<Move>();
+                    return new ArrayList<WeightedMove>();
             }
         }
 
         switch (ply) {
             case 1:
                 return Arrays.asList(
-                    m(0, 7, 2, 6), // 马8进7
-                    m(2, 7, 2, 4), // 炮8平5
-                    m(0, 1, 2, 2), // 马2进3
-                    m(3, 2, 4, 2)  // 卒7进1
+                    wm(0, 1, 2, 2, 100), // 马2进3（屏风马主应）
+                    wm(0, 7, 2, 6, 99),  // 马8进7（对称屏风）
+                    wm(2, 1, 2, 4, 94),  // 炮2平5（顺炮）
+                    wm(2, 7, 2, 4, 92),  // 炮8平5（列炮）
+                    wm(3, 2, 4, 2, 88)   // 卒7进1（挺卒争先）
                 );
             case 3:
                 return Arrays.asList(
-                    m(0, 1, 2, 2),
-                    m(0, 7, 2, 6),
-                    m(2, 1, 2, 4),
-                    m(3, 6, 4, 6)
+                    wm(0, 7, 2, 6, 98),
+                    wm(0, 1, 2, 2, 97),
+                    wm(2, 1, 2, 4, 92),
+                    wm(3, 6, 4, 6, 88),  // 卒3进1
+                    wm(0, 6, 2, 4, 86)   // 象7进5（稳健）
                 );
             case 5:
             case 7:
             case 9:
                 return Arrays.asList(
-                    m(2, 1, 2, 4),
-                    m(3, 4, 4, 4),
-                    m(0, 2, 2, 4),
-                    m(3, 2, 4, 2)
+                    wm(2, 1, 2, 4, 95),
+                    wm(3, 4, 4, 4, 91),  // 卒5进1争中
+                    wm(0, 2, 2, 4, 88),  // 车1进1预备横车
+                    wm(3, 2, 4, 2, 86),
+                    wm(3, 6, 4, 6, 85)
                 );
             default:
-                return new ArrayList<Move>();
+                return new ArrayList<WeightedMove>();
         }
     }
 
@@ -121,6 +132,10 @@ public final class OpeningBook {
 
     private static Move m(int fr, int fc, int tr, int tc) {
         return new Move(fr, fc, tr, tc);
+    }
+
+    private static WeightedMove wm(int fr, int fc, int tr, int tc, int priority) {
+        return new WeightedMove(m(fr, fc, tr, tc), priority);
     }
 }
 
