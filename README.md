@@ -51,6 +51,7 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 - Killer Moves + History Heuristic 走法排序
 - 将军局面延伸，降低浅层漏算
 - 开局库（OpeningBook）
+- 开局库增强（棋谱候选 + 快速安全校验 + 近优解加权选择），减少“前几步固定死线”
 - 残局学习集成：
   - `EndgameStudySet`：174 个残局局面，按 `初/中/高` 三档权重
   - `XqipuLearnedSet`：来自 xqipu 的学习局面集合

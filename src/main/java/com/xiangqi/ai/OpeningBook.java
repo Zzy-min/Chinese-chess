@@ -2,11 +2,14 @@ package com.xiangqi.ai;
 
 import com.xiangqi.model.Board;
 import com.xiangqi.model.Move;
+import com.xiangqi.model.Piece;
 import com.xiangqi.model.PieceColor;
+import com.xiangqi.model.PieceType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 开局库（优先走法）
@@ -37,18 +40,150 @@ public final class OpeningBook {
         }
 
         List<WeightedMove> candidates = getCandidates(ply, aiColor);
-        Move best = null;
-        int bestPriority = Integer.MIN_VALUE;
+        List<MoveScore> available = new ArrayList<MoveScore>();
         for (WeightedMove cand : candidates) {
             Move m = findMatching(validMoves, cand.move);
             if (m != null) {
-                if (cand.priority > bestPriority) {
-                    best = m;
-                    bestPriority = cand.priority;
-                }
+                int score = evaluateOpeningMove(board, m, aiColor, cand.priority);
+                available.add(new MoveScore(m, score));
             }
         }
-        return best;
+        if (available.isEmpty()) {
+            return null;
+        }
+
+        int bestScore = Integer.MIN_VALUE;
+        for (MoveScore moveScore : available) {
+            bestScore = Math.max(bestScore, moveScore.score);
+        }
+        int threshold = 36;
+        List<MoveScore> nearBest = new ArrayList<MoveScore>();
+        int weightSum = 0;
+        for (MoveScore moveScore : available) {
+            if (moveScore.score >= bestScore - threshold) {
+                nearBest.add(moveScore);
+                weightSum += Math.max(1, moveScore.score - (bestScore - threshold) + 1);
+            }
+        }
+        if (nearBest.isEmpty()) {
+            return available.get(0).move;
+        }
+        int pick = ThreadLocalRandom.current().nextInt(Math.max(1, weightSum));
+        int acc = 0;
+        for (MoveScore moveScore : nearBest) {
+            acc += Math.max(1, moveScore.score - (bestScore - threshold) + 1);
+            if (pick < acc) {
+                return moveScore.move;
+            }
+        }
+        return nearBest.get(0).move;
+    }
+
+    private static int evaluateOpeningMove(Board board, Move move, PieceColor side, int basePriority) {
+        int score = basePriority * 10;
+        Piece mover = board.getPiece(move.getFromRow(), move.getFromCol());
+        Piece captured = board.getPiece(move.getToRow(), move.getToCol());
+
+        if (captured != null) {
+            score += pieceValue(captured) * 8;
+        }
+
+        int fromCenterDist = Math.abs(move.getFromRow() - 4) + Math.abs(move.getFromCol() - 4);
+        int toCenterDist = Math.abs(move.getToRow() - 4) + Math.abs(move.getToCol() - 4);
+        score += (fromCenterDist - toCenterDist) * 10;
+
+        if (mover != null) {
+            PieceType type = mover.getType();
+            if (type == PieceType.MA || type == PieceType.MA_RED) {
+                score += 55;
+            } else if (type == PieceType.PAO || type == PieceType.PAO_RED) {
+                score += 48;
+                if (move.getToCol() == 4) {
+                    score += 36;
+                }
+            } else if (type == PieceType.CHE || type == PieceType.CHE_RED) {
+                score += 38;
+            } else if (type == PieceType.ZU || type == PieceType.ZU_RED) {
+                score += 18;
+            }
+        }
+
+        if (isForward(side, move)) {
+            score += 20;
+        }
+
+        Board next = new Board(board);
+        next.movePiece(move);
+        if (next.isInCheck(side.opposite())) {
+            score += 32;
+        }
+
+        int riskPenalty = landingRiskPenalty(next, move, side);
+        score -= riskPenalty;
+        return score;
+    }
+
+    private static int landingRiskPenalty(Board nextBoard, Move move, PieceColor side) {
+        int penalty = 0;
+        List<Move> replies = nextBoard.getAllValidMoves(side.opposite());
+        Piece landed = nextBoard.getPiece(move.getToRow(), move.getToCol());
+        for (Move reply : replies) {
+            if (reply.getToRow() == move.getToRow() && reply.getToCol() == move.getToCol()) {
+                penalty += 40;
+                if (landed != null) {
+                    penalty += pieceValue(landed) / 4;
+                }
+                break;
+            }
+        }
+        return penalty;
+    }
+
+    private static boolean isForward(PieceColor side, Move move) {
+        if (side == PieceColor.RED) {
+            return move.getToRow() < move.getFromRow();
+        }
+        return move.getToRow() > move.getFromRow();
+    }
+
+    private static int pieceValue(Piece piece) {
+        if (piece == null) {
+            return 0;
+        }
+        switch (piece.getType()) {
+            case JIANG:
+            case SHUAI:
+                return 10000;
+            case CHE:
+            case CHE_RED:
+                return 900;
+            case MA:
+            case MA_RED:
+                return 430;
+            case PAO:
+            case PAO_RED:
+                return 460;
+            case XIANG:
+            case XIANG_RED:
+            case SHI:
+            case SHI_RED:
+                return 210;
+            case ZU:
+            case ZU_RED:
+                return 100;
+            default:
+                return 0;
+        }
+    }
+
+    private static final class MoveScore {
+        private final Move move;
+        private final int score;
+
+        private MoveScore(Move move, int score) {
+            this.move = move;
+            this.score = score;
+        }
     }
 
     private static List<WeightedMove> getCandidates(int ply, PieceColor color) {
