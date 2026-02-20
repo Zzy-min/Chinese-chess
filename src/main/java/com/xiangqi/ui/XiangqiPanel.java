@@ -500,6 +500,7 @@ public class XiangqiPanel extends JPanel {
             Move move = history.get(total - 1 - i);
             PieceColor moverColor = (i % 2 == 0) ? boardToDraw.getCurrentTurn().opposite() : boardToDraw.getCurrentTurn();
             Color markerColor = moverColor == PieceColor.RED ? new Color(215, 62, 62, 210) : new Color(36, 36, 36, 210);
+            Color glowColor = moverColor == PieceColor.RED ? new Color(255, 138, 128, 78) : new Color(110, 110, 110, 70);
 
             int fromX = gridCenterXByBoardCol(move.getFromCol());
             int fromY = gridCenterYByBoardRow(move.getFromRow());
@@ -507,24 +508,68 @@ public class XiangqiPanel extends JPanel {
             int toY = gridCenterYByBoardRow(move.getToRow());
 
             int order = i + 1;
-            int fromSize = PIECE_RADIUS - 6;
-            g2d.setStroke(new BasicStroke(2f));
+            int fromSize = PIECE_RADIUS - 5 - i;
+            g2d.setColor(glowColor);
+            g2d.fillOval(fromX - fromSize - 4, fromY - fromSize - 4, (fromSize + 4) * 2, (fromSize + 4) * 2);
+
+            drawMoveArrow(g2d, fromX, fromY, toX, toY, markerColor, i == 0 ? 4f : 3f);
+
+            g2d.setStroke(new BasicStroke(2.2f));
             g2d.setColor(markerColor);
             g2d.drawOval(fromX - fromSize, fromY - fromSize, fromSize * 2, fromSize * 2);
 
-            int toSize = PIECE_RADIUS + 6 - i * 3;
-            g2d.setStroke(new BasicStroke(3f));
+            int toSize = PIECE_RADIUS + 6 - i * 2;
+            g2d.setStroke(new BasicStroke(i == 0 ? 3.4f : 2.8f));
             g2d.drawRoundRect(toX - toSize, toY - toSize, toSize * 2, toSize * 2, 12, 12);
 
-            g2d.setFont(new Font("Consolas", Font.BOLD, 16));
-            g2d.setColor(new Color(255, 245, 220, 230));
+            int badgeR = i == 0 ? 11 : 9;
+            int badgeX = toX + toSize - 3;
+            int badgeY = toY - toSize + 3;
+            g2d.setColor(new Color(248, 241, 225, 230));
+            g2d.fillOval(badgeX - badgeR, badgeY - badgeR, badgeR * 2, badgeR * 2);
+            g2d.setColor(markerColor);
+            g2d.setStroke(new BasicStroke(2f));
+            g2d.drawOval(badgeX - badgeR, badgeY - badgeR, badgeR * 2, badgeR * 2);
+
+            g2d.setFont(new Font("Consolas", Font.BOLD, i == 0 ? 13 : 12));
+            g2d.setColor(new Color(33, 33, 33, 230));
             String label = String.valueOf(order);
             FontMetrics fm = g2d.getFontMetrics();
-            g2d.drawString(label, toX - fm.stringWidth(label) / 2, toY - toSize - 5);
+            g2d.drawString(label, badgeX - fm.stringWidth(label) / 2, badgeY + fm.getAscent() / 2 - 2);
         }
 
         g2d.setStroke(oldStroke);
         g2d.setFont(oldFont);
+    }
+
+    private void drawMoveArrow(Graphics2D g2d, int fromX, int fromY, int toX, int toY, Color color, float width) {
+        int dx = toX - fromX;
+        int dy = toY - fromY;
+        double dist = Math.hypot(dx, dy);
+        if (dist < 10) {
+            return;
+        }
+        double ux = dx / dist;
+        double uy = dy / dist;
+
+        int sx = (int) Math.round(fromX + ux * (PIECE_RADIUS - 6));
+        int sy = (int) Math.round(fromY + uy * (PIECE_RADIUS - 6));
+        int ex = (int) Math.round(toX - ux * (PIECE_RADIUS - 8));
+        int ey = (int) Math.round(toY - uy * (PIECE_RADIUS - 8));
+
+        g2d.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 150));
+        g2d.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2d.drawLine(sx, sy, ex, ey);
+
+        int head = 9;
+        double px = -uy;
+        double py = ux;
+        int ax1 = (int) Math.round(ex - ux * head + px * (head * 0.65));
+        int ay1 = (int) Math.round(ey - uy * head + py * (head * 0.65));
+        int ax2 = (int) Math.round(ex - ux * head - px * (head * 0.65));
+        int ay2 = (int) Math.round(ey - uy * head - py * (head * 0.65));
+        Polygon arrow = new Polygon(new int[]{ex, ax1, ax2}, new int[]{ey, ay1, ay2}, 3);
+        g2d.fillPolygon(arrow);
     }
     private void drawCheckIndicator(Graphics2D g2d, Board boardToDraw) {
         PieceColor turn = boardToDraw.getCurrentTurn();

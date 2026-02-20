@@ -43,6 +43,9 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 - 服务端状态 `seq` 防乱序：多请求并发时自动丢弃过期响应，减少“点了没反应”错觉
 - 新增性能观测接口：`/api/perf`、`/api/perf/reset`、`/api/perf/event`（会话级 p50/p95/p99）
 - 浏览器模式可信地址：`http://127.0.0.1:18388/`
+- AI 全局响应速度升级：SEE 缓存化 + 快速模式降阶 + 轻量吃子者收集，显著降低中后盘等待感
+- 最近两步信号美化：起终点描边、方向箭头、先后顺序徽标（桌面 + 浏览器）
+- 选中棋子标记增强：改为双层高亮描边，减少遮挡并提升可读性（浏览器）
 
 ## AI 与算法
 
@@ -51,6 +54,7 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 - 置换表（Transposition Table）
 - Killer Moves + History Heuristic 走法排序
 - SEE（Static Exchange Evaluation）接入吃子排序与静态搜索筛选，减少“贪吃亏子”
+- SEE 加速策略：哈希缓存 + 深度自适应（拥塞时自动降阶）
 - 将军局面延伸，降低浅层漏算
 - Quiescence Search（静态搜索延伸）+ Delta Pruning，降低地平线效应
 - Null Move Pruning + LMR（Late Move Reduction）+ Futility Pruning，提升中后盘搜索效率

@@ -170,9 +170,11 @@ public class MinimaxAI {
     private long searchDeadlineMs;
     private boolean timeUp;
     private int timeCheckCounter;
+    private boolean searchFastMode;
 
     private final Map<Long, TTEntry> transpositionTable = new HashMap<Long, TTEntry>(1 << 15);
     private final Map<Long, Integer> repetitionCount = new HashMap<Long, Integer>(256);
+    private final Map<Long, Integer> seeCache = new HashMap<Long, Integer>(2048);
     private final int[][][] historyHeuristic = new int[2][90][90];
     private final Move[][] killerMoves = new Move[MAX_PLY][2];
 
@@ -268,6 +270,11 @@ public class MinimaxAI {
 
         SearchBudget budget = tuneBudget(board, validMoves, maxDepth, difficulty.getTimeLimitMs() + extraTime, inStudySet, inLearnedSet, inEventSet);
         maxDepth = budget.maxDepth;
+        double pressureNow = getTimePressure(difficulty);
+        int branchingNow = validMoves.size();
+        searchFastMode = branchingNow >= 34
+            || pressureNow >= 1.02
+            || (difficulty != Difficulty.HARD && branchingNow >= 28);
         searchStartTime = System.currentTimeMillis();
         searchTimeLimitMs = Math.max(450, budget.timeLimitMs);
         searchDeadlineMs = searchStartTime + searchTimeLimitMs;
@@ -275,6 +282,7 @@ public class MinimaxAI {
         timeCheckCounter = 0;
         transpositionTable.clear();
         seedRepetitionHistory(board);
+        seeCache.clear();
 
         long cacheKey = buildResultCacheKey(board, aiColor, difficulty);
         Move cached = loadCachedBestMove(cacheKey, validMoves);
@@ -599,6 +607,7 @@ public class MinimaxAI {
                     worker.searchDeadlineMs = searchDeadlineMs;
                     worker.timeUp = false;
                     worker.timeCheckCounter = 0;
+                    worker.searchFastMode = searchFastMode;
                     worker.repetitionCount.putAll(repetitionCount);
                     int score = -worker.negamax(rootBoard, depth - 1, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, 1, aiColor);
                     return new SearchResult(rootMove, score);
@@ -926,7 +935,8 @@ public class MinimaxAI {
                 continue;
             }
             Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
-            int see = staticExchangeEval(board, move, side, SEE_MAX_DEPTH);
+            int seeDepth = currentSeeDepthLimit();
+            int see = staticExchangeEval(board, move, side, seeDepth);
             int score = getPieceValue(captured) * 20
                 - (attacker == null ? 0 : getPieceValue(attacker))
                 + see * 18;
@@ -1156,7 +1166,8 @@ public class MinimaxAI {
             Piece captured = board.getPiece(move.getToRow(), move.getToCol());
             Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
             if (captured != null && attacker != null) {
-                int see = staticExchangeEval(board, move, side, SEE_MAX_DEPTH);
+                int seeDepth = currentSeeDepthLimit();
+                int see = staticExchangeEval(board, move, side, seeDepth);
                 score += 2_000_000 + getPieceValue(captured) * 16 - getPieceValue(attacker);
                 score += see * 22;
                 if (see < 0) {
@@ -1179,7 +1190,7 @@ public class MinimaxAI {
                 // 根层/浅层启发：在不被直接吃掉的前提下，优先“向前压进”。
                 if (ply <= 1 && isForwardMove(side, move)) {
                     score += 120;
-                    if (isMoveLandingSafe(board, move, side)) {
+                    if (!searchFastMode && isMoveLandingSafe(board, move, side)) {
                         score += 160;
                     } else if (attacker != null && getPieceValue(attacker) >= 430) {
                         score -= 120;
@@ -1467,11 +1478,21 @@ public class MinimaxAI {
         if (captured == null || attacker == null) {
             return 0;
         }
+        long seeKey = buildSeeKey(board, move, mover, maxDepth);
+        Integer cached = seeCache.get(seeKey);
+        if (cached != null) {
+            return cached.intValue();
+        }
         Board next = new Board(board);
         next.movePiece(move);
         int firstGain = getPieceValue(captured);
         int replyGain = seeBestCaptureGain(next, move.getToRow(), move.getToCol(), mover.opposite(), 1, maxDepth);
-        return firstGain - replyGain;
+        int score = firstGain - replyGain;
+        if (seeCache.size() >= 16_000) {
+            seeCache.clear();
+        }
+        seeCache.put(seeKey, score);
+        return score;
     }
 
     private int seeBestCaptureGain(Board board, int targetRow, int targetCol, PieceColor side, int depth, int maxDepth) {
@@ -1515,20 +1536,40 @@ public class MinimaxAI {
     }
 
     private List<Move> getCaptureMovesToSquare(Board board, PieceColor side, int targetRow, int targetCol) {
-        List<Move> all = board.getAllValidMoves(side);
-        if (all.isEmpty()) {
-            return all;
-        }
         List<Move> captures = new ArrayList<Move>();
-        for (Move move : all) {
-            if (move.getToRow() == targetRow && move.getToCol() == targetCol) {
-                Piece captured = board.getPiece(targetRow, targetCol);
-                if (captured != null && captured.getColor() != side) {
-                    captures.add(move);
+        Piece victim = board.getPiece(targetRow, targetCol);
+        if (victim == null || victim.getColor() == side) {
+            return captures;
+        }
+        for (int row = 0; row < Board.ROWS; row++) {
+            for (int col = 0; col < Board.COLS; col++) {
+                Piece piece = board.getPiece(row, col);
+                if (piece == null || piece.getColor() != side) {
+                    continue;
+                }
+                Move candidate = new Move(piece.getRow(), piece.getCol(), targetRow, targetCol);
+                if (board.isValidMove(candidate)) {
+                    captures.add(candidate);
                 }
             }
         }
         return captures;
+    }
+
+    private int currentSeeDepthLimit() {
+        return searchFastMode ? 2 : SEE_MAX_DEPTH;
+    }
+
+    private long buildSeeKey(Board board, Move move, PieceColor mover, int maxDepth) {
+        long h = computeHash(board);
+        long key = h;
+        key ^= ((long) move.getFromRow() & 0xFL) << 0;
+        key ^= ((long) move.getFromCol() & 0xFL) << 4;
+        key ^= ((long) move.getToRow() & 0xFL) << 8;
+        key ^= ((long) move.getToCol() & 0xFL) << 12;
+        key ^= ((long) maxDepth & 0xFFL) << 16;
+        key ^= mover == PieceColor.RED ? 0x12L << 24 : 0x34L << 24;
+        return key;
     }
 
     private boolean canUseNullMove(Board board, PieceColor side) {
