@@ -42,12 +42,17 @@ public class WebXiangqiServer {
     }
 
     public synchronized URI start(int preferredPort) throws IOException {
+        return start("127.0.0.1", preferredPort);
+    }
+
+    public synchronized URI start(String bindHost, int preferredPort) throws IOException {
         if (server != null) {
             return uri;
         }
 
         int bindPort = preferredPort > 0 ? preferredPort : 0;
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", bindPort), 0);
+        String host = (bindHost == null || bindHost.trim().isEmpty()) ? "127.0.0.1" : bindHost.trim();
+        server = HttpServer.create(new InetSocketAddress(host, bindPort), 0);
         server.createContext("/", this::handleIndex);
         server.createContext("/api/state", this::handleState);
         server.createContext("/api/new", this::handleNewGame);
@@ -64,7 +69,8 @@ public class WebXiangqiServer {
         server.setExecutor(null);
         server.start();
 
-        uri = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/");
+        String uriHost = "0.0.0.0".equals(host) ? "127.0.0.1" : host;
+        uri = URI.create("http://" + uriHost + ":" + server.getAddress().getPort() + "/");
         return uri;
     }
 
@@ -284,6 +290,7 @@ public class WebXiangqiServer {
         private long redTotalRemainingMs = 10 * 60 * 1000L;
         private long blackTotalRemainingMs = 10 * 60 * 1000L;
         private long lastTickAt = System.currentTimeMillis();
+        private boolean pvpClockEnabled = false;
         private boolean agreedDraw = false;
         private boolean autoDraw = false;
         private String drawReason = "";
@@ -317,6 +324,7 @@ public class WebXiangqiServer {
             this.redTotalRemainingMs = 10 * 60 * 1000L;
             this.blackTotalRemainingMs = 10 * 60 * 1000L;
             this.lastTickAt = System.currentTimeMillis();
+            this.pvpClockEnabled = false;
             this.agreedDraw = false;
             this.autoDraw = false;
             this.drawReason = "";
@@ -358,6 +366,7 @@ public class WebXiangqiServer {
             this.redTotalRemainingMs = 10 * 60 * 1000L;
             this.blackTotalRemainingMs = 10 * 60 * 1000L;
             this.lastTickAt = System.currentTimeMillis();
+            this.pvpClockEnabled = false;
             this.agreedDraw = false;
             this.autoDraw = false;
             this.drawReason = "";
@@ -548,6 +557,9 @@ public class WebXiangqiServer {
             if (!started || reviewMode || isGameOver()) {
                 return -1;
             }
+            if (!pvcMode && !pvpClockEnabled) {
+                return -1;
+            }
             updateTurnTracking();
             int limit = getCurrentStepLimitSec(board.getCurrentTurn());
             long elapsedMs = Math.max(0L, System.currentTimeMillis() - turnStartedAt);
@@ -565,7 +577,7 @@ public class WebXiangqiServer {
 
             updateTurnTracking();
 
-            if (!pvcMode && !reviewMode && !isGameOver()) {
+            if (!pvcMode && pvpClockEnabled && !reviewMode && !isGameOver()) {
                 if (board.getCurrentTurn() == PieceColor.RED) {
                     redTotalRemainingMs = Math.max(0L, redTotalRemainingMs - delta);
                     if (redTotalRemainingMs <= 0L) {
@@ -722,8 +734,10 @@ public class WebXiangqiServer {
             sb.append("\"reviewMoveIndex\":").append(reviewMoveIndex).append(',');
             sb.append("\"reviewMaxMove\":").append(board.getMoveCount()).append(',');
             sb.append("\"stepRemainSec\":").append(getCurrentStepRemainingSec()).append(',');
-            sb.append("\"redTotalSec\":").append(started ? (redTotalRemainingMs + 999L) / 1000L : -1).append(',');
-            sb.append("\"blackTotalSec\":").append(started ? (blackTotalRemainingMs + 999L) / 1000L : -1).append(',');
+            long redTotalSec = (started && (pvcMode || pvpClockEnabled)) ? (redTotalRemainingMs + 999L) / 1000L : -1;
+            long blackTotalSec = (started && (pvcMode || pvpClockEnabled)) ? (blackTotalRemainingMs + 999L) / 1000L : -1;
+            sb.append("\"redTotalSec\":").append(redTotalSec).append(',');
+            sb.append("\"blackTotalSec\":").append(blackTotalSec).append(',');
             String tip = System.currentTimeMillis() <= tacticUntil ? tacticText : "";
             sb.append("\"tacticText\":\"").append(escape(tip)).append("\",");
             appendRecentMoves(sb, boardToDraw);
