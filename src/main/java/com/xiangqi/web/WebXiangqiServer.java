@@ -11,7 +11,9 @@ import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.TacticDetector;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -53,10 +55,12 @@ public class WebXiangqiServer {
         server.createContext("/api/click", this::handleClick);
         server.createContext("/api/undo", this::handleUndo);
         server.createContext("/api/surrender", this::handleSurrender);
+        server.createContext("/api/draw", this::handleDraw);
         server.createContext("/api/review/start", this::handleReviewStart);
         server.createContext("/api/review/exit", this::handleReviewExit);
         server.createContext("/api/review/prev", this::handleReviewPrev);
         server.createContext("/api/review/next", this::handleReviewNext);
+        server.createContext("/assets/audio", this::handleAudioAsset);
         server.setExecutor(null);
         server.start();
 
@@ -124,7 +128,16 @@ public class WebXiangqiServer {
             session.surrender();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
         }
-    }    private void handleReviewStart(HttpExchange exchange) throws IOException {
+    }
+
+    private void handleDraw(HttpExchange exchange) throws IOException {
+        synchronized (session) {
+            session.draw();
+            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
+        }
+    }
+
+    private void handleReviewStart(HttpExchange exchange) throws IOException {
         synchronized (session) {
             session.startReview();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -150,6 +163,48 @@ public class WebXiangqiServer {
             session.reviewNext();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
         }
+    }
+
+    private void handleAudioAsset(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendText(exchange, 405, "Method Not Allowed", "text/plain");
+            return;
+        }
+        String path = exchange.getRequestURI().getPath();
+        if (path == null) {
+            sendText(exchange, 404, "Not Found", "text/plain");
+            return;
+        }
+
+        String fileName = path.substring(path.lastIndexOf('/') + 1);
+        String resourcePath;
+        if ("move.wav".equalsIgnoreCase(fileName)) {
+            resourcePath = "/audio/move.wav";
+        } else if ("mate.wav".equalsIgnoreCase(fileName)) {
+            resourcePath = "/audio/mate.wav";
+        } else {
+            sendText(exchange, 404, "Not Found", "text/plain");
+            return;
+        }
+
+        try (InputStream is = WebXiangqiServer.class.getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                sendText(exchange, 404, "Not Found", "text/plain");
+                return;
+            }
+            byte[] bytes = readAllBytes(is);
+            sendBytes(exchange, 200, bytes, "audio/wav");
+        }
+    }
+
+    private byte[] readAllBytes(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int n;
+        while ((n = inputStream.read(buffer)) >= 0) {
+            outputStream.write(buffer, 0, n);
+        }
+        return outputStream.toByteArray();
     }
 
     private MinimaxAI.Difficulty parseDifficulty(String raw) {
@@ -188,6 +243,10 @@ public class WebXiangqiServer {
 
     private void sendText(HttpExchange exchange, int code, String body, String contentType) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        sendBytes(exchange, code, bytes, contentType);
+    }
+
+    private void sendBytes(HttpExchange exchange, int code, byte[] bytes, String contentType) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", contentType);
         exchange.getResponseHeaders().set("Cache-Control", "no-store, no-cache, must-revalidate");
         exchange.getResponseHeaders().set("Pragma", "no-cache");
@@ -225,6 +284,11 @@ public class WebXiangqiServer {
         private long redTotalRemainingMs = 10 * 60 * 1000L;
         private long blackTotalRemainingMs = 10 * 60 * 1000L;
         private long lastTickAt = System.currentTimeMillis();
+        private boolean agreedDraw = false;
+        private boolean autoDraw = false;
+        private String drawReason = "";
+        private int noCaptureHalfMoves = 0;
+        private final Map<String, Integer> positionCount = new HashMap<>();
 
         void reset(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
             this.board = new Board();
@@ -253,6 +317,12 @@ public class WebXiangqiServer {
             this.redTotalRemainingMs = 10 * 60 * 1000L;
             this.blackTotalRemainingMs = 10 * 60 * 1000L;
             this.lastTickAt = System.currentTimeMillis();
+            this.agreedDraw = false;
+            this.autoDraw = false;
+            this.drawReason = "";
+            this.noCaptureHalfMoves = 0;
+            this.positionCount.clear();
+            initDrawTracking();
 
             if (pvcMode && board.getCurrentTurn() != pvcHumanColor && !board.isGameOver()) {
                 aiPending = true;
@@ -288,6 +358,12 @@ public class WebXiangqiServer {
             this.redTotalRemainingMs = 10 * 60 * 1000L;
             this.blackTotalRemainingMs = 10 * 60 * 1000L;
             this.lastTickAt = System.currentTimeMillis();
+            this.agreedDraw = false;
+            this.autoDraw = false;
+            this.drawReason = "";
+            this.noCaptureHalfMoves = 0;
+            this.positionCount.clear();
+            initDrawTracking();
 
             if (pvcMode && !board.isGameOver() && board.getCurrentTurn() != pvcHumanColor) {
                 aiPending = true;
@@ -357,11 +433,12 @@ public class WebXiangqiServer {
                 }
                 board.movePiece(move);
                 markMove();
+                updateAutoDrawStateAfterMove();
                 selectedRow = -1;
                 selectedCol = -1;
                 updateTacticFlash();
 
-                if (pvcMode && !board.isGameOver() && board.getCurrentTurn() != pvcHumanColor) {
+                if (pvcMode && !isGameOver() && !board.isGameOver() && board.getCurrentTurn() != pvcHumanColor) {
                     aiPending = true;
                     aiDueAt = System.currentTimeMillis() + MIN_MOVE_INTERVAL_MS;
                 }
@@ -388,6 +465,10 @@ public class WebXiangqiServer {
             }
             selectedRow = -1;
             selectedCol = -1;
+            agreedDraw = false;
+            autoDraw = false;
+            drawReason = "";
+            initDrawTracking();
         }
 
 
@@ -403,8 +484,20 @@ public class WebXiangqiServer {
             selectedCol = -1;
         }
 
+        void draw() {
+            if (!started || isGameOver() || reviewMode || pvcMode) {
+                return;
+            }
+            agreedDraw = true;
+            drawReason = "双方议和，和棋";
+            aiPending = false;
+            aiDueAt = 0L;
+            selectedRow = -1;
+            selectedCol = -1;
+        }
+
         private boolean isGameOver() {
-            return timeoutLoser != null || surrenderedColor != null || board.isGameOver();
+            return timeoutLoser != null || surrenderedColor != null || agreedDraw || autoDraw || board.isGameOver();
         }
 
         private String getGameResult() {
@@ -422,6 +515,9 @@ public class WebXiangqiServer {
             }
             if (surrenderedColor == PieceColor.BLACK) {
                 return "黑方认输！红方获胜";
+            }
+            if (agreedDraw || autoDraw) {
+                return (drawReason == null || drawReason.isEmpty()) ? "和棋" : drawReason;
             }
             return board.getGameResult();
         }
@@ -513,12 +609,17 @@ public class WebXiangqiServer {
             if (aiMove != null && board.isValidMove(aiMove)) {
                 board.movePiece(aiMove);
                 markMove();
+                updateAutoDrawStateAfterMove();
                 updateTacticFlash();
             }
             aiPending = false;
         }
 
         private boolean canMoveNow() {
+            // 双人同屏不做人为最短步间隔，提升手感
+            if (!pvcMode) {
+                return true;
+            }
             return System.currentTimeMillis() - lastMoveAt >= MIN_MOVE_INTERVAL_MS;
         }
 
@@ -532,6 +633,67 @@ public class WebXiangqiServer {
                 tacticText = t;
                 tacticUntil = System.currentTimeMillis() + 500;
             }
+        }
+
+        private void initDrawTracking() {
+            noCaptureHalfMoves = 0;
+            positionCount.clear();
+            positionCount.put(buildPositionKey(board), 1);
+        }
+
+        private void updateAutoDrawStateAfterMove() {
+            Move lastMove = board.getLastMove();
+            if (lastMove == null) {
+                return;
+            }
+            if (lastMove.getCapturedPiece() == null) {
+                noCaptureHalfMoves++;
+            } else {
+                noCaptureHalfMoves = 0;
+            }
+
+            String key = buildPositionKey(board);
+            int seen = positionCount.getOrDefault(key, 0) + 1;
+            positionCount.put(key, seen);
+
+            if (!pvcMode || isGameOver()) {
+                return;
+            }
+            if (noCaptureHalfMoves >= 120) {
+                autoDraw = true;
+                drawReason = "自动判和：连续60回合无吃子";
+                aiPending = false;
+                aiDueAt = 0L;
+                selectedRow = -1;
+                selectedCol = -1;
+                return;
+            }
+            if (seen >= 3) {
+                autoDraw = true;
+                drawReason = "自动判和：三次重复局面";
+                aiPending = false;
+                aiDueAt = 0L;
+                selectedRow = -1;
+                selectedCol = -1;
+            }
+        }
+
+        private String buildPositionKey(Board board) {
+            StringBuilder sb = new StringBuilder(256);
+            sb.append(board.getCurrentTurn().name()).append('|');
+            for (int r = 0; r < Board.ROWS; r++) {
+                for (int c = 0; c < Board.COLS; c++) {
+                    Piece p = board.getPiece(r, c);
+                    if (p == null) {
+                        sb.append('.');
+                    } else {
+                        sb.append(p.getColor() == PieceColor.RED ? 'R' : 'B');
+                        sb.append(p.getType().ordinal());
+                    }
+                }
+                sb.append('/');
+            }
+            return sb.toString();
         }
 
         String toJson() {
@@ -550,7 +712,9 @@ public class WebXiangqiServer {
             sb.append("\"endgame\":\"").append(escape(currentEndgame)).append("\",");
             sb.append("\"currentTurn\":\"").append(boardToDraw.getCurrentTurn()).append("\",");
             sb.append("\"gameOver\":").append(isGameOver()).append(',');
+            sb.append("\"canDraw\":").append(started && !reviewMode && !isGameOver() && !pvcMode).append(',');
             sb.append("\"result\":\"").append(escape(getGameResult())).append("\",");
+            sb.append("\"drawReason\":\"").append(escape((agreedDraw || autoDraw) ? drawReason : "")).append("\",");
             sb.append("\"selectedRow\":").append(selectedRow).append(',');
             sb.append("\"selectedCol\":").append(selectedCol).append(',');
             sb.append("\"canReview\":").append(board.canUndo()).append(',');
@@ -663,7 +827,8 @@ public class WebXiangqiServer {
             "        <div class=\"row\"><select id=\"mode\"><option value=\"pvp\">双人对战</option><option value=\"pvc\">人机对战</option></select><select id=\"difficulty\"><option value=\"EASY\">简单</option><option value=\"MEDIUM\" selected>中等</option><option value=\"HARD\">困难</option></select></div>",
             "        <div class=\"row\"><select id=\"firstHand\" disabled><option value=\"true\" selected>我先手（执红）</option><option value=\"false\">我后手（执黑）</option></select></div>",
             "        <div class=\"row\"><button id=\"newGame\">新开一局</button><button id=\"undo\">悔棋</button></div>",
-            "        <div class=\"row\"><button id=\"surrender\">认输</button></div>",
+            "        <div class=\"row\"><button id=\"surrender\">认输</button><button id=\"drawBtn\">和棋</button></div>",
+            "        <div class=\"row\"><button id=\"soundToggle\">音效:开</button></div>",
             "        <div class=\"title\" style=\"margin-top:8px\">残局练习</div>",
             "        <div class=\"egGrid\">",
             "          <button class=\"egBtn\" data-name=\"七星聚会\">七星聚会</button><button class=\"egBtn\" data-name=\"蚯蚓降龙\">蚯蚓降龙</button>",
@@ -678,6 +843,7 @@ public class WebXiangqiServer {
             "        <div id=\"statusTag\" class=\"tag\">状态: 加载中</div><br/>",
             "        <div id=\"modeTag\" class=\"tag\">模式: -</div>",
             "        <div id=\"endgameTag\" class=\"tag\">残局: 标准开局</div>",
+            "        <div id=\"drawReasonTag\" class=\"tag\">和棋原因: -</div>",
             "        <div id=\"reviewTag\" class=\"tag\">回顾: 关闭</div>",
             "        <div id=\"info\" class=\"log\">等待数据...</div>",
             "      </div>",
@@ -686,36 +852,39 @@ public class WebXiangqiServer {
             "<script>",
             "const BASE_W=800,BASE_H=900,CELL=68,MARGIN=98,R=29;",
             "const canvas=document.getElementById('board'); const ctx=canvas.getContext('2d',{alpha:true});",
-            "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.max(1,window.devicePixelRatio||1),anim=null,animKey='';",
+            "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.min(1.5,Math.max(1,window.devicePixelRatio||1)),anim=null,animKey='';",
+            "const moveAudio=new Audio('/assets/audio/move.wav');const mateAudio=new Audio('/assets/audio/mate.wav');moveAudio.preload='auto';mateAudio.preload='auto';moveAudio.volume=0.92;mateAudio.volume=0.98;let audioUnlocked=false,lastMoveSoundKey='',lastMateSoundKey='';let soundEnabled=(localStorage.getItem('xq_sound_enabled')??'1')!=='0';",
             "const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');",
             "const BOARD_TEXTURE_URL='https://commons.wikimedia.org/wiki/Special:FilePath/Xiangqi%20board.svg';const boardTex=new Image();let boardTexReady=false;boardTex.crossOrigin='anonymous';boardTex.onload=()=>{boardTexReady=true;drawStatic();scheduleRender();};boardTex.src=BOARD_TEXTURE_URL;",
             "function setupCanvas(){const parentW=Math.max(320,canvas.parentElement.clientWidth-8);const viewH=Math.max(460,window.innerHeight-64);const fitWByH=Math.floor(viewH*BASE_W/BASE_H);const targetW=Math.max(320,Math.min(parentW,fitWByH));const cssW=Math.round(targetW*0.92);const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);scheduleRender();}",
             "window.addEventListener('resize', setupCanvas);",
-            "const isFlipped=()=>state&&state.mode==='PVC'&&state.pvcHumanColor==='BLACK';const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];function pickGrid(x,y){const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);if(vrow<0||vrow>=10||vcol<0||vcol>=9)return null;const gx=MARGIN+vcol*CELL,gy=MARGIN+vrow*CELL;const d=Math.hypot(x-gx,y-gy);if(d>CELL*0.62)return null;return {row:br(vrow),col:bc(vcol)};}",
+            "function syncSoundToggle(){const btn=document.getElementById('soundToggle');if(btn)btn.textContent='音效:'+(soundEnabled?'开':'关');}function toggleSound(){soundEnabled=!soundEnabled;localStorage.setItem('xq_sound_enabled',soundEnabled?'1':'0');syncSoundToggle();}function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;[moveAudio,mateAudio].forEach(a=>{const p=a.play();if(p&&p.catch){p.then(()=>{a.pause();a.currentTime=0;}).catch(()=>{});}else{a.pause();a.currentTime=0;}});}function playSound(a){if(!soundEnabled||!audioUnlocked)return;try{a.pause();a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(_e){}}",
+            "const isFlipped=()=>{if(!state||state.reviewMode)return false;if(state.mode==='PVP')return state.currentTurn==='BLACK';return state.mode==='PVC'&&state.pvcHumanColor==='BLACK';};const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];function pickGrid(x,y){const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);const minX=MARGIN-R,maxX=MARGIN+8*CELL+R,minY=MARGIN-R,maxY=MARGIN+9*CELL+R;if(x<minX||x>maxX||y<minY||y>maxY)return null;const cc=Math.max(0,Math.min(8,vcol)),rr=Math.max(0,Math.min(9,vrow));return {row:br(rr),col:bc(cc)};}",
             "function drawStatic(){cctx.clearRect(0,0,BASE_W,BASE_H);const bx=MARGIN-34,by=MARGIN-34,bw=8*CELL+68,bh=9*CELL+68;if(boardTexReady){cctx.drawImage(boardTex,bx,by,bw,bh);}else{const g=cctx.createLinearGradient(0,0,0,BASE_H);g.addColorStop(0,'#2c3f88');g.addColorStop(1,'#1f2f66');cctx.fillStyle=g;cctx.fillRect(bx,by,bw,bh);}cctx.fillStyle='rgba(20,33,88,.34)';cctx.fillRect(MARGIN-2,MARGIN-2,8*CELL+4,9*CELL+4);cctx.strokeStyle='#7f4f25';cctx.lineWidth=9;cctx.strokeRect(bx-7,by-7,bw+14,bh+14);cctx.strokeStyle='#dfbc77';cctx.lineWidth=3;cctx.strokeRect(bx,by,bw,bh);const corner=(x,y,sx,sy)=>{cctx.strokeStyle='rgba(225,196,130,.96)';cctx.lineWidth=2;cctx.beginPath();cctx.moveTo(x,y);cctx.lineTo(x+sx*18,y);cctx.lineTo(x+sx*18,y+sy*18);cctx.moveTo(x+sx*6,y);cctx.lineTo(x+sx*24,y);cctx.moveTo(x,y+sy*6);cctx.lineTo(x,y+sy*24);cctx.stroke();};corner(bx+10,by+10,1,1);corner(bx+bw-10,by+10,-1,1);corner(bx+10,by+bh-10,1,-1);corner(bx+bw-10,by+bh-10,-1,-1);const topY=by-20;const botY=by+bh+20;cctx.strokeStyle='rgba(108,64,28,.9)';cctx.lineWidth=3;cctx.beginPath();cctx.moveTo(bx+30,topY);cctx.bezierCurveTo(bx+bw*0.32,topY-16,bx+bw*0.68,topY-16,bx+bw-30,topY);cctx.moveTo(bx+30,botY);cctx.bezierCurveTo(bx+bw*0.32,botY+16,bx+bw*0.68,botY+16,bx+bw-30,botY);cctx.stroke();cctx.strokeStyle='rgba(213,178,106,.86)';cctx.lineWidth=2;for(let r=0;r<10;r++){const y=MARGIN+r*CELL;cctx.beginPath();cctx.moveTo(MARGIN,y);cctx.lineTo(MARGIN+8*CELL,y);cctx.stroke();}for(let c=0;c<9;c++){const x=MARGIN+c*CELL;cctx.beginPath();if(c===0||c===8){cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+9*CELL);}else{cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+4*CELL);cctx.moveTo(x,MARGIN+5*CELL);cctx.lineTo(x,MARGIN+9*CELL);}cctx.stroke();}cctx.beginPath();cctx.moveTo(MARGIN+3*CELL,MARGIN);cctx.lineTo(MARGIN+5*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN);cctx.lineTo(MARGIN+3*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+3*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+5*CELL,MARGIN+9*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+3*CELL,MARGIN+9*CELL);cctx.stroke();const ry=MARGIN+4*CELL+3;cctx.shadowColor='rgba(0,0,0,.26)';cctx.shadowBlur=10;cctx.fillStyle='rgba(35,54,124,.92)';cctx.beginPath();cctx.roundRect(MARGIN+12,ry,8*CELL-24,CELL-8,22);cctx.fill();cctx.shadowBlur=0;cctx.strokeStyle='rgba(213,178,106,.44)';cctx.beginPath();cctx.moveTo(MARGIN, MARGIN+4*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+4*CELL);cctx.moveTo(MARGIN,MARGIN+5*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+5*CELL);cctx.stroke();cctx.font='bold 45px KaiTi';cctx.fillStyle='#d8b574';cctx.fillText('楚 河',MARGIN+CELL-10,MARGIN+4*CELL+44);cctx.fillText('汉 界',MARGIN+5*CELL+8,MARGIN+4*CELL+44);}",
             "function scheduleRender(){if(needRender)return;needRender=true;requestAnimationFrame(()=>{needRender=false;draw();});}",
             "function draw(){ctx.clearRect(0,0,BASE_W,BASE_H);ctx.drawImage(cache,0,0);if(!state)return;drawMarkers();drawPieces();drawMoveAnim();drawSelection();drawTacticFlash();}",
             "function drawPieceDisc(x,y,name,color){ctx.fillStyle='rgba(13,8,0,.24)';ctx.beginPath();ctx.ellipse(x+2,y+3,R*0.98,R*0.82,0,0,Math.PI*2);ctx.fill();const g=ctx.createRadialGradient(x-9,y-10,4,x,y,R);if(color==='RED'){g.addColorStop(0,'#fff7ec');g.addColorStop(0.62,'#efd8bd');g.addColorStop(1,'#d1ad86');}else{g.addColorStop(0,'#ffffff');g.addColorStop(0.62,'#ebe7df');g.addColorStop(1,'#c7c2b8');}ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(88,58,29,.94)';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=(color==='RED')?'#d24c45':'#252525';ctx.lineWidth=2.8;ctx.beginPath();ctx.arc(x,y,R-3,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='rgba(229,207,160,.9)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,R-6,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(x-8,y-10,7,0,Math.PI*2);ctx.fill();ctx.font='bold 32px KaiTi';ctx.lineWidth=0.9;ctx.strokeStyle='rgba(255,244,220,.22)';const w=ctx.measureText(name).width;ctx.strokeText(name,x-w/2,y+11);ctx.fillStyle=(color==='RED')?'#c43d36':'#1b1b1b';ctx.fillText(name,x-w/2,y+11);}function drawPieces(){for(let r=0;r<10;r++){for(let c=0;c<9;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=pos(r,c);drawPieceDisc(x,y,p.name,p.color);}}}",
             "function drawMarkers(){if(!state.recentMoves)return;for(const m of state.recentMoves){const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);const color=m.color==='RED'?'rgba(198,64,60,.96)':'rgba(35,35,35,.96)';ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(fx,fy,R-10,0,Math.PI*2);ctx.stroke();const s=(m.order===1)?R+9:R+5;ctx.lineWidth=3;ctx.strokeRect(tx-s,ty-s,s*2,s*2);ctx.fillStyle='rgba(255,248,230,.95)';ctx.font='bold 16px Consolas';ctx.fillText(String(m.order),tx-4,ty-s-6);}}",
             "function drawSelection(){if(state.reviewMode)return;if(state.selectedRow>=0&&state.selectedCol>=0){const [x,y]=pos(state.selectedRow,state.selectedCol);ctx.fillStyle='rgba(0,160,70,.20)';ctx.fillRect(x-CELL/2+3,y-CELL/2+3,CELL-6,CELL-6);}}",
-            "function drawTacticFlash(){if(!state.tacticText)return;ctx.fillStyle='rgba(7,10,26,.82)';ctx.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.strokeStyle='#d8b86f';ctx.lineWidth=2;ctx.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.font='bold 36px Microsoft YaHei UI';ctx.fillStyle='#ffd86e';const w=ctx.measureText(state.tacticText).width;ctx.fillText(state.tacticText,(BASE_W-w)/2,BASE_H/2);}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:220};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}",
+            "function drawTacticFlash(){if(!state.tacticText)return;ctx.fillStyle='rgba(7,10,26,.82)';ctx.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.strokeStyle='#d8b86f';ctx.lineWidth=2;ctx.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.font='bold 36px Microsoft YaHei UI';ctx.fillStyle='#ffd86e';const w=ctx.measureText(state.tacticText).width;ctx.fillText(state.tacticText,(BASE_W-w)/2,BASE_H/2);}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:150};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||state.gameOver||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(state.tacticText==='绝杀'){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(state.tacticText==='绝杀'&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}",
             "async function api(path){const q=path.includes('?')?'&':'?';const url=path+q+'_t='+Date.now();const res=await fetch(url,{cache:'no-store'});return await res.json();}",
-            "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;try{const data=await api('/api/state');if(seq!==reqSeq)return;state=data;const modeSel=document.getElementById('mode');const firstSel=document.getElementById('firstHand');firstSel.disabled=modeSel.value!=='pvc';document.getElementById('statusTag').textContent='状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中')));const sr=state.stepRemainSec;document.getElementById('stepTop').textContent='当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s');document.getElementById('totalTop').textContent='总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec);const humanTxt=state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红';document.getElementById('modeTag').textContent='模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+state.difficultyText+(state.mode==='PVC'?humanTxt:'');document.getElementById('endgameTag').textContent='残局: '+(state.endgame||'标准开局');document.getElementById('reviewTag').textContent=state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭';document.getElementById('info').textContent=!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方')));document.getElementById('undo').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('surrender').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('reviewStart').disabled=!state.started||!state.canReview||state.reviewMode;document.getElementById('reviewPrev').disabled=!state.reviewMode||state.reviewMoveIndex<=0;document.getElementById('reviewNext').disabled=!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove;document.getElementById('reviewExit').disabled=!state.reviewMode;primeAnim();scheduleRender();}finally{pending=false;}}",
-            "async function act(path){if(pending)return;await api(path);await refresh();}",
-            "canvas.addEventListener('click',async e=>{if(state&&(!state.started||state.reviewMode||state.gameOver))return;const rect=canvas.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;await act('/api/click?row='+g.row+'&col='+g.col);});",
+            "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;try{const data=await api('/api/state');if(seq!==reqSeq)return;state=data;const modeSel=document.getElementById('mode');const firstSel=document.getElementById('firstHand');firstSel.disabled=modeSel.value!=='pvc';document.getElementById('statusTag').textContent='状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中')));const sr=state.stepRemainSec;document.getElementById('stepTop').textContent='当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s');document.getElementById('totalTop').textContent='总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec);const humanTxt=state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红';document.getElementById('modeTag').textContent='模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+state.difficultyText+(state.mode==='PVC'?humanTxt:'');document.getElementById('endgameTag').textContent='残局: '+(state.endgame||'标准开局');document.getElementById('drawReasonTag').textContent='和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-');document.getElementById('reviewTag').textContent=state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭';document.getElementById('info').textContent=!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方')));document.getElementById('undo').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('surrender').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('drawBtn').disabled=!state.canDraw;document.getElementById('reviewStart').disabled=!state.started||!state.canReview||state.reviewMode;document.getElementById('reviewPrev').disabled=!state.reviewMode||state.reviewMoveIndex<=0;document.getElementById('reviewNext').disabled=!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove;document.getElementById('reviewExit').disabled=!state.reviewMode;handleSounds();primeAnim();scheduleRender();}finally{pending=false;}}",
+            "async function act(path){if(pending)return;const data=await api(path);state=data;const modeSel=document.getElementById('mode');const firstSel=document.getElementById('firstHand');firstSel.disabled=modeSel.value!=='pvc';const sr=state.stepRemainSec;document.getElementById('stepTop').textContent='当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s');document.getElementById('totalTop').textContent='总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec);document.getElementById('statusTag').textContent='状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中')));document.getElementById('drawReasonTag').textContent='和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-');document.getElementById('info').textContent=!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方')));document.getElementById('undo').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('surrender').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('drawBtn').disabled=!state.canDraw;document.getElementById('reviewStart').disabled=!state.started||!state.canReview||state.reviewMode;document.getElementById('reviewPrev').disabled=!state.reviewMode||state.reviewMoveIndex<=0;document.getElementById('reviewNext').disabled=!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove;document.getElementById('reviewExit').disabled=!state.reviewMode;handleSounds();primeAnim();scheduleRender();}",
+            "document.addEventListener('pointerdown',unlockAudio,{once:true});canvas.addEventListener('click',async e=>{if(state&&(!state.started||state.reviewMode||state.gameOver))return;const rect=canvas.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;await act('/api/click?row='+g.row+'&col='+g.col);});",
             "document.getElementById('newGame').addEventListener('click',async()=>{const mode=document.getElementById('mode').value,d=document.getElementById('difficulty').value,h=document.getElementById('firstHand').value;await act('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h);});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',async()=>{const mode=document.getElementById('mode').value,d=document.getElementById('difficulty').value,h=document.getElementById('firstHand').value,name=encodeURIComponent(btn.dataset.name);await act('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h);}));",
-            "document.getElementById('undo').addEventListener('click',async()=>act('/api/undo'));document.getElementById('surrender').addEventListener('click',async()=>{if(confirm('确定要认输吗？')){await act('/api/surrender');}});",
+            "document.getElementById('undo').addEventListener('click',async()=>act('/api/undo'));document.getElementById('surrender').addEventListener('click',async()=>{if(confirm('确定要认输吗？')){await act('/api/surrender');}});document.getElementById('drawBtn').addEventListener('click',async()=>{if(confirm('确认本局和棋？')){await act('/api/draw');}});document.getElementById('soundToggle').addEventListener('click',toggleSound);",
             "document.getElementById('reviewStart').addEventListener('click',async()=>act('/api/review/start'));",
             "document.getElementById('reviewPrev').addEventListener('click',async()=>act('/api/review/prev'));",
             "document.getElementById('reviewNext').addEventListener('click',async()=>act('/api/review/next'));",
             "document.getElementById('reviewExit').addEventListener('click',async()=>act('/api/review/exit'));",
             "document.getElementById('mode').addEventListener('change',()=>{document.getElementById('firstHand').disabled=document.getElementById('mode').value!=='pvc';});",
-            "drawStatic();setupCanvas();refresh();setInterval(refresh,120);",
+            "drawStatic();setupCanvas();syncSoundToggle();refresh();setInterval(refresh,100);",
             "</script>",
             "</body>",
             "</html>");
     }
 }
+
 
 
 

@@ -30,6 +30,15 @@ javac -encoding UTF-8 -d target/classes ^
     -cp ".;target/classes" ^
     src/main/java/com/xiangqi/ui/*.java
 
+javac -encoding UTF-8 -d target/classes ^
+    -sourcepath src/main/java ^
+    -cp ".;target/classes" ^
+    src/main/java/com/xiangqi/web/*.java
+
+if exist "src\main\resources" (
+    xcopy /s /y /i "src\main\resources\*" "target\classes\" >nul
+)
+
 echo.
 echo [3] 编译完成！
 echo.

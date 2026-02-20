@@ -5,7 +5,9 @@ import com.xiangqi.model.*;
 import com.xiangqi.ui.XiangqiPanel;
 
 import javax.swing.*;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 游戏控制器 - 管理游戏逻辑和状态
@@ -74,6 +76,11 @@ public class GameController {
     private boolean hasBlackTimedOut;
     private boolean hasRedStepTimedOut;
     private boolean hasBlackStepTimedOut;
+    private boolean agreedDraw;
+    private boolean autoDraw;
+    private String drawReason = "";
+    private int noCaptureHalfMoves;
+    private final Map<String, Integer> positionCount = new HashMap<>();
 
     public GameController(XiangqiPanel panel) {
         this.panel = panel;
@@ -291,6 +298,7 @@ public class GameController {
         resetTimer();
         startTimer();
         panel.setOnMoveComplete(null);
+        initDrawTracking();
     }
 
     public void startPvCGame() {
@@ -321,6 +329,7 @@ public class GameController {
         panel.getBoard().setCurrentTurn(PieceColor.RED);
         trackedTurn = panel.getBoard().getCurrentTurn();
         initialTurn = trackedTurn;
+        initDrawTracking();
 
         panel.setOnMoveComplete(this::afterPlayerMove);
 
@@ -336,6 +345,11 @@ public class GameController {
         hasBlackTimedOut = false;
         hasRedStepTimedOut = false;
         hasBlackStepTimedOut = false;
+        agreedDraw = false;
+        autoDraw = false;
+        drawReason = "";
+        noCaptureHalfMoves = 0;
+        positionCount.clear();
         gameEnded = false;
         isReviewMode = false;
         reviewMoveIndex = 0;
@@ -344,6 +358,12 @@ public class GameController {
 
     private void afterPlayerMove() {
         if (!isRunning || gameEnded) {
+            return;
+        }
+
+        updateAutoDrawStateAfterMove();
+        if (autoDraw) {
+            endGame();
             return;
         }
 
@@ -383,6 +403,11 @@ public class GameController {
                                 return;
                             }
                             panel.makeAIMove(move);
+                            updateAutoDrawStateAfterMove();
+                            if (autoDraw) {
+                                endGame();
+                                return;
+                            }
                             if (panel.getBoard().isGameOver()) {
                                 endGame();
                             }
@@ -411,6 +436,15 @@ public class GameController {
         endGame();
     }
 
+    public void agreeDraw() {
+        if (gameEnded || panel.getGameMode() != XiangqiPanel.GameMode.PVP) {
+            return;
+        }
+        agreedDraw = true;
+        drawReason = "双方议和，和棋";
+        endGame();
+    }
+
     private void endGame() {
         if (gameEnded) {
             return;
@@ -418,6 +452,8 @@ public class GameController {
 
         gameEnded = true;
         panel.setInteractionEnabled(false);
+        panel.setHumanTurn(false);
+        panel.setOnMoveComplete(null);
         stopTimer();
 
         String result = getGameResult();
@@ -452,7 +488,26 @@ public class GameController {
             return "黑方步时超限！红方获胜";
         }
 
+        if (agreedDraw || autoDraw) {
+            return drawReason == null || drawReason.isEmpty() ? "和棋" : drawReason;
+        }
+
         return panel.getBoard().getGameResult();
+    }
+
+    public String getGameResultText() {
+        return getGameResult();
+    }
+
+    public boolean isDrawResult() {
+        return agreedDraw || autoDraw;
+    }
+
+    public String getDrawReason() {
+        if (!isDrawResult()) {
+            return "";
+        }
+        return drawReason == null ? "" : drawReason;
     }
 
     public void loadEndgame(String endgameName) {
@@ -487,6 +542,7 @@ public class GameController {
         } else {
             panel.setOnMoveComplete(null);
         }
+        initDrawTracking();
     }
 
     public void undo() {
@@ -522,6 +578,10 @@ public class GameController {
         lastUpdateTime = System.currentTimeMillis();
 
         panel.syncTurnState();
+        agreedDraw = false;
+        autoDraw = false;
+        drawReason = "";
+        initDrawTracking();
         panel.repaint();
     }
 
@@ -540,6 +600,61 @@ public class GameController {
         }
         redCompletedMoves = redMoves;
         blackCompletedMoves = blackMoves;
+    }
+
+    private void initDrawTracking() {
+        noCaptureHalfMoves = 0;
+        positionCount.clear();
+        positionCount.put(buildPositionKey(panel.getBoard()), 1);
+    }
+
+    private void updateAutoDrawStateAfterMove() {
+        Board board = panel.getBoard();
+        Move lastMove = board.getLastMove();
+        if (lastMove == null) {
+            return;
+        }
+        if (lastMove.getCapturedPiece() == null) {
+            noCaptureHalfMoves++;
+        } else {
+            noCaptureHalfMoves = 0;
+        }
+
+        String key = buildPositionKey(board);
+        int seen = positionCount.getOrDefault(key, 0) + 1;
+        positionCount.put(key, seen);
+
+        if (panel.getGameMode() != XiangqiPanel.GameMode.PVC || gameEnded) {
+            return;
+        }
+
+        if (noCaptureHalfMoves >= 120) {
+            autoDraw = true;
+            drawReason = "自动判和：连续60回合无吃子";
+            return;
+        }
+        if (seen >= 3) {
+            autoDraw = true;
+            drawReason = "自动判和：三次重复局面";
+        }
+    }
+
+    private String buildPositionKey(Board board) {
+        StringBuilder sb = new StringBuilder(256);
+        sb.append(board.getCurrentTurn().name()).append('|');
+        for (int r = 0; r < Board.ROWS; r++) {
+            for (int c = 0; c < Board.COLS; c++) {
+                Piece p = board.getPiece(r, c);
+                if (p == null) {
+                    sb.append('.');
+                } else {
+                    sb.append(p.getColor() == PieceColor.RED ? 'R' : 'B');
+                    sb.append(p.getType().ordinal());
+                }
+            }
+            sb.append('/');
+        }
+        return sb.toString();
     }
 
     public void startReview() {

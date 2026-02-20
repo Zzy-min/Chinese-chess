@@ -62,6 +62,7 @@ public class XiangqiPanel extends JPanel {
         this.humanColor = humanColor;
         this.board = new Board();
         this.isHumanTurn = (gameMode == GameMode.PVP) || (board.getCurrentTurn() == humanColor);
+        SoundManager.getInstance().preload();
         initializeBoard();
         setupMouseListener();
     }
@@ -80,7 +81,7 @@ public class XiangqiPanel extends JPanel {
     private void setupMouseListener() {
         addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
+            public void mousePressed(MouseEvent e) {
                 if (!interactionEnabled || !isHumanTurn || board.isGameOver()) {
                     return;
                 }
@@ -101,41 +102,49 @@ public class XiangqiPanel extends JPanel {
 
 
     private int[] resolveNearestGrid(int x, int y) {
+        // 允许在棋子圆盘边缘区域点击，避免边线棋子需要点得过于精准
+        int minX = MARGIN - PIECE_RADIUS;
+        int maxX = MARGIN + (Board.COLS - 1) * CELL_SIZE + PIECE_RADIUS;
+        int minY = MARGIN - PIECE_RADIUS;
+        int maxY = MARGIN + (Board.ROWS - 1) * CELL_SIZE + PIECE_RADIUS;
+
+        if (x < minX || x > maxX || y < minY || y > maxY) {
+            return null;
+        }
+
         int viewCol = (int) Math.round((x - MARGIN) / (double) CELL_SIZE);
         int viewRow = (int) Math.round((y - MARGIN) / (double) CELL_SIZE);
-
-        if (viewRow < 0 || viewRow >= Board.ROWS || viewCol < 0 || viewCol >= Board.COLS) {
-            return null;
-        }
-
-        int cx = MARGIN + viewCol * CELL_SIZE;
-        int cy = MARGIN + viewRow * CELL_SIZE;
-        double dist = Math.hypot(x - cx, y - cy);
-        if (dist > CELL_SIZE * 0.62) {
-            return null;
-        }
+        viewCol = Math.max(0, Math.min(Board.COLS - 1, viewCol));
+        viewRow = Math.max(0, Math.min(Board.ROWS - 1, viewRow));
 
         return new int[]{toBoardRow(viewRow), toBoardCol(viewCol)};
     }
 
-    private boolean isBoardFlippedForHumanBlack() {
+    private boolean isBoardFlipped() {
+        if (reviewBoard != null) {
+            return false;
+        }
+        if (gameMode == GameMode.PVP) {
+            // 同机双人：每步后按当前行棋方翻转，方便双方轮流操作
+            return board.getCurrentTurn() == PieceColor.BLACK;
+        }
         return gameMode == GameMode.PVC && humanColor == PieceColor.BLACK;
     }
 
     private int toViewRow(int boardRow) {
-        return isBoardFlippedForHumanBlack() ? (Board.ROWS - 1 - boardRow) : boardRow;
+        return isBoardFlipped() ? (Board.ROWS - 1 - boardRow) : boardRow;
     }
 
     private int toViewCol(int boardCol) {
-        return isBoardFlippedForHumanBlack() ? (Board.COLS - 1 - boardCol) : boardCol;
+        return isBoardFlipped() ? (Board.COLS - 1 - boardCol) : boardCol;
     }
 
     private int toBoardRow(int viewRow) {
-        return isBoardFlippedForHumanBlack() ? (Board.ROWS - 1 - viewRow) : viewRow;
+        return isBoardFlipped() ? (Board.ROWS - 1 - viewRow) : viewRow;
     }
 
     private int toBoardCol(int viewCol) {
-        return isBoardFlippedForHumanBlack() ? (Board.COLS - 1 - viewCol) : viewCol;
+        return isBoardFlipped() ? (Board.COLS - 1 - viewCol) : viewCol;
     }
 
     private int gridCenterXByBoardCol(int boardCol) {
@@ -167,7 +176,8 @@ public class XiangqiPanel extends JPanel {
                 }
                 board.movePiece(move);
                 markMoveTime();
-                triggerTacticFlash();
+                String tactic = triggerTacticFlash();
+                playMoveSound(tactic);
                 selectedRow = -1;
                 selectedCol = -1;
 
@@ -197,7 +207,8 @@ public class XiangqiPanel extends JPanel {
         if (move != null && board.isValidMove(move)) {
             board.movePiece(move);
             markMoveTime();
-            triggerTacticFlash();
+            String tactic = triggerTacticFlash();
+            playMoveSound(tactic);
             isHumanTurn = true;
             repaint();
         }
@@ -803,13 +814,22 @@ public class XiangqiPanel extends JPanel {
         return getPreferredSize();
     }
 
-    private void triggerTacticFlash() {
+    private String triggerTacticFlash() {
         String tactic = TacticDetector.detect(board);
         if (tactic == null || tactic.isEmpty()) {
-            return;
+            return "";
         }
         tacticFlashText = tactic;
         tacticFlashUntil = System.currentTimeMillis() + 500;
+        return tactic;
+    }
+
+    private void playMoveSound(String tactic) {
+        if ("绝杀".equals(tactic)) {
+            SoundManager.getInstance().playMate();
+        } else {
+            SoundManager.getInstance().playMove();
+        }
     }
 
     private void drawTacticFlash(Graphics2D g2d) {
@@ -843,6 +863,10 @@ public class XiangqiPanel extends JPanel {
     }
 
     private boolean canMoveNow() {
+        // 同机双人不做人为节流，避免“点了没反应”的卡顿感
+        if (gameMode == GameMode.PVP) {
+            return true;
+        }
         return System.currentTimeMillis() - lastMoveTimestamp >= MIN_MOVE_INTERVAL_MS;
     }
 
@@ -959,6 +983,7 @@ public class XiangqiPanel extends JPanel {
         return quickMode;
     }
 }
+
 
 
 

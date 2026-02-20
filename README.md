@@ -16,7 +16,8 @@
 - 双人对战（PVP）与人机对战（PVC）
 - 人机难度三档：`简单 / 中等 / 困难`
 - 人机可选先后手：`我先手(红)` 或 `我后手(黑)`
-- 当人类执黑时，棋盘自动翻转为黑方在下（桌面 + 浏览器）
+- 双人同屏模式：每步落子后自动换向，当前行棋方始终在下（桌面 + 浏览器）
+- 人机模式：玩家执黑时自动翻转为黑方在下（桌面 + 浏览器）
 - 双人对战计时：
   - `10分钟`：步时 1 分钟（前三步 30 秒）
   - `20分钟`：步时 1 分钟（前三步 30 秒）
@@ -26,8 +27,10 @@
 - 棋盘回顾模式（逐步前进/后退）
 - 最近两步落点标记（先后次序）
 - 杀招术语居中闪现（0.5s），支持扩展术语判定
+- 落子音效与绝杀音效（`move.wav` / `mate.wav`，桌面 + 浏览器）
 - 浏览器模式性能优化：一步一刷新、移动动画、抗缓存请求
 - 浏览器模式独立进程启动：不受桌面程序关闭影响
+- 新增 `run_web.bat`：可直接启动网页服务并自动打开浏览器（无需先打开桌面端）
 - 浏览器模式可信地址：`http://xiangqi.localhost:18388/`
 
 ## AI 与算法
@@ -76,6 +79,19 @@
 
 ## 运行方式
 
+### 0) Windows 一键启动（推荐）
+
+```bat
+:: 桌面版
+run_game.bat
+
+:: 网页版（直接浏览器打开，不依赖桌面端）
+run_web.bat
+
+:: 强制重编译后再启动网页版（可选）
+run_web.bat --rebuild
+```
+
 ### 1) 使用 javac / java（推荐与你当前环境一致）
 
 ```powershell
@@ -88,6 +104,12 @@ java -cp target/classes com.xiangqi.ui.XiangqiFrame
 
 # 启动浏览器独立版（可选）
 java -cp target/classes com.xiangqi.web.BrowserModeMain
+```
+
+若使用 `javac` 方式，请额外复制资源文件（音效等）：
+
+```powershell
+Copy-Item -Path src/main/resources/* -Destination target/classes -Recurse -Force
 ```
 
 浏览器独立版启动后访问：
@@ -103,9 +125,20 @@ mvn exec:java -Dexec.mainClass="com.xiangqi.ui.XiangqiFrame"
 
 ## 浏览器模式说明
 
-- 桌面菜单“在浏览器打开”会优先连接 `18388` 端口
-- 若未运行，会自动拉起浏览器独立服务进程
+- 可直接运行 `run_web.bat` 独立启动网页版（推荐，响应更快）
+- 若 `18388` 端口已有服务，`run_web.bat` 会直接打开浏览器，不重复启动
+- 也可从桌面菜单“在浏览器打开”进入网页版
 - 关闭桌面窗口后，浏览器对局仍可继续
+
+## 音效替换说明
+
+- 默认音效文件：
+  - `src/main/resources/audio/move.wav`
+  - `src/main/resources/audio/mate.wav`
+- 默认音效来源：Kenney Interface Sounds（`CC0 1.0`）
+- 你可直接替换同名文件，无需改代码
+- 建议格式：`WAV / PCM / 44.1kHz / 16-bit / mono`
+- 许可与来源记录：`docs/audio-license.md`
 
 ## 系统要求
 

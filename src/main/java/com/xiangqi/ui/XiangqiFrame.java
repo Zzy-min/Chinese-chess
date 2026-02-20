@@ -9,7 +9,9 @@ import com.xiangqi.web.BrowserModeMain;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -23,16 +25,19 @@ public class XiangqiFrame extends JFrame {
     private JLabel redTimeLabel;
     private JLabel blackTimeLabel;
     private JLabel statusLabel;
+    private JLabel drawReasonLabel;
 
     // 功能面板组件
     private JPanel functionPanel;
     private JButton undoButton;
     private JButton surrenderButton;
+    private JButton drawButton;
     private JButton reviewButton;
     private JButton reviewPrevButton;
     private JButton reviewNextButton;
     private JButton reviewExitButton;
     private JLabel reviewStepLabel;
+    private JCheckBox soundToggleCheckBox;
 
     // 棋盘回顾控制面板
     private JPanel reviewControlPanel;
@@ -169,13 +174,21 @@ public class XiangqiFrame extends JFrame {
         ));
         panel.setBackground(new Color(250, 245, 235));
 
-        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
+        JPanel leftPanel = new JPanel();
+        leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
         leftPanel.setBackground(new Color(250, 245, 235));
 
         statusLabel = new JLabel("正常对弈中");
         statusLabel.setFont(new Font("微软雅黑", Font.BOLD, 14));
         statusLabel.setForeground(new Color(80, 50, 30));
         leftPanel.add(statusLabel);
+
+        drawReasonLabel = new JLabel("和棋原因: -");
+        drawReasonLabel.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+        drawReasonLabel.setForeground(new Color(130, 90, 45));
+        drawReasonLabel.setVisible(false);
+        leftPanel.add(Box.createVerticalStrut(2));
+        leftPanel.add(drawReasonLabel);
 
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setBackground(new Color(250, 245, 235));
@@ -252,6 +265,14 @@ public class XiangqiFrame extends JFrame {
             }
         });
 
+        drawButton = createMediumButton("和棋", "双人对战下直接判和并封盘", e -> {
+            int option = JOptionPane.showConfirmDialog(this,
+                "确认本局和棋？", "确认", JOptionPane.YES_NO_OPTION);
+            if (option == JOptionPane.YES_OPTION) {
+                controller.agreeDraw();
+            }
+        });
+
         reviewButton = createMediumButton("棋盘回顾", "查看整局变化", e -> {
             if (controller.getCanUndo()) {
                 controller.startReview();
@@ -291,12 +312,23 @@ public class XiangqiFrame extends JFrame {
         reviewControlPanel.add(reviewNextButton);
         reviewControlPanel.add(reviewExitButton);
 
+        soundToggleCheckBox = new JCheckBox("音效");
+        soundToggleCheckBox.setSelected(SoundManager.getInstance().isEnabled());
+        soundToggleCheckBox.setFont(new Font("微软雅黑", Font.PLAIN, 13));
+        soundToggleCheckBox.setFocusPainted(false);
+        soundToggleCheckBox.setBackground(new Color(245, 240, 230));
+        soundToggleCheckBox.setForeground(new Color(80, 50, 30));
+        soundToggleCheckBox.addActionListener(e ->
+            SoundManager.getInstance().setEnabled(soundToggleCheckBox.isSelected()));
+
         mainButtonPanel.add(pvpButton);
         mainButtonPanel.add(pvcButton);
         mainButtonPanel.add(resetButton);
+        mainButtonPanel.add(soundToggleCheckBox);
         mainButtonPanel.add(Box.createHorizontalStrut(20));
         mainButtonPanel.add(undoButton);
         mainButtonPanel.add(surrenderButton);
+        mainButtonPanel.add(drawButton);
         mainButtonPanel.add(reviewButton);
         mainButtonPanel.add(reviewControlPanel);
 
@@ -368,6 +400,7 @@ public class XiangqiFrame extends JFrame {
 
         undoButton.setVisible(false);
         surrenderButton.setVisible(false);
+        drawButton.setVisible(false);
         reviewButton.setVisible(false);
         reviewControlPanel.setVisible(false);
 
@@ -380,9 +413,11 @@ public class XiangqiFrame extends JFrame {
 
         undoButton.setVisible(controller.canUndo());
         surrenderButton.setVisible(!ended);
+        drawButton.setVisible(!ended && boardPanel.getGameMode() == XiangqiPanel.GameMode.PVP);
         reviewButton.setVisible(boardPanel.getCurrentMoveCount() > 0);
 
         undoButton.setEnabled(!ended && controller.canUndo());
+        drawButton.setEnabled(!ended && boardPanel.getGameMode() == XiangqiPanel.GameMode.PVP);
         reviewButton.setEnabled(boardPanel.getCurrentMoveCount() > 0);
 
         functionPanel.revalidate();
@@ -419,11 +454,21 @@ public class XiangqiFrame extends JFrame {
 
     private void updateStatusLabel() {
         if (controller.isGameEnded() || boardPanel.getBoard().isGameOver()) {
-            statusLabel.setText(boardPanel.getBoard().getGameResult());
+            String result = controller.isGameEnded() ? controller.getGameResultText() : boardPanel.getBoard().getGameResult();
+            statusLabel.setText(result);
             statusLabel.setForeground(new Color(200, 50, 50));
             statusLabel.setFont(new Font("微软雅黑", Font.BOLD, 13));
+            if (controller.isDrawResult()) {
+                String reason = controller.getDrawReason();
+                drawReasonLabel.setText("和棋原因: " + (reason == null || reason.isEmpty() ? "和棋" : reason));
+                drawReasonLabel.setVisible(true);
+            } else {
+                drawReasonLabel.setVisible(false);
+            }
             return;
         }
+
+        drawReasonLabel.setVisible(false);
 
         PieceColor turn = boardPanel.getBoard().getCurrentTurn();
         StringBuilder statusText = new StringBuilder("正常对弈中");
@@ -564,10 +609,9 @@ public class XiangqiFrame extends JFrame {
     private void openInBrowser() {
         try {
             URI uri = URI.create("http://" + BrowserModeMain.TRUSTED_HOST + ":" + BrowserModeMain.PORT + "/");
-            if (!isBrowserServerAlive(uri)) {
-                launchStandaloneBrowserServer();
-                waitBrowserServerReady(uri, 6000);
-            }
+            // 每次打开浏览器模式都重启服务，避免旧进程导致资源（如音效）版本不一致
+            restartStandaloneBrowserServer();
+            waitBrowserServerReady(uri, 6000);
 
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(uri);
@@ -583,6 +627,55 @@ public class XiangqiFrame extends JFrame {
                 "错误",
                 JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void restartStandaloneBrowserServer() throws IOException {
+        stopServerOnPort(BrowserModeMain.PORT);
+        launchStandaloneBrowserServer();
+    }
+
+    private void stopServerOnPort(int port) {
+        if (!isWindows()) {
+            return;
+        }
+        Integer pid = findListeningPid(port);
+        if (pid == null) {
+            return;
+        }
+        try {
+            Process kill = new ProcessBuilder("taskkill", "/PID", String.valueOf(pid), "/F").start();
+            kill.waitFor();
+        } catch (Exception ignored) {
+            // 失败时保持静默，后续由启动逻辑与健康检查兜底
+        }
+    }
+
+    private Integer findListeningPid(int port) {
+        try {
+            Process query = new ProcessBuilder("netstat", "-ano", "-p", "tcp").start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(query.getInputStream()))) {
+                String line;
+                String key = ":" + port;
+                while ((line = reader.readLine()) != null) {
+                    String normalized = line.trim().replaceAll("\\s+", " ");
+                    if (!normalized.contains(key) || !normalized.contains("LISTENING")) {
+                        continue;
+                    }
+                    String[] parts = normalized.split(" ");
+                    if (parts.length >= 5) {
+                        return Integer.parseInt(parts[parts.length - 1]);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
+    }
+
+    private boolean isWindows() {
+        String os = System.getProperty("os.name");
+        return os != null && os.toLowerCase().contains("win");
     }
 
     private void launchStandaloneBrowserServer() throws IOException {
