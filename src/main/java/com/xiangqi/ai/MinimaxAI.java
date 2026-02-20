@@ -181,7 +181,13 @@ public class MinimaxAI {
         boolean inStudySet = studyTier != null;
         boolean inLearnedSet = XqipuLearnedSet.contains(board);
         boolean inEventSet = EventLearnedSet.contains(board);
+        int ply = board.getMoveCount();
         EndgameCurve endgameCurve = inStudySet ? curveFor(studyTier, difficulty) : new EndgameCurve(0, 0, false);
+
+        Move fastEventMove = tryFastEventMove(board, aiColor, validMoves, inEventSet, ply);
+        if (fastEventMove != null) {
+            return fastEventMove;
+        }
 
         if (!endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
             && difficulty.getRandomPickChance() > 0 && RANDOM.nextDouble() < difficulty.getRandomPickChance()) {
@@ -265,6 +271,60 @@ public class MinimaxAI {
             cacheBestMove(cacheKey, bestMove);
         }
         return bestMove;
+    }
+
+    private Move tryFastEventMove(Board board, PieceColor aiColor, List<Move> validMoves, boolean inEventSet, int ply) {
+        if (!inEventSet || board == null || aiColor == null || validMoves == null || validMoves.isEmpty()) {
+            return null;
+        }
+        if (ply < MIDGAME_PLY_FAST_CAP) {
+            return null;
+        }
+        double pressure = getTimePressure(difficulty);
+        int branching = validMoves.size();
+        boolean mustFast = difficulty == Difficulty.EASY
+            || (difficulty == Difficulty.MEDIUM && (branching >= 28 || pressure > 0.95))
+            || (difficulty == Difficulty.HARD && (branching >= 38 || pressure > 1.08));
+        if (!mustFast) {
+            return null;
+        }
+        return findFastSafeForwardMove(board, aiColor, validMoves);
+    }
+
+    private Move findFastSafeForwardMove(Board board, PieceColor aiColor, List<Move> validMoves) {
+        Move best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (Move move : validMoves) {
+            Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
+            Piece captured = board.getPiece(move.getToRow(), move.getToCol());
+            Board next = new Board(board);
+            next.movePiece(move);
+
+            int score = evaluate(next, aiColor);
+            if (captured != null) {
+                score += getPieceValue(captured) * 12;
+            }
+            if (isForwardMove(aiColor, move)) {
+                score += 90;
+            }
+            if (next.isInCheck(aiColor.opposite())) {
+                score += 70;
+            }
+
+            boolean safe = isMoveLandingSafe(board, move, aiColor);
+            if (safe) {
+                score += 140;
+            } else {
+                int attackerValue = attacker == null ? 0 : getPieceValue(attacker);
+                score -= Math.max(120, attackerValue / 2);
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = move;
+            }
+        }
+        return best;
     }
 
     private SearchResult searchRoot(Board board, PieceColor aiColor, List<Move> rootMoves, int depth, Move pvMove, int alpha, int beta) {

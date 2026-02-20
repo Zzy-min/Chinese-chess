@@ -62,8 +62,22 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
   - 高级偏稳求解（更深/更久）
 - 赛事局面搜索增强：
   - 命中赛事学习局面后提高搜索预算（中高难度更明显）
+- 赛事局面快速通道：
+  - 第 10 步后命中赛事局面时，按“安全优先 + 向前压进”快速选点（尤其减少中盘长考）
 - AI 结果缓存质量门槛：仅在搜索深度达标时写入缓存，降低浅层误缓存
 - 动态搜索预算 2.0：结合局面分支、设备核数与近期“时间压力”自适应调节深度/时限
+
+### 赛事学习数据更新（xqipu）
+
+新增脚本：`tools/update_event_fens.ps1`
+
+用途：批量抓取 `eventlist -> eventqipu` 页面中的 `data-fen`，生成去重 FEN 清单，供赛事学习集扩展使用。
+
+示例：
+
+```powershell
+pwsh -File tools/update_event_fens.ps1 -StartPage 0 -EndPage 10 -OutFile data/event_fens.txt
+```
 
 ## 规则与胜负
 
