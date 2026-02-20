@@ -4,6 +4,8 @@ cd /d "%~dp0"
 
 set "URL=http://127.0.0.1:18388/"
 set "MAIN_CLASS=com.xiangqi.web.BrowserModeMain"
+set "LOG_DIR=logs"
+set "LOG_FILE=%LOG_DIR%\web_server.log"
 
 echo ========================================
 echo Xiangqi - Web Quick Start
@@ -39,8 +41,16 @@ if errorlevel 1 (
 
 :start_server
 echo [2/3] Starting web server...
-start "Xiangqi Web Server" cmd /c "cd /d ""%~dp0"" && java -Dfile.encoding=UTF-8 -Duser.language=zh -Duser.country=CN -cp target/classes %MAIN_CLASS%"
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+start "Xiangqi Web Server" cmd /c "cd /d ""%~dp0"" && java -Dfile.encoding=UTF-8 -Duser.language=zh -Duser.country=CN -cp target/classes %MAIN_CLASS% >> ""%LOG_FILE%"" 2>&1"
 
-echo [3/3] Opening browser...
-timeout /t 1 /nobreak >nul
+echo [3/3] Waiting for service...
+powershell -NoProfile -Command "$deadline=(Get-Date).AddSeconds(10); do { try { $r=Invoke-WebRequest -Uri '%URL%' -UseBasicParsing -TimeoutSec 1; if($r.StatusCode -ge 200){ exit 0 } } catch {}; Start-Sleep -Milliseconds 250 } while((Get-Date)-lt $deadline); exit 1"
+if errorlevel 1 (
+    echo Web service did not become ready.
+    echo Check log: %LOG_FILE%
+    if exist "%LOG_FILE%" powershell -NoProfile -Command "Get-Content '%LOG_FILE%' -Tail 20"
+    exit /b 1
+)
+echo Service is ready. Opening browser...
 start "" "%URL%"
