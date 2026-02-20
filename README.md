@@ -64,6 +64,9 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
   - 命中赛事学习局面后提高搜索预算（中高难度更明显）
 - 赛事局面快速通道：
   - 第 10 步后命中赛事局面时，按“安全优先 + 向前压进”快速选点（尤其减少中盘长考）
+- 前十步开局质量优化：
+  - 前十步禁用随机走子（避免中等/简单难度开局漂移）
+  - 后手（黑方）前十步预算增强 + 开局原则评分（发展/控中/安全）
 - AI 结果缓存质量门槛：仅在搜索深度达标时写入缓存，降低浅层误缓存
 - 动态搜索预算 2.0：结合局面分支、设备核数与近期“时间压力”自适应调节深度/时限
 
@@ -83,6 +86,12 @@ pwsh -File tools/update_event_fens.ps1 -StartPage 0 -EndPage 10 -OutFile data/ev
 
 ```powershell
 pwsh -File tools/update_event_learnedset.ps1 -StartPage 0 -EndPage 10 -Compile -Publish
+```
+
+一键生成并发布综合学习库（`qipus` + `canjugupu`）：
+
+```powershell
+pwsh -File tools/update_xqipu_learnedset.ps1 -QipusStartPage 0 -QipusEndPage 49 -Compile -Publish
 ```
 
 ## 规则与胜负

@@ -189,7 +189,7 @@ public class MinimaxAI {
             return fastEventMove;
         }
 
-        if (!endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
+        if (ply >= MIDGAME_PLY_FAST_CAP && !endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
             && difficulty.getRandomPickChance() > 0 && RANDOM.nextDouble() < difficulty.getRandomPickChance()) {
             int topN = Math.max(1, Math.min(4, validMoves.size()));
             return validMoves.get(RANDOM.nextInt(topN));
@@ -624,6 +624,17 @@ public class MinimaxAI {
             depth += 1;
         }
 
+        // 前十步提高质量，尤其是 AI 后手（黑方）开局阶段。
+        if (board != null && ply < MIDGAME_PLY_FAST_CAP) {
+            timeMs += 500;
+            if (difficulty != Difficulty.EASY) {
+                depth += 1;
+            }
+            if (board.getCurrentTurn() == PieceColor.BLACK) {
+                timeMs += 300;
+            }
+        }
+
         // 最近搜索若接近/超过预算，动态降预算以保流畅；若明显富余，则适度加深。
         if (pressure > 1.10) {
             timeMs -= 950;
@@ -768,6 +779,10 @@ public class MinimaxAI {
                 int to = move.getToRow() * 9 + move.getToCol();
                 score += historyHeuristic[colorIdx][from][to];
 
+                if (board.getMoveCount() < MIDGAME_PLY_FAST_CAP && ply <= 1) {
+                    score += openingDevelopmentScore(board, move, side);
+                }
+
                 // 根层/浅层启发：在不被直接吃掉的前提下，优先“向前压进”。
                 if (ply <= 1 && isForwardMove(side, move)) {
                     score += 120;
@@ -786,6 +801,51 @@ public class MinimaxAI {
         for (MoveOrder moveOrder : scored) {
             moves.add(moveOrder.move);
         }
+    }
+
+    private int openingDevelopmentScore(Board board, Move move, PieceColor side) {
+        Piece mover = board.getPiece(move.getFromRow(), move.getFromCol());
+        if (mover == null) {
+            return 0;
+        }
+        int score = 0;
+        PieceType type = mover.getType();
+        int toCenterDist = Math.abs(move.getToRow() - 4) + Math.abs(move.getToCol() - 4);
+        int fromCenterDist = Math.abs(move.getFromRow() - 4) + Math.abs(move.getFromCol() - 4);
+        score += (fromCenterDist - toCenterDist) * 10;
+
+        boolean forward = isForwardMove(side, move);
+        if (type == PieceType.MA || type == PieceType.MA_RED) {
+            score += 120;
+            if (forward) {
+                score += 40;
+            }
+        } else if (type == PieceType.PAO || type == PieceType.PAO_RED) {
+            score += 95;
+            if (move.getToCol() == 4) {
+                score += 55;
+            }
+        } else if (type == PieceType.CHE || type == PieceType.CHE_RED) {
+            score += 85;
+            if (forward) {
+                score += 35;
+            }
+        } else if (type == PieceType.ZU || type == PieceType.ZU_RED) {
+            score += forward ? 55 : -20;
+            if (move.getToCol() == 4) {
+                score += 28;
+            }
+        } else if (type == PieceType.XIANG || type == PieceType.XIANG_RED
+            || type == PieceType.SHI || type == PieceType.SHI_RED) {
+            score -= 28;
+        } else if (type == PieceType.JIANG || type == PieceType.SHUAI) {
+            score -= 40;
+        }
+
+        if (isMoveLandingSafe(board, move, side)) {
+            score += 36;
+        }
+        return score;
     }
 
     private boolean isForwardMove(PieceColor side, Move move) {
