@@ -79,9 +79,9 @@ public class MinimaxAI {
     private static final ConcurrentHashMap<Long, CachedBestMove> RESULT_CACHE = new ConcurrentHashMap<Long, CachedBestMove>();
 
     public enum Difficulty {
-        EASY("简单", 2, 800, 0.35),
-        MEDIUM("中等", 5, 1800, 0.06),
-        HARD("困难", 8, 4500, 0.0);
+        EASY("简单", 2, 380, 0.30),
+        MEDIUM("中等", 5, 980, 0.03),
+        HARD("困难", 9, 5200, 0.0);
 
         private final String displayName;
         private final int maxDepth;
@@ -1017,6 +1017,15 @@ public class MinimaxAI {
             }
         }
 
+        // 低分支局面给中高难度更多“质量预算”。
+        if (difficulty == Difficulty.HARD && branching > 0 && branching <= 18 && pressure < 0.92) {
+            depth += 1;
+            timeMs += 500;
+        } else if (difficulty == Difficulty.MEDIUM && branching > 0 && branching <= 16 && pressure < 0.88) {
+            depth += 1;
+            timeMs += 260;
+        }
+
         if (board != null && board.isInCheck(board.getCurrentTurn())) {
             timeMs += 600;
             depth += 1;
@@ -1557,7 +1566,13 @@ public class MinimaxAI {
     }
 
     private int currentSeeDepthLimit() {
-        return searchFastMode ? 2 : SEE_MAX_DEPTH;
+        if (searchFastMode) {
+            return difficulty == Difficulty.EASY ? 1 : 2;
+        }
+        if (difficulty == Difficulty.HARD) {
+            return SEE_MAX_DEPTH + 1;
+        }
+        return SEE_MAX_DEPTH;
     }
 
     private long buildSeeKey(Board board, Move move, PieceColor mover, int maxDepth) {

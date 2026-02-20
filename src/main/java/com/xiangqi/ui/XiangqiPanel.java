@@ -43,7 +43,7 @@ public class XiangqiPanel extends JPanel {
     private Runnable onMoveComplete;
     private boolean interactionEnabled = true;
     private boolean quickMode = false;
-    private static final long MIN_MOVE_INTERVAL_MS = 500L;
+    private static final long MIN_MOVE_INTERVAL_MS = 120L;
     private String tacticFlashText = "";
     private long tacticFlashUntil = 0L;
     private long lastMoveTimestamp = 0L;
@@ -103,10 +103,11 @@ public class XiangqiPanel extends JPanel {
 
     private int[] resolveNearestGrid(int x, int y) {
         // 允许在棋子圆盘边缘区域点击，避免边线棋子需要点得过于精准
-        int minX = MARGIN - PIECE_RADIUS;
-        int maxX = MARGIN + (Board.COLS - 1) * CELL_SIZE + PIECE_RADIUS;
-        int minY = MARGIN - PIECE_RADIUS;
-        int maxY = MARGIN + (Board.ROWS - 1) * CELL_SIZE + PIECE_RADIUS;
+        int hitExpand = quickMode ? 14 : 10;
+        int minX = MARGIN - PIECE_RADIUS - hitExpand;
+        int maxX = MARGIN + (Board.COLS - 1) * CELL_SIZE + PIECE_RADIUS + hitExpand;
+        int minY = MARGIN - PIECE_RADIUS - hitExpand;
+        int maxY = MARGIN + (Board.ROWS - 1) * CELL_SIZE + PIECE_RADIUS + hitExpand;
 
         if (x < minX || x > maxX || y < minY || y > maxY) {
             return null;
@@ -666,6 +667,26 @@ public class XiangqiPanel extends JPanel {
         g2d.setPaint(bgGradient);
         g2d.fillOval(x - radius, y - radius, radius * 2, radius * 2);
 
+        // 顶部高光与底部暗角，增强立体雕刻感
+        RadialGradientPaint highlight = new RadialGradientPaint(
+            new Point(x - 8, y - 10),
+            radius,
+            new float[]{0f, 0.38f, 1f},
+            new Color[]{
+                new Color(255, 255, 255, 135),
+                new Color(255, 255, 255, 28),
+                new Color(255, 255, 255, 0)
+            }
+        );
+        g2d.setPaint(highlight);
+        g2d.fillOval(x - radius, y - radius, radius * 2, radius * 2);
+        GradientPaint shadowGrad = new GradientPaint(
+            x, y - radius / 3f, new Color(0, 0, 0, 0),
+            x, y + radius, new Color(0, 0, 0, 52)
+        );
+        g2d.setPaint(shadowGrad);
+        g2d.fillOval(x - radius, y - radius, radius * 2, radius * 2);
+
         // 绘制棋子边框（外圈 - 双层边框增强国风感）
         g2d.setStroke(new BasicStroke(3));
         if (piece.getColor() == PieceColor.RED) {
@@ -674,6 +695,11 @@ public class XiangqiPanel extends JPanel {
             g2d.setColor(BLACK_PIECE_COLOR);
         }
         g2d.drawOval(x - radius, y - radius, radius * 2, radius * 2);
+
+        // 外圈倒角光带
+        g2d.setStroke(new BasicStroke(1.2f));
+        g2d.setColor(new Color(255, 244, 214, 128));
+        g2d.drawArc(x - radius + 2, y - radius + 2, radius * 2 - 4, radius * 2 - 4, 18, 140);
 
         // 绘制装饰性内圈（金色细线）
         g2d.setColor(DECORATION_GOLD);
@@ -912,7 +938,11 @@ public class XiangqiPanel extends JPanel {
         if (gameMode == GameMode.PVP) {
             return true;
         }
-        return System.currentTimeMillis() - lastMoveTimestamp >= MIN_MOVE_INTERVAL_MS;
+        return System.currentTimeMillis() - lastMoveTimestamp >= currentMoveIntervalMs();
+    }
+
+    private long currentMoveIntervalMs() {
+        return quickMode ? Math.max(30L, MIN_MOVE_INTERVAL_MS / 2) : MIN_MOVE_INTERVAL_MS;
     }
 
     private void markMoveTime() {

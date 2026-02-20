@@ -13,7 +13,7 @@ import java.util.Map;
  * 游戏控制器 - 管理游戏逻辑和状态
  */
 public class GameController {
-    private static final long MIN_MOVE_INTERVAL_MS = 500L;
+    private static final long MIN_MOVE_INTERVAL_MS = 120L;
 
     public enum TimeControl {
         TEN_MIN("10分钟", 10 * 60),
@@ -396,7 +396,7 @@ public class GameController {
                         if (gameEnded || !isRunning) {
                             return;
                         }
-                        long wait = MIN_MOVE_INTERVAL_MS - (System.currentTimeMillis() - panel.getLastMoveTimestamp());
+                        long wait = getAiMoveIntervalMs() - (System.currentTimeMillis() - panel.getLastMoveTimestamp());
                         int delay = (int) Math.max(0L, wait);
                         Timer delayTimer = new Timer(delay, evt -> {
                             if (gameEnded || !isRunning) {
@@ -434,6 +434,21 @@ public class GameController {
             hasBlackSurrendered = true;
         }
         endGame();
+    }
+
+    private long getAiMoveIntervalMs() {
+        if (panel.isQuickMode()) {
+            return 36L;
+        }
+        switch (aiDifficulty) {
+            case EASY:
+                return 48L;
+            case MEDIUM:
+                return 85L;
+            case HARD:
+            default:
+                return MIN_MOVE_INTERVAL_MS;
+        }
     }
 
     public void agreeDraw() {
