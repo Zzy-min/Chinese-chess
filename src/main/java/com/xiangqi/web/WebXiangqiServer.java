@@ -21,14 +21,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class WebXiangqiServer {
     private static final long MIN_MOVE_INTERVAL_MS = 500L;
     private static final WebXiangqiServer INSTANCE = new WebXiangqiServer();
+    private static final String SID_COOKIE = "XQSID";
 
     private HttpServer server;
     private URI uri;
-    private final Session session = new Session();
+    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
 
     private WebXiangqiServer() {
     }
@@ -79,10 +82,12 @@ public class WebXiangqiServer {
             sendText(exchange, 405, "Method Not Allowed", "text/plain");
             return;
         }
+        getSession(exchange);
         sendText(exchange, 200, html(), "text/html; charset=UTF-8");
     }
 
     private void handleState(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.tick();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -94,6 +99,7 @@ public class WebXiangqiServer {
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
+        Session session = getSession(exchange);
         synchronized (session) {
             session.reset("pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -106,6 +112,7 @@ public class WebXiangqiServer {
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
+        Session session = getSession(exchange);
         synchronized (session) {
             session.loadEndgame(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -115,6 +122,7 @@ public class WebXiangqiServer {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         int row = parseInt(query.get("row"), -1);
         int col = parseInt(query.get("col"), -1);
+        Session session = getSession(exchange);
         synchronized (session) {
             session.click(row, col);
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -122,6 +130,7 @@ public class WebXiangqiServer {
     }
 
     private void handleUndo(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.undo();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -130,6 +139,7 @@ public class WebXiangqiServer {
 
 
     private void handleSurrender(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.surrender();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -137,6 +147,7 @@ public class WebXiangqiServer {
     }
 
     private void handleDraw(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.draw();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -144,6 +155,7 @@ public class WebXiangqiServer {
     }
 
     private void handleReviewStart(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.startReview();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -151,6 +163,7 @@ public class WebXiangqiServer {
     }
 
     private void handleReviewExit(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.exitReview();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -158,6 +171,7 @@ public class WebXiangqiServer {
     }
 
     private void handleReviewPrev(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.reviewPrev();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -165,6 +179,7 @@ public class WebXiangqiServer {
     }
 
     private void handleReviewNext(HttpExchange exchange) throws IOException {
+        Session session = getSession(exchange);
         synchronized (session) {
             session.reviewNext();
             sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
@@ -227,6 +242,47 @@ public class WebXiangqiServer {
         } catch (Exception e) {
             return defaultValue;
         }
+    }
+
+    private Session getSession(HttpExchange exchange) {
+        Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
+        String sid = query.get("sid");
+        if (!isValidSid(sid)) {
+            sid = readSidFromCookie(exchange);
+        }
+        if (!isValidSid(sid)) {
+            sid = UUID.randomUUID().toString().replace("-", "");
+            exchange.getResponseHeaders().add("Set-Cookie", SID_COOKIE + "=" + sid + "; Path=/; HttpOnly; SameSite=Lax");
+        }
+        return sessions.computeIfAbsent(sid, key -> new Session());
+    }
+
+    private String readSidFromCookie(HttpExchange exchange) {
+        List<String> cookieHeaders = exchange.getRequestHeaders().get("Cookie");
+        if (cookieHeaders == null) {
+            return null;
+        }
+        for (String header : cookieHeaders) {
+            if (header == null || header.trim().isEmpty()) {
+                continue;
+            }
+            String[] cookies = header.split(";");
+            for (String cookie : cookies) {
+                String item = cookie.trim();
+                if (item.startsWith(SID_COOKIE + "=")) {
+                    return item.substring((SID_COOKIE + "=").length()).trim();
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isValidSid(String sid) {
+        if (sid == null) {
+            return false;
+        }
+        String s = sid.trim();
+        return s.matches("[A-Za-z0-9_-]{16,64}");
     }
 
     private Map<String, String> parseQuery(String query) {
@@ -811,14 +867,14 @@ public class WebXiangqiServer {
             "  <title>轻·象棋 - 浏览器模式 v20260219-宫阙</title>",
             "  <style>",
             "    :root{--line:#cfa85b;--bg1:#e4d4bc;--bg2:#f2e4cc;--ink:#58371f;--red:#c6403c;--blue:#24356c;}",
-            "    body{margin:0;min-height:100vh;display:grid;place-items:center;background-image:linear-gradient(180deg,rgba(13,18,36,.28),rgba(36,21,12,.42)),url('https://commons.wikimedia.org/wiki/Special:FilePath/Beijing%20forbidden%20city%20roof-20071018-RM-144550.jpg');background-size:cover;background-position:center top;background-repeat:no-repeat;font-family:Microsoft YaHei UI,sans-serif;color:var(--ink);overflow:hidden;}",
+            "    body{margin:0;min-height:100vh;display:grid;place-items:center;background-image:linear-gradient(180deg,rgba(13,18,36,.28),rgba(36,21,12,.42)),url('https://commons.wikimedia.org/wiki/Special:FilePath/Beijing%20forbidden%20city%20roof-20071018-RM-144550.jpg');background-size:cover;background-position:center top;background-repeat:no-repeat;font-family:Microsoft YaHei UI,sans-serif;color:var(--ink);overflow:auto;-webkit-text-size-adjust:100%;}",
             "    .wrap{width:min(1180px,94vw);height:calc(100vh - 38px);background:linear-gradient(180deg,rgba(255,248,236,.94),rgba(245,226,196,.93));border:1px solid #d9bd93;border-radius:14px;box-shadow:0 18px 38px rgba(16,11,7,.35);padding:10px;box-sizing:border-box;position:relative;}",
             "    .topMeta{display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px;color:#6a4629;font-weight:700;}",
             "    .layout{display:grid;grid-template-columns:1fr 300px;gap:10px;align-items:stretch;height:calc(100% - 30px);}",
             "    .boardCard{background:linear-gradient(180deg,#efe5d2,#ead8bb);border:1px solid #d6b98f;border-radius:10px;padding:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}",
             "    .boardCard:before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(123,77,39,.05)0,rgba(123,77,39,.05)2px,transparent 2px,transparent 14px);pointer-events:none;}",
             "    .side{background:#fffdf8;border:1px solid #e1c9a5;border-radius:10px;padding:12px;overflow:auto;}",
-            "    canvas{display:block;width:100%;height:auto;border:2px solid #a67b4a;border-radius:8px;background:var(--blue);image-rendering:auto;}",
+            "    canvas{display:block;width:100%;height:auto;border:2px solid #a67b4a;border-radius:8px;background:var(--blue);image-rendering:auto;touch-action:none;}",
             "    .title{font-size:15px;font-weight:700;margin-bottom:10px;}",
             "    .row{display:flex;gap:8px;margin-bottom:10px;}",
             "    .row>select,.row>button{flex:1;}",
@@ -829,6 +885,7 @@ public class WebXiangqiServer {
             "    .egGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 12px;}",
             "    .egBtn{padding:7px 8px;font-size:12px;}",
             "    @media (max-width:1020px){body{overflow:auto}.wrap{height:auto;min-height:100vh;border-radius:0;width:100vw}.layout{grid-template-columns:1fr;height:auto}}",
+            "    @media (max-width:768px){.wrap{padding:8px}.topMeta{flex-direction:column;align-items:flex-start;gap:4px;font-size:12px}.layout{gap:8px}.side{padding:10px}.row{margin-bottom:8px}select,button{min-height:40px;font-size:14px}}",
             "  </style>",
             "</head>",
             "<body>",
@@ -867,6 +924,7 @@ public class WebXiangqiServer {
             "const BASE_W=800,BASE_H=900,CELL=68,MARGIN=98,R=29;",
             "const canvas=document.getElementById('board'); const ctx=canvas.getContext('2d',{alpha:true});",
             "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.min(1.5,Math.max(1,window.devicePixelRatio||1)),anim=null,animKey='';",
+            "const SID_KEY='xq_sid';function makeSid(){if(window.crypto&&window.crypto.randomUUID)return window.crypto.randomUUID().replace(/-/g,'');return String(Date.now())+Math.random().toString(16).slice(2);}const sid=(()=>{let v=sessionStorage.getItem(SID_KEY);if(!v){v=makeSid();sessionStorage.setItem(SID_KEY,v);}return v;})();function withSid(path){const sep=path.includes('?')?'&':'?';return path+sep+'sid='+encodeURIComponent(sid);}",
             "const moveAudio=new Audio('/assets/audio/move.wav');const mateAudio=new Audio('/assets/audio/mate.wav');moveAudio.preload='auto';mateAudio.preload='auto';moveAudio.volume=0.92;mateAudio.volume=0.98;let audioUnlocked=false,lastMoveSoundKey='',lastMateSoundKey='';let soundEnabled=(localStorage.getItem('xq_sound_enabled')??'1')!=='0';",
             "const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');",
             "const BOARD_TEXTURE_URL='https://commons.wikimedia.org/wiki/Special:FilePath/Xiangqi%20board.svg';const boardTex=new Image();let boardTexReady=false;boardTex.crossOrigin='anonymous';boardTex.onload=()=>{boardTexReady=true;drawStatic();scheduleRender();};boardTex.src=BOARD_TEXTURE_URL;",
@@ -881,7 +939,7 @@ public class WebXiangqiServer {
             "function drawMarkers(){if(!state.recentMoves)return;for(const m of state.recentMoves){const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);const color=m.color==='RED'?'rgba(198,64,60,.96)':'rgba(35,35,35,.96)';ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(fx,fy,R-10,0,Math.PI*2);ctx.stroke();const s=(m.order===1)?R+9:R+5;ctx.lineWidth=3;ctx.strokeRect(tx-s,ty-s,s*2,s*2);ctx.fillStyle='rgba(255,248,230,.95)';ctx.font='bold 16px Consolas';ctx.fillText(String(m.order),tx-4,ty-s-6);}}",
             "function drawSelection(){if(state.reviewMode)return;if(state.selectedRow>=0&&state.selectedCol>=0){const [x,y]=pos(state.selectedRow,state.selectedCol);ctx.fillStyle='rgba(0,160,70,.20)';ctx.fillRect(x-CELL/2+3,y-CELL/2+3,CELL-6,CELL-6);}}",
             "function drawTacticFlash(){if(!state.tacticText)return;ctx.fillStyle='rgba(7,10,26,.82)';ctx.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.strokeStyle='#d8b86f';ctx.lineWidth=2;ctx.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.font='bold 36px Microsoft YaHei UI';ctx.fillStyle='#ffd86e';const w=ctx.measureText(state.tacticText).width;ctx.fillText(state.tacticText,(BASE_W-w)/2,BASE_H/2);}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:150};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||state.gameOver||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(state.tacticText==='绝杀'){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(state.tacticText==='绝杀'&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}",
-            "async function api(path){const q=path.includes('?')?'&':'?';const url=path+q+'_t='+Date.now();const res=await fetch(url,{cache:'no-store'});return await res.json();}",
+            "async function api(path){const base=withSid(path);const q=base.includes('?')?'&':'?';const url=base+q+'_t='+Date.now();const res=await fetch(url,{cache:'no-store'});return await res.json();}",
             "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;try{const data=await api('/api/state');if(seq!==reqSeq)return;state=data;const modeSel=document.getElementById('mode');const firstSel=document.getElementById('firstHand');firstSel.disabled=modeSel.value!=='pvc';document.getElementById('statusTag').textContent='状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中')));const sr=state.stepRemainSec;document.getElementById('stepTop').textContent='当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s');document.getElementById('totalTop').textContent='总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec);const humanTxt=state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红';document.getElementById('modeTag').textContent='模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+state.difficultyText+(state.mode==='PVC'?humanTxt:'');document.getElementById('endgameTag').textContent='残局: '+(state.endgame||'标准开局');document.getElementById('drawReasonTag').textContent='和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-');document.getElementById('reviewTag').textContent=state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭';document.getElementById('info').textContent=!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方')));document.getElementById('undo').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('surrender').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('drawBtn').disabled=!state.canDraw;document.getElementById('reviewStart').disabled=!state.started||!state.canReview||state.reviewMode;document.getElementById('reviewPrev').disabled=!state.reviewMode||state.reviewMoveIndex<=0;document.getElementById('reviewNext').disabled=!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove;document.getElementById('reviewExit').disabled=!state.reviewMode;handleSounds();primeAnim();scheduleRender();}finally{pending=false;}}",
             "async function act(path){if(pending)return;const data=await api(path);state=data;const modeSel=document.getElementById('mode');const firstSel=document.getElementById('firstHand');firstSel.disabled=modeSel.value!=='pvc';const sr=state.stepRemainSec;document.getElementById('stepTop').textContent='当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s');document.getElementById('totalTop').textContent='总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec);document.getElementById('statusTag').textContent='状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中')));document.getElementById('drawReasonTag').textContent='和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-');document.getElementById('info').textContent=!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方')));document.getElementById('undo').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('surrender').disabled=!state.started||state.reviewMode||state.gameOver;document.getElementById('drawBtn').disabled=!state.canDraw;document.getElementById('reviewStart').disabled=!state.started||!state.canReview||state.reviewMode;document.getElementById('reviewPrev').disabled=!state.reviewMode||state.reviewMoveIndex<=0;document.getElementById('reviewNext').disabled=!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove;document.getElementById('reviewExit').disabled=!state.reviewMode;handleSounds();primeAnim();scheduleRender();}",
             "document.addEventListener('pointerdown',unlockAudio,{once:true});canvas.addEventListener('click',async e=>{if(state&&(!state.started||state.reviewMode||state.gameOver))return;const rect=canvas.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;await act('/api/click?row='+g.row+'&col='+g.col);});",
