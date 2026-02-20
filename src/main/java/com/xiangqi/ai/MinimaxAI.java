@@ -41,6 +41,8 @@ public class MinimaxAI {
     private static final int ROOT_PARALLEL_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
     private static final int RESULT_CACHE_MAX_ENTRIES = 50000;
     private static final long RESULT_CACHE_TTL_MS = 3 * 60 * 1000L;
+    private static final double[] TIME_PRESSURE_EMA = new double[Difficulty.values().length];
+    private static final double TIME_PRESSURE_ALPHA = 0.22;
     private static final long ZOBRIST_TURN_KEY = 0x9E3779B97F4A7C15L;
     private static final long[][][] ZOBRIST = initZobrist();
     private static final ExecutorService ROOT_EXECUTOR = Executors.newFixedThreadPool(ROOT_PARALLEL_THREADS, new ThreadFactory() {
@@ -233,6 +235,7 @@ public class MinimaxAI {
         Move bestMove = validMoves.get(0);
         Move pvMove = null;
         int prevScore = 0;
+        int completedDepth = 0;
 
         for (int depth = 1; depth <= maxDepth && !timeUp; depth++) {
             SearchResult result;
@@ -251,10 +254,15 @@ public class MinimaxAI {
                 bestMove = result.bestMove;
                 pvMove = result.bestMove;
                 prevScore = result.score;
+                completedDepth = depth;
             }
         }
 
-        cacheBestMove(cacheKey, bestMove);
+        long elapsed = System.currentTimeMillis() - searchStartTime;
+        updateTimePressure(difficulty, elapsed, searchTimeLimitMs, timeUp);
+        if (shouldCacheResult(completedDepth, maxDepth, timeUp)) {
+            cacheBestMove(cacheKey, bestMove);
+        }
         return bestMove;
     }
 
@@ -529,6 +537,7 @@ public class MinimaxAI {
         int timeMs = baseTimeMs;
         int cores = Math.max(1, Runtime.getRuntime().availableProcessors());
         int branching = rootMoves == null ? 0 : rootMoves.size();
+        double pressure = getTimePressure(difficulty);
 
         if (cores >= 8) {
             timeMs += 1800;
@@ -553,6 +562,19 @@ public class MinimaxAI {
             depth += 1;
         }
 
+        // 最近搜索若接近/超过预算，动态降预算以保流畅；若明显富余，则适度加深。
+        if (pressure > 1.10) {
+            timeMs -= 950;
+            depth -= 1;
+        } else if (pressure > 0.95) {
+            timeMs -= 450;
+        } else if (pressure < 0.72) {
+            timeMs += 450;
+            if (difficulty != Difficulty.EASY) {
+                depth += 1;
+            }
+        }
+
         int hardCap = difficulty == Difficulty.HARD ? 11 : (difficulty == Difficulty.MEDIUM ? 9 : 7);
         if (inStudySet || inLearnedSet || inEventSet) {
             hardCap += 1;
@@ -561,6 +583,43 @@ public class MinimaxAI {
         int timeCap = difficulty == Difficulty.HARD ? 7000 : (difficulty == Difficulty.MEDIUM ? 2800 : 1400);
         timeMs = Math.max(450, Math.min(timeMs, timeCap));
         return new SearchBudget(depth, timeMs);
+    }
+
+    private boolean shouldCacheResult(int completedDepth, int targetDepth, boolean timedOut) {
+        int minDepth;
+        if (difficulty == Difficulty.HARD) {
+            minDepth = 6;
+        } else if (difficulty == Difficulty.MEDIUM) {
+            minDepth = 4;
+        } else {
+            minDepth = 3;
+        }
+        if (!timedOut && completedDepth >= Math.max(minDepth, targetDepth - 1)) {
+            return true;
+        }
+        return completedDepth >= minDepth + 1;
+    }
+
+    private static synchronized double getTimePressure(Difficulty difficulty) {
+        double v = TIME_PRESSURE_EMA[difficulty.ordinal()];
+        return v <= 0.0 ? 1.0 : v;
+    }
+
+    private static synchronized void updateTimePressure(Difficulty difficulty, long elapsedMs, int limitMs, boolean timedOut) {
+        if (limitMs <= 0) {
+            return;
+        }
+        double ratio = Math.max(0.2, Math.min(2.4, (double) elapsedMs / (double) limitMs));
+        if (timedOut) {
+            ratio = Math.max(ratio, 1.25);
+        }
+        int idx = difficulty.ordinal();
+        double prev = TIME_PRESSURE_EMA[idx];
+        if (prev <= 0.0) {
+            TIME_PRESSURE_EMA[idx] = ratio;
+            return;
+        }
+        TIME_PRESSURE_EMA[idx] = prev * (1.0 - TIME_PRESSURE_ALPHA) + ratio * TIME_PRESSURE_ALPHA;
     }
 
     private long buildResultCacheKey(Board board, PieceColor aiColor, Difficulty diff) {

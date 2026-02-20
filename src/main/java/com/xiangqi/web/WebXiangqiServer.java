@@ -18,6 +18,8 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +78,9 @@ public class WebXiangqiServer {
         server.createContext("/api/review/exit", this::handleReviewExit);
         server.createContext("/api/review/prev", this::handleReviewPrev);
         server.createContext("/api/review/next", this::handleReviewNext);
+        server.createContext("/api/perf", this::handlePerf);
+        server.createContext("/api/perf/reset", this::handlePerfReset);
+        server.createContext("/api/perf/event", this::handlePerfEvent);
         server.createContext("/assets/audio", this::handleAudioAsset);
         server.setExecutor(HTTP_EXECUTOR);
         server.start();
@@ -95,11 +100,10 @@ public class WebXiangqiServer {
     }
 
     private void handleState(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "state", session -> {
             session.tick();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleNewGame(HttpExchange exchange) throws IOException {
@@ -107,11 +111,10 @@ public class WebXiangqiServer {
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "new", session -> {
             session.reset("pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleEndgame(HttpExchange exchange) throws IOException {
@@ -120,78 +123,105 @@ public class WebXiangqiServer {
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "endgame", session -> {
             session.loadEndgame(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
     private void handleClick(HttpExchange exchange) throws IOException {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         int row = parseInt(query.get("row"), -1);
         int col = parseInt(query.get("col"), -1);
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "click", session -> {
             session.click(row, col);
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleUndo(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "undo", session -> {
             session.undo();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
 
     private void handleSurrender(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "surrender", session -> {
             session.surrender();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleDraw(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "draw", session -> {
             session.draw();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleReviewStart(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "review_start", session -> {
             session.startReview();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleReviewExit(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "review_exit", session -> {
             session.exitReview();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleReviewPrev(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "review_prev", session -> {
             session.reviewPrev();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
-        }
+            return session.toJson();
+        });
     }
 
     private void handleReviewNext(HttpExchange exchange) throws IOException {
-        Session session = getSession(exchange);
-        synchronized (session) {
+        withSession(exchange, "review_next", session -> {
             session.reviewNext();
-            sendText(exchange, 200, session.toJson(), "application/json; charset=UTF-8");
+            return session.toJson();
+        });
+    }
+
+    private void handlePerf(HttpExchange exchange) throws IOException {
+        withSession(exchange, "perf", Session::perfJson);
+    }
+
+    private void handlePerfReset(HttpExchange exchange) throws IOException {
+        withSession(exchange, "perf_reset", session -> {
+            session.resetPerf();
+            return session.perfJson();
+        });
+    }
+
+    private void handlePerfEvent(HttpExchange exchange) throws IOException {
+        Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
+        String type = query.getOrDefault("type", "client");
+        long cost = parseLong(query.get("cost"), -1L);
+        withSession(exchange, "perf_event", session -> {
+            session.recordPerfEvent(type, cost);
+            return session.perfJson();
+        });
+    }
+
+    private interface SessionAction {
+        String run(Session session);
+    }
+
+    private void withSession(HttpExchange exchange, String eventType, SessionAction action) throws IOException {
+        long t0 = System.currentTimeMillis();
+        Session session = getSession(exchange);
+        String body;
+        synchronized (session) {
+            body = action.run(session);
+            session.recordPerfEvent(eventType, System.currentTimeMillis() - t0);
         }
+        sendText(exchange, 200, body, "application/json; charset=UTF-8");
     }
 
     private void handleAudioAsset(HttpExchange exchange) throws IOException {
@@ -247,6 +277,14 @@ public class WebXiangqiServer {
     private int parseInt(String raw, int defaultValue) {
         try {
         return Integer.parseInt(raw);
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private long parseLong(String raw, long defaultValue) {
+        try {
+            return Long.parseLong(raw);
         } catch (Exception e) {
             return defaultValue;
         }
@@ -340,6 +378,8 @@ public class WebXiangqiServer {
     }
 
     private static final class Session {
+        private static final int PERF_RING_CAP = 240;
+        private static final int PERF_EVENT_CAP = 120;
         private Board board = new Board();
         private boolean pvcMode;
         private MinimaxAI.Difficulty difficulty = MinimaxAI.Difficulty.MEDIUM;
@@ -375,6 +415,24 @@ public class WebXiangqiServer {
         private String drawReason = "";
         private int noCaptureHalfMoves = 0;
         private final Map<String, Integer> positionCount = new HashMap<>();
+        private long responseSeq = 0L;
+        private long perfCount = 0L;
+        private long perfTotalMs = 0L;
+        private long perfMaxMs = 0L;
+        private final ArrayDeque<Long> perfCosts = new ArrayDeque<>();
+        private final ArrayDeque<PerfEvent> perfEvents = new ArrayDeque<>();
+
+        private static final class PerfEvent {
+            private final long at;
+            private final String type;
+            private final long costMs;
+
+            private PerfEvent(long at, String type, long costMs) {
+                this.at = at;
+                this.type = type;
+                this.costMs = costMs;
+            }
+        }
 
         void reset(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
             this.board = new Board();
@@ -841,6 +899,7 @@ public class WebXiangqiServer {
 
             StringBuilder sb = new StringBuilder(4096);
             sb.append('{');
+            sb.append("\"seq\":").append(++responseSeq).append(',');
             sb.append("\"started\":").append(started).append(',');
             sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
             sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
@@ -893,6 +952,72 @@ public class WebXiangqiServer {
             sb.append(']');
             sb.append('}');
             return sb.toString();
+        }
+
+        void recordPerfEvent(String type, long costMs) {
+            long now = System.currentTimeMillis();
+            long cost = Math.max(0L, costMs);
+            String eventType = (type == null || type.isEmpty()) ? "unknown" : type;
+            perfCount++;
+            perfTotalMs += cost;
+            perfMaxMs = Math.max(perfMaxMs, cost);
+            perfCosts.addLast(cost);
+            if (perfCosts.size() > PERF_RING_CAP) {
+                perfCosts.removeFirst();
+            }
+            perfEvents.addLast(new PerfEvent(now, eventType, cost));
+            if (perfEvents.size() > PERF_EVENT_CAP) {
+                perfEvents.removeFirst();
+            }
+        }
+
+        void resetPerf() {
+            perfCount = 0L;
+            perfTotalMs = 0L;
+            perfMaxMs = 0L;
+            perfCosts.clear();
+            perfEvents.clear();
+        }
+
+        String perfJson() {
+            List<Long> costs = new ArrayList<>(perfCosts);
+            costs.sort(Long::compareTo);
+            long p50 = percentile(costs, 0.50);
+            long p95 = percentile(costs, 0.95);
+            long p99 = percentile(costs, 0.99);
+            long avg = perfCount == 0 ? 0 : perfTotalMs / perfCount;
+            StringBuilder sb = new StringBuilder(2048);
+            sb.append('{');
+            sb.append("\"count\":").append(perfCount).append(',');
+            sb.append("\"avgMs\":").append(avg).append(',');
+            sb.append("\"maxMs\":").append(perfMaxMs).append(',');
+            sb.append("\"p50Ms\":").append(p50).append(',');
+            sb.append("\"p95Ms\":").append(p95).append(',');
+            sb.append("\"p99Ms\":").append(p99).append(',');
+            sb.append("\"recent\":[");
+            int idx = 0;
+            for (PerfEvent event : perfEvents) {
+                if (idx++ > 0) {
+                    sb.append(',');
+                }
+                sb.append('{');
+                sb.append("\"at\":").append(event.at).append(',');
+                sb.append("\"type\":\"").append(escape(event.type)).append("\",");
+                sb.append("\"costMs\":").append(event.costMs);
+                sb.append('}');
+            }
+            sb.append(']');
+            sb.append('}');
+            return sb.toString();
+        }
+
+        private long percentile(List<Long> sorted, double ratio) {
+            if (sorted.isEmpty()) {
+                return 0L;
+            }
+            int idx = (int) Math.ceil(Math.max(0.0, Math.min(1.0, ratio)) * sorted.size()) - 1;
+            idx = Math.max(0, Math.min(sorted.size() - 1, idx));
+            return sorted.get(idx);
         }
 
         private void appendRecentMoves(StringBuilder sb, Board boardToDraw) {
@@ -992,11 +1117,11 @@ public class WebXiangqiServer {
             "<script>",
             "const BASE_W=800,BASE_H=900,CELL=68,MARGIN=98,R=29;",
             "const canvas=document.getElementById('board'); const ctx=canvas.getContext('2d',{alpha:true});",
-            "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.min(1.2,Math.max(1,window.devicePixelRatio||1)),anim=null,animKey='',pollTimer=0,lastStateStamp='',actionQueue=Promise.resolve();",
+            "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.min(1.2,Math.max(1,window.devicePixelRatio||1)),anim=null,animKey='',pollTimer=0,lastStateStamp='',actionQueue=Promise.resolve(),lastAppliedSeq=0,lastPerfPostAt=0;",
             "const SID_KEY='xq_sid';function makeSid(){if(window.crypto&&window.crypto.randomUUID)return window.crypto.randomUUID().replace(/-/g,'');return String(Date.now())+Math.random().toString(16).slice(2);}const sid=(()=>{let v=sessionStorage.getItem(SID_KEY);if(!v){v=makeSid();sessionStorage.setItem(SID_KEY,v);}return v;})();function withSid(path){const sep=path.includes('?')?'&':'?';return path+sep+'sid='+encodeURIComponent(sid);}",
             "const moveAudio=new Audio('/assets/audio/move.wav');const mateAudio=new Audio('/assets/audio/mate.wav');moveAudio.preload='auto';mateAudio.preload='auto';moveAudio.volume=0.92;mateAudio.volume=0.98;let audioUnlocked=false,lastMoveSoundKey='',lastMateSoundKey='';let soundEnabled=(localStorage.getItem('xq_sound_enabled')??'1')!=='0';",
             "const ui={statusTag:document.getElementById('statusTag'),stepTop:document.getElementById('stepTop'),totalTop:document.getElementById('totalTop'),modeTag:document.getElementById('modeTag'),endgameTag:document.getElementById('endgameTag'),drawReasonTag:document.getElementById('drawReasonTag'),reviewTag:document.getElementById('reviewTag'),info:document.getElementById('info'),undo:document.getElementById('undo'),surrender:document.getElementById('surrender'),drawBtn:document.getElementById('drawBtn'),reviewStart:document.getElementById('reviewStart'),reviewPrev:document.getElementById('reviewPrev'),reviewNext:document.getElementById('reviewNext'),reviewExit:document.getElementById('reviewExit'),mode:document.getElementById('mode'),firstHand:document.getElementById('firstHand')};function setTxt(el,v){if(el&&el.textContent!==v)el.textContent=v;}function setDis(el,v){if(el&&el.disabled!==v)el.disabled=v;}",
-            "const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');",
+            "const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');const pieceSpriteCache=Object.create(null);",
             "const BOARD_TEXTURE_URL='https://commons.wikimedia.org/wiki/Special:FilePath/Xiangqi%20board.svg';const boardTex=new Image();let boardTexReady=false;boardTex.crossOrigin='anonymous';boardTex.onload=()=>{boardTexReady=true;drawStatic();scheduleRender();};boardTex.src=BOARD_TEXTURE_URL;",
             "function setupCanvas(){const parentW=Math.max(320,canvas.parentElement.clientWidth-8);const viewH=Math.max(460,window.innerHeight-64);const fitWByH=Math.floor(viewH*BASE_W/BASE_H);const targetW=Math.max(320,Math.min(parentW,fitWByH));const cssW=Math.round(targetW*0.92);const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);scheduleRender();}",
             "window.addEventListener('resize', setupCanvas);",
@@ -1004,14 +1129,14 @@ public class WebXiangqiServer {
             "const isFlipped=()=>{if(!state||state.reviewMode)return false;if(state.mode==='PVP')return state.currentTurn==='BLACK';return state.mode==='PVC'&&state.pvcHumanColor==='BLACK';};const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];function pickGrid(x,y){const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);const minX=MARGIN-R,maxX=MARGIN+8*CELL+R,minY=MARGIN-R,maxY=MARGIN+9*CELL+R;if(x<minX||x>maxX||y<minY||y>maxY)return null;const cc=Math.max(0,Math.min(8,vcol)),rr=Math.max(0,Math.min(9,vrow));return {row:br(rr),col:bc(cc)};}",
             "function drawStatic(){cctx.clearRect(0,0,BASE_W,BASE_H);const bx=MARGIN-34,by=MARGIN-34,bw=8*CELL+68,bh=9*CELL+68;if(boardTexReady){cctx.drawImage(boardTex,bx,by,bw,bh);}else{const g=cctx.createLinearGradient(0,0,0,BASE_H);g.addColorStop(0,'#2c3f88');g.addColorStop(1,'#1f2f66');cctx.fillStyle=g;cctx.fillRect(bx,by,bw,bh);}cctx.fillStyle='rgba(20,33,88,.34)';cctx.fillRect(MARGIN-2,MARGIN-2,8*CELL+4,9*CELL+4);cctx.strokeStyle='#7f4f25';cctx.lineWidth=9;cctx.strokeRect(bx-7,by-7,bw+14,bh+14);cctx.strokeStyle='#dfbc77';cctx.lineWidth=3;cctx.strokeRect(bx,by,bw,bh);const corner=(x,y,sx,sy)=>{cctx.strokeStyle='rgba(225,196,130,.96)';cctx.lineWidth=2;cctx.beginPath();cctx.moveTo(x,y);cctx.lineTo(x+sx*18,y);cctx.lineTo(x+sx*18,y+sy*18);cctx.moveTo(x+sx*6,y);cctx.lineTo(x+sx*24,y);cctx.moveTo(x,y+sy*6);cctx.lineTo(x,y+sy*24);cctx.stroke();};corner(bx+10,by+10,1,1);corner(bx+bw-10,by+10,-1,1);corner(bx+10,by+bh-10,1,-1);corner(bx+bw-10,by+bh-10,-1,-1);const topY=by-20;const botY=by+bh+20;cctx.strokeStyle='rgba(108,64,28,.9)';cctx.lineWidth=3;cctx.beginPath();cctx.moveTo(bx+30,topY);cctx.bezierCurveTo(bx+bw*0.32,topY-16,bx+bw*0.68,topY-16,bx+bw-30,topY);cctx.moveTo(bx+30,botY);cctx.bezierCurveTo(bx+bw*0.32,botY+16,bx+bw*0.68,botY+16,bx+bw-30,botY);cctx.stroke();cctx.strokeStyle='rgba(213,178,106,.86)';cctx.lineWidth=2;for(let r=0;r<10;r++){const y=MARGIN+r*CELL;cctx.beginPath();cctx.moveTo(MARGIN,y);cctx.lineTo(MARGIN+8*CELL,y);cctx.stroke();}for(let c=0;c<9;c++){const x=MARGIN+c*CELL;cctx.beginPath();if(c===0||c===8){cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+9*CELL);}else{cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+4*CELL);cctx.moveTo(x,MARGIN+5*CELL);cctx.lineTo(x,MARGIN+9*CELL);}cctx.stroke();}cctx.beginPath();cctx.moveTo(MARGIN+3*CELL,MARGIN);cctx.lineTo(MARGIN+5*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN);cctx.lineTo(MARGIN+3*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+3*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+5*CELL,MARGIN+9*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+3*CELL,MARGIN+9*CELL);cctx.stroke();const ry=MARGIN+4*CELL+3;cctx.shadowColor='rgba(0,0,0,.26)';cctx.shadowBlur=10;cctx.fillStyle='rgba(35,54,124,.92)';cctx.beginPath();cctx.roundRect(MARGIN+12,ry,8*CELL-24,CELL-8,22);cctx.fill();cctx.shadowBlur=0;cctx.strokeStyle='rgba(213,178,106,.44)';cctx.beginPath();cctx.moveTo(MARGIN, MARGIN+4*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+4*CELL);cctx.moveTo(MARGIN,MARGIN+5*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+5*CELL);cctx.stroke();cctx.font='bold 45px KaiTi';cctx.fillStyle='#d8b574';cctx.fillText('楚 河',MARGIN+CELL-10,MARGIN+4*CELL+44);cctx.fillText('汉 界',MARGIN+5*CELL+8,MARGIN+4*CELL+44);}",
             "function scheduleRender(){if(needRender)return;needRender=true;requestAnimationFrame(()=>{needRender=false;draw();});}",
-            "function draw(){ctx.clearRect(0,0,BASE_W,BASE_H);ctx.drawImage(cache,0,0);if(!state)return;drawMarkers();drawPieces();drawMoveAnim();drawSelection();drawTacticFlash();}",
-            "function drawPieceDisc(x,y,name,color){ctx.fillStyle='rgba(13,8,0,.24)';ctx.beginPath();ctx.ellipse(x+2,y+3,R*0.98,R*0.82,0,0,Math.PI*2);ctx.fill();const g=ctx.createRadialGradient(x-9,y-10,4,x,y,R);if(color==='RED'){g.addColorStop(0,'#fff7ec');g.addColorStop(0.62,'#efd8bd');g.addColorStop(1,'#d1ad86');}else{g.addColorStop(0,'#ffffff');g.addColorStop(0.62,'#ebe7df');g.addColorStop(1,'#c7c2b8');}ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(88,58,29,.94)';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=(color==='RED')?'#d24c45':'#252525';ctx.lineWidth=2.8;ctx.beginPath();ctx.arc(x,y,R-3,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='rgba(229,207,160,.9)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,R-6,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(x-8,y-10,7,0,Math.PI*2);ctx.fill();ctx.font='bold 32px KaiTi';ctx.lineWidth=0.9;ctx.strokeStyle='rgba(255,244,220,.22)';const w=ctx.measureText(name).width;ctx.strokeText(name,x-w/2,y+11);ctx.fillStyle=(color==='RED')?'#c43d36':'#1b1b1b';ctx.fillText(name,x-w/2,y+11);}function drawPieces(){for(let r=0;r<10;r++){for(let c=0;c<9;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=pos(r,c);drawPieceDisc(x,y,p.name,p.color);}}}",
+            "function draw(){const t0=performance.now();ctx.clearRect(0,0,BASE_W,BASE_H);ctx.drawImage(cache,0,0);if(!state)return;drawMarkers();drawPieces();drawMoveAnim();drawSelection();drawTacticFlash();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}}",
+            "function makePieceSprite(name,color){const key=color+'|'+name;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+12);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;g.fillStyle='rgba(13,8,0,.24)';g.beginPath();g.ellipse(cx+2,cy+3,R*0.98,R*0.82,0,0,Math.PI*2);g.fill();const rg=g.createRadialGradient(cx-9,cy-10,4,cx,cy,R);if(color==='RED'){rg.addColorStop(0,'#fff7ec');rg.addColorStop(0.62,'#efd8bd');rg.addColorStop(1,'#d1ad86');}else{rg.addColorStop(0,'#ffffff');rg.addColorStop(0.62,'#ebe7df');rg.addColorStop(1,'#c7c2b8');}g.fillStyle=rg;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();g.strokeStyle='rgba(88,58,29,.94)';g.lineWidth=2.4;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.stroke();g.strokeStyle=(color==='RED')?'#d24c45':'#252525';g.lineWidth=2.8;g.beginPath();g.arc(cx,cy,R-3,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(229,207,160,.9)';g.lineWidth=1.2;g.beginPath();g.arc(cx,cy,R-6,0,Math.PI*2);g.stroke();g.fillStyle='rgba(255,255,255,.22)';g.beginPath();g.arc(cx-8,cy-10,7,0,Math.PI*2);g.fill();g.font='bold 32px KaiTi';g.lineWidth=0.9;g.strokeStyle='rgba(255,244,220,.22)';const w=g.measureText(name).width;g.strokeText(name,cx-w/2,cy+11);g.fillStyle=(color==='RED')?'#c43d36':'#1b1b1b';g.fillText(name,cx-w/2,cy+11);pieceSpriteCache[key]=can;return can;}function drawPieceDisc(x,y,name,color){const s=makePieceSprite(name,color);ctx.drawImage(s,x-s.width/2,y-s.height/2);}function drawPieces(){for(let r=0;r<10;r++){for(let c=0;c<9;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=pos(r,c);drawPieceDisc(x,y,p.name,p.color);}}}",
             "function drawMarkers(){if(!state.recentMoves)return;for(const m of state.recentMoves){const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);const color=m.color==='RED'?'rgba(198,64,60,.96)':'rgba(35,35,35,.96)';ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(fx,fy,R-10,0,Math.PI*2);ctx.stroke();const s=(m.order===1)?R+9:R+5;ctx.lineWidth=3;ctx.strokeRect(tx-s,ty-s,s*2,s*2);ctx.fillStyle='rgba(255,248,230,.95)';ctx.font='bold 16px Consolas';ctx.fillText(String(m.order),tx-4,ty-s-6);}}",
             "function drawSelection(){if(state.reviewMode)return;if(state.selectedRow>=0&&state.selectedCol>=0){const [x,y]=pos(state.selectedRow,state.selectedCol);ctx.fillStyle='rgba(0,160,70,.20)';ctx.fillRect(x-CELL/2+3,y-CELL/2+3,CELL-6,CELL-6);}}",
             "function drawTacticFlash(){if(!state.tacticText)return;ctx.fillStyle='rgba(7,10,26,.82)';ctx.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.strokeStyle='#d8b86f';ctx.lineWidth=2;ctx.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.font='bold 36px Microsoft YaHei UI';ctx.fillStyle='#ffd86e';const w=ctx.measureText(state.tacticText).width;ctx.fillText(state.tacticText,(BASE_W-w)/2,BASE_H/2);}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:120};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||state.gameOver||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(state.tacticText==='绝杀'){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(state.tacticText==='绝杀'&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}function stateStamp(s){if(!s)return'';const m=(s.recentMoves&&s.recentMoves.length)?s.recentMoves[0]:null;return [s.started,s.mode,s.currentTurn,s.gameOver,s.result,s.selectedRow,s.selectedCol,s.reviewMode,s.reviewMoveIndex,s.reviewMaxMove,s.tacticText,m?m.fromRow:'',m?m.fromCol:'',m?m.toRow:'',m?m.toCol:''].join('|');}",
             "async function api(path){const base=withSid(path);const q=base.includes('?')?'&':'?';const url=base+q+'_t='+Date.now();const res=await fetch(url,{cache:'no-store'});return await res.json();}",
-            "function applyState(data){const prev=lastStateStamp;state=data;ui.firstHand.disabled=ui.mode.value!=='pvc';setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红';setTxt(ui.modeTag,'模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+state.difficultyText+(state.mode==='PVC'?humanTxt:''));setTxt(ui.endgameTag,'残局: '+(state.endgame||'标准开局'));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方'))));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}",
-            "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;try{const data=await api('/api/state');if(seq!==reqSeq)return;applyState(data);}finally{pending=false;}}",
+            "function applyState(data){const seq=(data&&data.seq)||0;if(seq&&seq<lastAppliedSeq)return;lastAppliedSeq=Math.max(lastAppliedSeq,seq);const prev=lastStateStamp;state=data;ui.firstHand.disabled=ui.mode.value!=='pvc';setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红';setTxt(ui.modeTag,'模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+state.difficultyText+(state.mode==='PVC'?humanTxt:''));setTxt(ui.endgameTag,'残局: '+(state.endgame||'标准开局'));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方'))));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}",
+            "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;const t0=performance.now();try{const data=await api('/api/state');if(seq!==reqSeq)return;applyState(data);}finally{pending=false;const cost=performance.now()-t0;if(cost>120){api('/api/perf/event?type=state_fetch&cost='+Math.round(cost)).catch(()=>{});}}}",
             "async function act(path){const data=await api(path);applyState(data);}function enqueueAct(path){actionQueue=actionQueue.then(()=>act(path)).catch(()=>{});return actionQueue;}",
             "document.addEventListener('pointerdown',unlockAudio,{once:true});canvas.addEventListener('pointerdown',e=>{if(state&&(!state.started||state.reviewMode||state.gameOver))return;e.preventDefault();const rect=canvas.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;const p=state&&state.board&&state.board[g.row]?state.board[g.row][g.col]:null;if(state&&state.selectedRow<0&&p&&p.color===state.currentTurn&&(state.mode!=='PVC'||p.color===state.pvcHumanColor)){state.selectedRow=g.row;state.selectedCol=g.col;scheduleRender();}enqueueAct('/api/click?row='+g.row+'&col='+g.col);},{passive:false});",
             "document.getElementById('newGame').addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value;enqueueAct('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h);});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,name=encodeURIComponent(btn.dataset.name);enqueueAct('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h);}));",
@@ -1021,7 +1146,7 @@ public class WebXiangqiServer {
             "document.getElementById('reviewNext').addEventListener('click',()=>enqueueAct('/api/review/next'));",
             "document.getElementById('reviewExit').addEventListener('click',()=>enqueueAct('/api/review/exit'));",
             "ui.mode.addEventListener('change',()=>{ui.firstHand.disabled=ui.mode.value!=='pvc';});",
-            "function pollDelay(){return document.hidden?1200:260;}function schedulePoll(){clearTimeout(pollTimer);pollTimer=setTimeout(async()=>{await refresh();schedulePoll();},pollDelay());}document.addEventListener('visibilitychange',schedulePoll);drawStatic();setupCanvas();syncSoundToggle();refresh().finally(schedulePoll);",
+            "function pollDelay(){if(document.hidden)return 1200;if(!state||!state.started)return 260;if(state.mode==='PVC'&&state.currentTurn!==state.pvcHumanColor)return 130;return 170;}function schedulePoll(){clearTimeout(pollTimer);pollTimer=setTimeout(async()=>{await refresh();schedulePoll();},pollDelay());}document.addEventListener('visibilitychange',schedulePoll);drawStatic();setupCanvas();syncSoundToggle();refresh().finally(schedulePoll);",
             "</script>",
             "</body>",
             "</html>");
