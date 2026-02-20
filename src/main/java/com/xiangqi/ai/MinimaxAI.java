@@ -39,6 +39,7 @@ public class MinimaxAI {
     private static final int ROOT_PARALLEL_MIN_DEPTH = 4;
     private static final int ROOT_PARALLEL_MIN_MOVES = 3;
     private static final int ROOT_PARALLEL_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
+    private static final int MIDGAME_PLY_FAST_CAP = 10;
     private static final int RESULT_CACHE_MAX_ENTRIES = 50000;
     private static final long RESULT_CACHE_TTL_MS = 3 * 60 * 1000L;
     private static final double[] TIME_PRESSURE_EMA = new double[Difficulty.values().length];
@@ -538,6 +539,7 @@ public class MinimaxAI {
         int cores = Math.max(1, Runtime.getRuntime().availableProcessors());
         int branching = rootMoves == null ? 0 : rootMoves.size();
         double pressure = getTimePressure(difficulty);
+        int ply = board == null ? 0 : board.getMoveCount();
 
         if (cores >= 8) {
             timeMs += 1800;
@@ -575,12 +577,32 @@ public class MinimaxAI {
             }
         }
 
+        // 第10步后优先保证响应速度，避免“中后盘长考”。
+        if (ply >= MIDGAME_PLY_FAST_CAP) {
+            if (difficulty == Difficulty.HARD) {
+                timeMs -= 1200;
+            } else if (difficulty == Difficulty.MEDIUM) {
+                timeMs -= 900;
+            } else {
+                timeMs -= 500;
+            }
+            if (branching >= 34) {
+                timeMs -= 500;
+            }
+        }
+
         int hardCap = difficulty == Difficulty.HARD ? 11 : (difficulty == Difficulty.MEDIUM ? 9 : 7);
         if (inStudySet || inLearnedSet || inEventSet) {
             hardCap += 1;
         }
         depth = Math.max(1, Math.min(depth, hardCap));
         int timeCap = difficulty == Difficulty.HARD ? 7000 : (difficulty == Difficulty.MEDIUM ? 2800 : 1400);
+        if (ply >= MIDGAME_PLY_FAST_CAP) {
+            timeCap = difficulty == Difficulty.HARD ? 4200 : (difficulty == Difficulty.MEDIUM ? 1800 : 1000);
+        }
+        if (ply >= 26) {
+            timeCap = Math.min(timeCap, difficulty == Difficulty.HARD ? 3600 : (difficulty == Difficulty.MEDIUM ? 1600 : 900));
+        }
         timeMs = Math.max(450, Math.min(timeMs, timeCap));
         return new SearchBudget(depth, timeMs);
     }
@@ -685,6 +707,16 @@ public class MinimaxAI {
                 int from = move.getFromRow() * 9 + move.getFromCol();
                 int to = move.getToRow() * 9 + move.getToCol();
                 score += historyHeuristic[colorIdx][from][to];
+
+                // 根层/浅层启发：在不被直接吃掉的前提下，优先“向前压进”。
+                if (ply <= 1 && isForwardMove(side, move)) {
+                    score += 120;
+                    if (isMoveLandingSafe(board, move, side)) {
+                        score += 160;
+                    } else if (attacker != null && getPieceValue(attacker) >= 430) {
+                        score -= 120;
+                    }
+                }
             }
             scored.add(new MoveOrder(move, score));
         }
@@ -694,6 +726,26 @@ public class MinimaxAI {
         for (MoveOrder moveOrder : scored) {
             moves.add(moveOrder.move);
         }
+    }
+
+    private boolean isForwardMove(PieceColor side, Move move) {
+        if (side == PieceColor.RED) {
+            return move.getToRow() < move.getFromRow();
+        }
+        return move.getToRow() > move.getFromRow();
+    }
+
+    private boolean isMoveLandingSafe(Board board, Move move, PieceColor mover) {
+        Board next = new Board(board);
+        next.movePiece(move);
+        PieceColor opp = mover.opposite();
+        List<Move> replies = next.getAllValidMoves(opp);
+        for (Move r : replies) {
+            if (r.getToRow() == move.getToRow() && r.getToCol() == move.getToCol()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void recordKiller(Move move, int ply) {
