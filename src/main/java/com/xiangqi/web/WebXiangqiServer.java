@@ -22,12 +22,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 public class WebXiangqiServer {
     private static final long MIN_MOVE_INTERVAL_MS = 500L;
     private static final WebXiangqiServer INSTANCE = new WebXiangqiServer();
     private static final String SID_COOKIE = "XQSID";
+    private static final int HTTP_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 4);
+    private static final int AI_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+    private static final ExecutorService HTTP_EXECUTOR = Executors.newFixedThreadPool(HTTP_THREADS, namedFactory("xq-http-"));
+    private static final ExecutorService AI_EXECUTOR = Executors.newFixedThreadPool(AI_THREADS, namedFactory("xq-ai-"));
 
     private HttpServer server;
     private URI uri;
@@ -69,7 +77,7 @@ public class WebXiangqiServer {
         server.createContext("/api/review/prev", this::handleReviewPrev);
         server.createContext("/api/review/next", this::handleReviewNext);
         server.createContext("/assets/audio", this::handleAudioAsset);
-        server.setExecutor(null);
+        server.setExecutor(HTTP_EXECUTOR);
         server.start();
 
         String uriHost = "0.0.0.0".equals(host) ? "127.0.0.1" : host;
@@ -238,10 +246,22 @@ public class WebXiangqiServer {
 
     private int parseInt(String raw, int defaultValue) {
         try {
-            return Integer.parseInt(raw);
+        return Integer.parseInt(raw);
         } catch (Exception e) {
             return defaultValue;
         }
+    }
+
+    private static ThreadFactory namedFactory(final String prefix) {
+        return new ThreadFactory() {
+            private int idx = 0;
+            @Override
+            public synchronized Thread newThread(Runnable r) {
+                Thread t = new Thread(r, prefix + (++idx));
+                t.setDaemon(true);
+                return t;
+            }
+        };
     }
 
     private Session getSession(HttpExchange exchange) {
@@ -320,7 +340,6 @@ public class WebXiangqiServer {
     }
 
     private static final class Session {
-        private final MinimaxAI ai = new MinimaxAI();
         private Board board = new Board();
         private boolean pvcMode;
         private MinimaxAI.Difficulty difficulty = MinimaxAI.Difficulty.MEDIUM;
@@ -334,6 +353,10 @@ public class WebXiangqiServer {
         private long lastMoveAt = 0L;
         private boolean aiPending = false;
         private long aiDueAt = 0L;
+        private long aiEpoch = 0L;
+        private CompletableFuture<Move> aiFuture = null;
+        private long aiFutureEpoch = -1L;
+        private PieceColor aiFutureColor = null;
         private PieceColor surrenderedColor = null;
         private PieceColor trackedTurn = null;
         private long turnStartedAt = System.currentTimeMillis();
@@ -357,7 +380,6 @@ public class WebXiangqiServer {
             this.board = new Board();
             this.pvcMode = pvcMode;
             this.difficulty = difficulty;
-            this.ai.setDifficulty(difficulty);
             this.pvcHumanColor = humanFirst ? PieceColor.RED : PieceColor.BLACK;
             this.selectedRow = -1;
             this.selectedCol = -1;
@@ -369,6 +391,10 @@ public class WebXiangqiServer {
             this.lastMoveAt = 0L;
             this.aiPending = false;
             this.aiDueAt = 0L;
+            this.aiEpoch++;
+            this.aiFuture = null;
+            this.aiFutureEpoch = -1L;
+            this.aiFutureColor = null;
             this.surrenderedColor = null;
             this.trackedTurn = board.getCurrentTurn();
             this.turnStartedAt = System.currentTimeMillis();
@@ -399,7 +425,6 @@ public class WebXiangqiServer {
             EndgameLoader.loadEndgame(this.board, endgameName);
             this.pvcMode = pvcMode;
             this.difficulty = difficulty;
-            this.ai.setDifficulty(difficulty);
             this.pvcHumanColor = humanFirst ? PieceColor.RED : PieceColor.BLACK;
             this.selectedRow = -1;
             this.selectedCol = -1;
@@ -411,6 +436,10 @@ public class WebXiangqiServer {
             this.lastMoveAt = 0L;
             this.aiPending = false;
             this.aiDueAt = 0L;
+            this.aiEpoch++;
+            this.aiFuture = null;
+            this.aiFutureEpoch = -1L;
+            this.aiFutureColor = null;
             this.surrenderedColor = null;
             this.trackedTurn = board.getCurrentTurn();
             this.turnStartedAt = System.currentTimeMillis();
@@ -499,6 +528,7 @@ public class WebXiangqiServer {
                 board.movePiece(move);
                 markMove();
                 updateAutoDrawStateAfterMove();
+                aiEpoch++;
                 selectedRow = -1;
                 selectedCol = -1;
                 updateTacticFlash();
@@ -530,6 +560,10 @@ public class WebXiangqiServer {
             }
             selectedRow = -1;
             selectedCol = -1;
+            aiEpoch++;
+            aiFuture = null;
+            aiFutureEpoch = -1L;
+            aiFutureColor = null;
             agreedDraw = false;
             autoDraw = false;
             drawReason = "";
@@ -545,6 +579,10 @@ public class WebXiangqiServer {
             surrenderedColor = board.getCurrentTurn();
             aiPending = false;
             aiDueAt = 0L;
+            aiEpoch++;
+            aiFuture = null;
+            aiFutureEpoch = -1L;
+            aiFutureColor = null;
             selectedRow = -1;
             selectedCol = -1;
         }
@@ -557,6 +595,10 @@ public class WebXiangqiServer {
             drawReason = "双方议和，和棋";
             aiPending = false;
             aiDueAt = 0L;
+            aiEpoch++;
+            aiFuture = null;
+            aiFutureEpoch = -1L;
+            aiFutureColor = null;
             selectedRow = -1;
             selectedCol = -1;
         }
@@ -672,15 +714,42 @@ public class WebXiangqiServer {
                 aiPending = false;
                 return;
             }
-            PieceColor aiColor = pvcHumanColor.opposite();
-            Move aiMove = ai.findBestMove(board, aiColor);
-            if (aiMove != null && board.isValidMove(aiMove)) {
-                board.movePiece(aiMove);
-                markMove();
-                updateAutoDrawStateAfterMove();
-                updateTacticFlash();
+
+            if (aiFuture != null) {
+                if (!aiFuture.isDone()) {
+                    return;
+                }
+                Move aiMove = null;
+                try {
+                    aiMove = aiFuture.getNow(null);
+                } catch (Exception ignored) {
+                    aiMove = null;
+                }
+                if (aiFutureEpoch == aiEpoch && aiFutureColor == board.getCurrentTurn() && aiMove != null && board.isValidMove(aiMove)) {
+                    board.movePiece(aiMove);
+                    markMove();
+                    updateAutoDrawStateAfterMove();
+                    updateTacticFlash();
+                    aiEpoch++;
+                }
+                aiFuture = null;
+                aiFutureEpoch = -1L;
+                aiFutureColor = null;
+                aiPending = false;
+                return;
             }
-            aiPending = false;
+
+            final PieceColor aiColor = pvcHumanColor.opposite();
+            final Board snapshot = new Board(board);
+            final MinimaxAI.Difficulty currentDifficulty = this.difficulty;
+            final long launchEpoch = aiEpoch;
+            aiFutureEpoch = launchEpoch;
+            aiFutureColor = aiColor;
+            aiFuture = CompletableFuture.supplyAsync(() -> {
+                MinimaxAI worker = new MinimaxAI();
+                worker.setDifficulty(currentDifficulty);
+                return worker.findBestMove(snapshot, aiColor);
+            }, AI_EXECUTOR);
         }
 
         private boolean canMoveNow() {
