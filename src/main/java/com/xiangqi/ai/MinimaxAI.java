@@ -55,9 +55,9 @@ public class MinimaxAI {
     private static final ConcurrentHashMap<Long, CachedBestMove> RESULT_CACHE = new ConcurrentHashMap<Long, CachedBestMove>();
 
     public enum Difficulty {
-        EASY("简单", 2, 1200, 0.35),
-        MEDIUM("中等", 4, 6000, 0.12),
-        HARD("困难", 6, 15000, 0.0);
+        EASY("简单", 2, 800, 0.35),
+        MEDIUM("中等", 5, 1800, 0.06),
+        HARD("困难", 8, 4500, 0.0);
 
         private final String displayName;
         private final int maxDepth;
@@ -558,7 +558,8 @@ public class MinimaxAI {
             hardCap += 1;
         }
         depth = Math.max(1, Math.min(depth, hardCap));
-        timeMs = Math.max(450, timeMs);
+        int timeCap = difficulty == Difficulty.HARD ? 7000 : (difficulty == Difficulty.MEDIUM ? 2800 : 1400);
+        timeMs = Math.max(450, Math.min(timeMs, timeCap));
         return new SearchBudget(depth, timeMs);
     }
 
