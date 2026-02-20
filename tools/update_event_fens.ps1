@@ -1,7 +1,9 @@
 param(
     [int]$StartPage = 0,
     [int]$EndPage = 4,
-    [string]$OutFile = "data/event_fens.txt"
+    [string]$OutFile = "data/event_fens.txt",
+    [int]$RequestDelayMs = 120,
+    [int]$MaxEvents = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,12 +31,29 @@ function Get-Fens([string]$html) {
     }
 }
 
+function Fetch-ContentWithRetry([string]$url, [int]$retry = 3) {
+    $lastErr = $null
+    for ($i = 1; $i -le $retry; $i++) {
+        try {
+            if ($RequestDelayMs -gt 0) {
+                Start-Sleep -Milliseconds $RequestDelayMs
+            }
+            return (Invoke-WebRequest -UseBasicParsing -Uri $url).Content
+        } catch {
+            $lastErr = $_
+            Write-Warning "Fetch failed ($i/$retry): $url"
+            Start-Sleep -Milliseconds ([Math]::Min(1500, 180 * $i))
+        }
+    }
+    throw $lastErr
+}
+
 $allEventLinks = New-Object 'System.Collections.Generic.HashSet[string]'
 
 for ($i = $StartPage; $i -le $EndPage; $i++) {
     $url = "https://www.xqipu.com/eventlist?page=$i"
     Write-Host "Scanning $url"
-    $html = (Invoke-WebRequest -UseBasicParsing -Uri $url).Content
+    $html = Fetch-ContentWithRetry $url
     $links = Get-EventLinks $html
     foreach ($link in $links) {
         [void]$allEventLinks.Add($link)
@@ -42,12 +61,21 @@ for ($i = $StartPage; $i -le $EndPage; $i++) {
 }
 
 $allFens = New-Object 'System.Collections.Generic.HashSet[string]'
-foreach ($eventUrl in $allEventLinks) {
+$eventIndex = 0
+foreach ($eventUrl in ($allEventLinks | Sort-Object)) {
+    $eventIndex++
+    if ($MaxEvents -gt 0 -and $eventIndex -gt $MaxEvents) {
+        break
+    }
     Write-Host "Fetching $eventUrl"
-    $html = (Invoke-WebRequest -UseBasicParsing -Uri $eventUrl).Content
-    $fens = Get-Fens $html
-    foreach ($fen in $fens) {
-        [void]$allFens.Add($fen)
+    try {
+        $html = Fetch-ContentWithRetry $eventUrl
+        $fens = Get-Fens $html
+        foreach ($fen in $fens) {
+            [void]$allFens.Add($fen)
+        }
+    } catch {
+        Write-Warning "Skip event due to repeated failures: $eventUrl"
     }
 }
 
@@ -57,4 +85,4 @@ if ($dir -and !(Test-Path $dir)) {
 }
 
 $allFens | Sort-Object | Set-Content -Path $OutFile -Encoding UTF8
-Write-Host "Saved $($allFens.Count) unique FEN entries to $OutFile"
+Write-Host "Saved $($allFens.Count) unique FEN entries from $eventIndex events to $OutFile"

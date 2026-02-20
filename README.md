@@ -79,6 +79,12 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 pwsh -File tools/update_event_fens.ps1 -StartPage 0 -EndPage 10 -OutFile data/event_fens.txt
 ```
 
+一键生成并发布赛事学习库（抓取 -> 生成 `EventLearnedSet.java` -> 编译 -> push）：
+
+```powershell
+pwsh -File tools/update_event_learnedset.ps1 -StartPage 0 -EndPage 10 -Compile -Publish
+```
+
 ## 规则与胜负
 
 完整实现中国象棋基本与关键特殊规则，包括：
