@@ -1,11 +1,10 @@
 services:
   - type: web
     name: xiangqi-web
-    runtime: java
+    runtime: docker
     plan: free
     autoDeploy: true
-    buildCommand: mvn -DskipTests clean package
-    startCommand: java -Dfile.encoding=UTF-8 -cp target/classes com.xiangqi.web.PublicWebMain
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: BIND_HOST
         value: 0.0.0.0
