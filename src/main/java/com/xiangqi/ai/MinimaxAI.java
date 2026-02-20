@@ -223,6 +223,21 @@ public class MinimaxAI {
                 extraTime += 700;
             }
         }
+        if (ply < MIDGAME_PLY_FAST_CAP && (inLearnedSet || inEventSet)) {
+            // 开局前十步命中棋谱学习局面时，提升稳健性与质量。
+            if (difficulty == Difficulty.HARD) {
+                maxDepth = Math.min(maxDepth + 1, 10);
+                extraTime += 1100;
+            } else if (difficulty == Difficulty.MEDIUM) {
+                maxDepth = Math.min(maxDepth + 1, 8);
+                extraTime += 900;
+            } else {
+                extraTime += 450;
+            }
+            if (aiColor == PieceColor.BLACK) {
+                extraTime += 250;
+            }
+        }
 
         SearchBudget budget = tuneBudget(board, validMoves, maxDepth, difficulty.getTimeLimitMs() + extraTime, inStudySet, inLearnedSet, inEventSet);
         maxDepth = budget.maxDepth;
