@@ -146,6 +146,16 @@ mvn -DskipTests clean package
 java -cp target/classes com.xiangqi.web.PublicWebMain
 ```
 
+### Render 一键部署（Blueprint）
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Zzy-min/turbo-octo-lamp)
+
+- 仓库根目录已提供 `render.yaml`
+- Render 会自动执行：
+  - Build: `mvn -DskipTests clean package`
+  - Start: `java -Dfile.encoding=UTF-8 -cp target/classes com.xiangqi.web.PublicWebMain`
+- 部署成功后，直接使用 Render 分配的公网 URL 访问即可
+
 ## 音效替换说明
 
 - 默认音效文件：
