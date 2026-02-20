@@ -47,6 +47,8 @@ public class MinimaxAI {
     private static final long RESULT_CACHE_TTL_MS = 3 * 60 * 1000L;
     private static final int QUIESCENCE_MAX_DEPTH = 8;
     private static final int QUIESCENCE_MAX_MOVES = 16;
+    private static final int QUIESCENCE_FAST_DEPTH = 5;
+    private static final int QUIESCENCE_FAST_MOVES = 10;
     private static final int QUIESCENCE_DELTA_MARGIN = 120;
     private static final int NULL_MOVE_MIN_DEPTH = 4;
     private static final int NULL_MOVE_REDUCTION = 2;
@@ -193,6 +195,9 @@ public class MinimaxAI {
         if (validMoves.isEmpty()) {
             return null;
         }
+        if (validMoves.size() == 1) {
+            return validMoves.get(0);
+        }
 
         sortMovesByCaptureValue(validMoves, board);
 
@@ -216,6 +221,11 @@ public class MinimaxAI {
         Move fastEventMove = tryFastEventMove(board, aiColor, validMoves, inEventSet, ply);
         if (fastEventMove != null) {
             return fastEventMove;
+        }
+
+        Move ultraFastMove = tryUltraFastMove(board, aiColor, validMoves, ply);
+        if (ultraFastMove != null) {
+            return ultraFastMove;
         }
 
         if (ply >= MIDGAME_PLY_FAST_CAP && !endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
@@ -395,6 +405,24 @@ public class MinimaxAI {
             }
         }
         return bestMove;
+    }
+
+    private Move tryUltraFastMove(Board board, PieceColor aiColor, List<Move> validMoves, int ply) {
+        if (board == null || aiColor == null || validMoves == null || validMoves.isEmpty()) {
+            return null;
+        }
+        if (ply < 4 || difficulty == Difficulty.HARD) {
+            return null;
+        }
+        double pressure = getTimePressure(difficulty);
+        int branching = validMoves.size();
+        boolean mustFast = difficulty == Difficulty.EASY
+            ? (branching >= 22 || pressure >= 0.9)
+            : (branching >= 34 && pressure >= 1.0);
+        if (!mustFast) {
+            return null;
+        }
+        return findFastSafeForwardMove(board, aiColor, validMoves);
     }
 
     private boolean shouldUseRescueBook(Board board, PieceColor aiColor, List<Move> validMoves, int ply) {
@@ -783,13 +811,13 @@ public class MinimaxAI {
             Board next = new Board(board);
             next.movePiece(move);
             int nextPly = Math.min(MAX_PLY - 1, ply + 1);
+            boolean givesCheck = next.isInCheck(sideToMove.opposite());
+            int fullDepth = Math.max(1, depth - 1 + checkExtension(depth, givesCheck, moveIndex));
             int score;
             if (firstMove) {
-                score = -negamax(next, depth - 1, -beta, -alpha, nextPly, aiColor);
+                score = -negamax(next, fullDepth, -beta, -alpha, nextPly, aiColor);
                 firstMove = false;
             } else {
-                int fullDepth = depth - 1;
-                boolean givesCheck = next.isInCheck(sideToMove.opposite());
                 if (depth <= FUTILITY_MAX_DEPTH
                     && !sideInCheck
                     && !isCapture
@@ -877,7 +905,7 @@ public class MinimaxAI {
         if (standPat > alpha) {
             alpha = standPat;
         }
-        if (qDepth >= QUIESCENCE_MAX_DEPTH || ply >= MAX_PLY - 1) {
+        if (qDepth >= currentQuiescenceMaxDepth() || ply >= MAX_PLY - 1) {
             return standPat;
         }
 
@@ -916,7 +944,7 @@ public class MinimaxAI {
                 alpha = score;
             }
             explored++;
-            if (explored >= QUIESCENCE_MAX_MOVES) {
+            if (explored >= currentQuiescenceMaxMoves()) {
                 break;
             }
         }
@@ -946,14 +974,29 @@ public class MinimaxAI {
             captures.add(new MoveOrder(move, score));
         }
         captures.sort((a, b) -> Integer.compare(b.score, a.score));
-        List<Move> result = new ArrayList<Move>(Math.min(QUIESCENCE_MAX_MOVES, captures.size()));
+        int maxMoves = currentQuiescenceMaxMoves();
+        List<Move> result = new ArrayList<Move>(Math.min(maxMoves, captures.size()));
         for (MoveOrder moveOrder : captures) {
             result.add(moveOrder.move);
-            if (result.size() >= QUIESCENCE_MAX_MOVES) {
+            if (result.size() >= maxMoves) {
                 break;
             }
         }
         return result;
+    }
+
+    private int currentQuiescenceMaxDepth() {
+        if (searchFastMode && difficulty != Difficulty.HARD) {
+            return QUIESCENCE_FAST_DEPTH;
+        }
+        return QUIESCENCE_MAX_DEPTH;
+    }
+
+    private int currentQuiescenceMaxMoves() {
+        if (searchFastMode && difficulty != Difficulty.HARD) {
+            return QUIESCENCE_FAST_MOVES;
+        }
+        return QUIESCENCE_MAX_MOVES;
     }
 
     private void seedRepetitionHistory(Board board) {
@@ -1618,6 +1661,19 @@ public class MinimaxAI {
             return FUTILITY_MARGIN_DEPTH_2;
         }
         return FUTILITY_MARGIN_DEPTH_2 + 120;
+    }
+
+    private int checkExtension(int depth, boolean givesCheck, int moveIndex) {
+        if (!givesCheck || depth <= 1 || searchFastMode) {
+            return 0;
+        }
+        if (difficulty == Difficulty.HARD) {
+            return (depth <= 4 && moveIndex <= 3) ? 1 : 0;
+        }
+        if (difficulty == Difficulty.MEDIUM) {
+            return (depth <= 3 && moveIndex == 1) ? 1 : 0;
+        }
+        return 0;
     }
 
     private boolean isKillerMove(Move move, int ply) {

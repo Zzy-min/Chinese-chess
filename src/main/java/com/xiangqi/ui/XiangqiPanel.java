@@ -497,11 +497,19 @@ public class XiangqiPanel extends JPanel {
 
         int total = history.size();
         int showCount = Math.min(2, total);
+        long now = System.currentTimeMillis();
         for (int i = 0; i < showCount; i++) {
             Move move = history.get(total - 1 - i);
             PieceColor moverColor = (i % 2 == 0) ? boardToDraw.getCurrentTurn().opposite() : boardToDraw.getCurrentTurn();
-            Color markerColor = moverColor == PieceColor.RED ? new Color(215, 62, 62, 210) : new Color(36, 36, 36, 210);
-            Color glowColor = moverColor == PieceColor.RED ? new Color(255, 138, 128, 78) : new Color(110, 110, 110, 70);
+            float pulse = (float) (0.78 + 0.22 * Math.sin(now / 130.0 + i * 0.85));
+            int markerAlpha = Math.max(165, Math.min(235, (int) (210 * pulse)));
+            int glowAlpha = Math.max(52, Math.min(112, (int) (82 * pulse)));
+            Color markerColor = moverColor == PieceColor.RED
+                ? new Color(215, 62, 62, markerAlpha)
+                : new Color(36, 36, 36, markerAlpha);
+            Color glowColor = moverColor == PieceColor.RED
+                ? new Color(255, 138, 128, glowAlpha)
+                : new Color(110, 110, 110, glowAlpha);
 
             int fromX = gridCenterXByBoardCol(move.getFromCol());
             int fromY = gridCenterYByBoardRow(move.getFromRow());
@@ -513,7 +521,7 @@ public class XiangqiPanel extends JPanel {
             g2d.setColor(glowColor);
             g2d.fillOval(fromX - fromSize - 4, fromY - fromSize - 4, (fromSize + 4) * 2, (fromSize + 4) * 2);
 
-            drawMoveArrow(g2d, fromX, fromY, toX, toY, markerColor, i == 0 ? 4f : 3f);
+            drawMoveArrow(g2d, fromX, fromY, toX, toY, markerColor, i == 0 ? (4f + 0.35f * pulse) : (3f + 0.25f * pulse));
 
             g2d.setStroke(new BasicStroke(2.2f));
             g2d.setColor(markerColor);
