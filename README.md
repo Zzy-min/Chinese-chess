@@ -11,7 +11,8 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 支持双人同屏、人机三档难度、残局练习与棋局回顾。  
 你可自由选择先后手，执黑时棋盘自动翻转到底侧视角。  
 桌面与浏览器双端可用，浏览器模式可独立运行不中断。  
-每一步更清晰，每一局更流畅，专注纯粹对弈体验。
+每一步更清晰，每一局更流畅，专注纯粹对弈体验。  
+近期 AI 引擎已完成连续升级：重复局面控制、静态搜索延伸（Quiescence）、Null Move / LMR / Futility 裁剪、自适应 Aspiration Window 与 SEE（静态交换评估）接入，显著降低中后盘长考与战术漏算。
 
 ## 最新版本特性
 
@@ -49,7 +50,12 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 - Alpha-Beta 剪枝
 - 置换表（Transposition Table）
 - Killer Moves + History Heuristic 走法排序
+- SEE（Static Exchange Evaluation）接入吃子排序与静态搜索筛选，减少“贪吃亏子”
 - 将军局面延伸，降低浅层漏算
+- Quiescence Search（静态搜索延伸）+ Delta Pruning，降低地平线效应
+- Null Move Pruning + LMR（Late Move Reduction）+ Futility Pruning，提升中后盘搜索效率
+- 自适应 Aspiration Window（逐级扩窗 + 趋势调窗），减少反复全窗重搜
+- 重复局面感知搜索：路径重复计数 + 优劣势和棋倾向评分，减少无效循环
 - 开局库（OpeningBook）
 - 开局库增强（棋谱候选 + 快速安全校验 + 近优解加权选择），减少“前几步固定死线”
 - 残局学习集成：

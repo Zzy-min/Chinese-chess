@@ -40,8 +40,29 @@ public class MinimaxAI {
     private static final int ROOT_PARALLEL_MIN_MOVES = 3;
     private static final int ROOT_PARALLEL_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
     private static final int MIDGAME_PLY_FAST_CAP = 10;
+    private static final int RESCUE_BOOK_MIN_PLY = 8;
+    private static final int RESCUE_BOOK_MIN_BRANCHING = 24;
+    private static final int RESCUE_BOOK_REPLY_SCAN = 8;
     private static final int RESULT_CACHE_MAX_ENTRIES = 50000;
     private static final long RESULT_CACHE_TTL_MS = 3 * 60 * 1000L;
+    private static final int QUIESCENCE_MAX_DEPTH = 8;
+    private static final int QUIESCENCE_MAX_MOVES = 16;
+    private static final int QUIESCENCE_DELTA_MARGIN = 120;
+    private static final int NULL_MOVE_MIN_DEPTH = 4;
+    private static final int NULL_MOVE_REDUCTION = 2;
+    private static final int NULL_MOVE_STATIC_MARGIN = 80;
+    private static final int LMR_MIN_DEPTH = 3;
+    private static final int LMR_LATE_MOVE_INDEX = 4;
+    private static final int FUTILITY_MAX_DEPTH = 2;
+    private static final int FUTILITY_MARGIN_DEPTH_1 = 130;
+    private static final int FUTILITY_MARGIN_DEPTH_2 = 300;
+    private static final int SEE_MAX_DEPTH = 4;
+    private static final int SEE_BAD_CAPTURE_THRESHOLD = -40;
+    private static final int GUARD_WEIGHT_SHI = 22;
+    private static final int GUARD_WEIGHT_XIANG = 16;
+    private static final int REPETITION_DRAW_PENALTY_WINNING = -65;
+    private static final int REPETITION_DRAW_BONUS_LOSING = 45;
+    private static final int REPETITION_EVAL_THRESHOLD = 120;
     private static final double[] TIME_PRESSURE_EMA = new double[Difficulty.values().length];
     private static final double TIME_PRESSURE_ALPHA = 0.22;
     private static final long ZOBRIST_TURN_KEY = 0x9E3779B97F4A7C15L;
@@ -151,6 +172,7 @@ public class MinimaxAI {
     private int timeCheckCounter;
 
     private final Map<Long, TTEntry> transpositionTable = new HashMap<Long, TTEntry>(1 << 15);
+    private final Map<Long, Integer> repetitionCount = new HashMap<Long, Integer>(256);
     private final int[][][] historyHeuristic = new int[2][90][90];
     private final Move[][] killerMoves = new Move[MAX_PLY][2];
 
@@ -183,6 +205,11 @@ public class MinimaxAI {
         boolean inEventSet = EventLearnedSet.contains(board);
         int ply = board.getMoveCount();
         EndgameCurve endgameCurve = inStudySet ? curveFor(studyTier, difficulty) : new EndgameCurve(0, 0, false);
+
+        Move rescueBookMove = tryRescueBookMove(board, aiColor, validMoves, ply, inLearnedSet, inEventSet);
+        if (rescueBookMove != null) {
+            return rescueBookMove;
+        }
 
         Move fastEventMove = tryFastEventMove(board, aiColor, validMoves, inEventSet, ply);
         if (fastEventMove != null) {
@@ -247,6 +274,7 @@ public class MinimaxAI {
         timeUp = false;
         timeCheckCounter = 0;
         transpositionTable.clear();
+        seedRepetitionHistory(board);
 
         long cacheKey = buildResultCacheKey(board, aiColor, difficulty);
         Move cached = loadCachedBestMove(cacheKey, validMoves);
@@ -258,17 +286,19 @@ public class MinimaxAI {
         Move pvMove = null;
         int prevScore = 0;
         int completedDepth = 0;
+        int aspirationMissTrend = 0;
 
         for (int depth = 1; depth <= maxDepth && !timeUp; depth++) {
             SearchResult result;
             if (depth >= 3) {
-                int alpha = prevScore - ASPIRATION_WINDOW;
-                int beta = prevScore + ASPIRATION_WINDOW;
-                result = searchRoot(board, aiColor, validMoves, depth, pvMove, alpha, beta);
-                if (!timeUp && result.bestMove != null && (result.score <= alpha || result.score >= beta)) {
-                    // aspiration 失败时回退到全窗口
-                    result = searchRoot(board, aiColor, validMoves, depth, pvMove, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
-                }
+                int baseWindow = computeAspirationWindow(depth, aspirationMissTrend);
+                AspirationSearchOutcome outcome = searchRootWithAdaptiveAspiration(
+                    board, aiColor, validMoves, depth, pvMove, prevScore, baseWindow
+                );
+                result = outcome.result;
+                aspirationMissTrend = outcome.attempts > 1
+                    ? Math.min(5, aspirationMissTrend + 1)
+                    : Math.max(0, aspirationMissTrend - 1);
             } else {
                 result = searchRoot(board, aiColor, validMoves, depth, pvMove, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
             }
@@ -304,6 +334,111 @@ public class MinimaxAI {
             return null;
         }
         return findFastSafeForwardMove(board, aiColor, validMoves);
+    }
+
+    private Move tryRescueBookMove(Board board, PieceColor aiColor, List<Move> validMoves,
+                                   int ply, boolean inLearnedSet, boolean inEventSet) {
+        if (board == null || aiColor == null || validMoves == null || validMoves.isEmpty()) {
+            return null;
+        }
+        if (inLearnedSet || inEventSet) {
+            return null;
+        }
+        if (!shouldUseRescueBook(board, aiColor, validMoves, ply)) {
+            return null;
+        }
+
+        Move bestMove = null;
+        int bestScore = Integer.MIN_VALUE;
+        int bestHitLevel = 0;
+
+        for (Move move : validMoves) {
+            Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
+            Piece captured = board.getPiece(move.getToRow(), move.getToCol());
+            Board next = new Board(board);
+            next.movePiece(move);
+
+            int hitLevel = getBookHitLevel(next, aiColor);
+            if (hitLevel <= 0) {
+                continue;
+            }
+
+            int score = evaluate(next, aiColor) + hitLevel * 10_000;
+            if (captured != null) {
+                score += getPieceValue(captured) * 10;
+            }
+            if (next.isInCheck(aiColor.opposite())) {
+                score += 120;
+            }
+            if (isMoveLandingSafe(board, move, aiColor)) {
+                score += 140;
+            } else {
+                int attackerValue = attacker == null ? 0 : getPieceValue(attacker);
+                score -= Math.max(140, attackerValue / 2);
+            }
+            if (isForwardMove(aiColor, move)) {
+                score += 60;
+            }
+
+            if (hitLevel > bestHitLevel || (hitLevel == bestHitLevel && score > bestScore)) {
+                bestHitLevel = hitLevel;
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+        return bestMove;
+    }
+
+    private boolean shouldUseRescueBook(Board board, PieceColor aiColor, List<Move> validMoves, int ply) {
+        if (ply < RESCUE_BOOK_MIN_PLY) {
+            return false;
+        }
+        int branching = validMoves.size();
+        int evalNow = evaluate(board, aiColor);
+        boolean inCheck = board.isInCheck(aiColor);
+        boolean behind = evalNow < -260;
+        boolean complex = branching >= RESCUE_BOOK_MIN_BRANCHING;
+        double pressure = getTimePressure(difficulty);
+        boolean underPressure = difficulty == Difficulty.HARD ? pressure > 1.03 : pressure > 0.92;
+        return inCheck || behind || complex || underPressure;
+    }
+
+    private int getBookHitLevel(Board nextBoard, PieceColor aiColor) {
+        int hit = 0;
+        if (EventLearnedSet.contains(nextBoard)) {
+            hit += 4;
+        }
+        if (XqipuLearnedSet.contains(nextBoard)) {
+            hit += 3;
+        }
+        if (hit > 0) {
+            return hit;
+        }
+
+        PieceColor opponent = aiColor.opposite();
+        List<Move> replies = nextBoard.getAllValidMoves(opponent);
+        if (replies.isEmpty()) {
+            return 0;
+        }
+        sortMovesByCaptureValue(replies, nextBoard);
+        int scan = Math.min(RESCUE_BOOK_REPLY_SCAN, replies.size());
+        int bestReplyHit = 0;
+        for (int i = 0; i < scan; i++) {
+            Move reply = replies.get(i);
+            Board afterReply = new Board(nextBoard);
+            afterReply.movePiece(reply);
+            int replyHit = 0;
+            if (EventLearnedSet.contains(afterReply)) {
+                replyHit += 2;
+            }
+            if (XqipuLearnedSet.contains(afterReply)) {
+                replyHit += 1;
+            }
+            if (replyHit > bestReplyHit) {
+                bestReplyHit = replyHit;
+            }
+        }
+        return bestReplyHit;
     }
 
     private Move findFastSafeForwardMove(Board board, PieceColor aiColor, List<Move> validMoves) {
@@ -393,6 +528,58 @@ public class MinimaxAI {
         return new SearchResult(bestMove, bestScore);
     }
 
+    private AspirationSearchOutcome searchRootWithAdaptiveAspiration(Board board, PieceColor aiColor, List<Move> rootMoves,
+                                                                     int depth, Move pvMove, int guessScore, int baseWindow) {
+        int window = Math.max(36, baseWindow);
+        int alpha = clampToSearchBound(guessScore - window);
+        int beta = clampToSearchBound(guessScore + window);
+        int attempts = 1;
+        SearchResult result = searchRoot(board, aiColor, rootMoves, depth, pvMove, alpha, beta);
+
+        while (!timeUp && result.bestMove != null && (result.score <= alpha || result.score >= beta) && attempts < 3) {
+            window = Math.min(620, window * 2);
+            if (result.score <= alpha) {
+                alpha = clampToSearchBound(guessScore - window);
+            } else {
+                beta = clampToSearchBound(guessScore + window);
+            }
+            attempts++;
+            result = searchRoot(board, aiColor, rootMoves, depth, pvMove, alpha, beta);
+        }
+
+        if (!timeUp && result.bestMove != null && (result.score <= alpha || result.score >= beta)) {
+            attempts++;
+            result = searchRoot(board, aiColor, rootMoves, depth, pvMove, Integer.MIN_VALUE + 1, Integer.MAX_VALUE);
+        }
+        return new AspirationSearchOutcome(result, attempts);
+    }
+
+    private int computeAspirationWindow(int depth, int missTrend) {
+        double pressure = getTimePressure(difficulty);
+        int window = ASPIRATION_WINDOW + depth * 9 + missTrend * 34;
+        if (pressure > 1.0) {
+            window += 24;
+        } else if (pressure < 0.8) {
+            window -= 12;
+        }
+        if (difficulty == Difficulty.EASY) {
+            window += 20;
+        } else if (difficulty == Difficulty.HARD) {
+            window -= 8;
+        }
+        return Math.max(36, Math.min(320, window));
+    }
+
+    private int clampToSearchBound(int score) {
+        if (score <= Integer.MIN_VALUE + 1) {
+            return Integer.MIN_VALUE + 1;
+        }
+        if (score >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return score;
+    }
+
     private SearchResult searchRootParallel(Board board, PieceColor aiColor, List<Move> ordered, int depth) {
         List<Future<SearchResult>> futures = new ArrayList<Future<SearchResult>>(ordered.size());
         for (Move move : ordered) {
@@ -412,6 +599,7 @@ public class MinimaxAI {
                     worker.searchDeadlineMs = searchDeadlineMs;
                     worker.timeUp = false;
                     worker.timeCheckCounter = 0;
+                    worker.repetitionCount.putAll(repetitionCount);
                     int score = -worker.negamax(rootBoard, depth - 1, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, 1, aiColor);
                     return new SearchResult(rootMove, score);
                 }
@@ -486,8 +674,17 @@ public class MinimaxAI {
     }
 
     private int negamax(Board board, int depth, int alpha, int beta, int ply, PieceColor aiColor) {
+        long hash = computeHash(board);
+        int seen = repetitionCount.getOrDefault(hash, 0) + 1;
+        repetitionCount.put(hash, seen);
+        boolean repetitionSensitive = seen > 1;
+        try {
         if (isTimeUp()) {
             return evaluate(board, aiColor);
+        }
+
+        if (seen >= 3) {
+            return repetitionScore(board, aiColor);
         }
 
         if (board.isGameOver()) {
@@ -502,18 +699,18 @@ public class MinimaxAI {
         }
 
         PieceColor sideToMove = board.getCurrentTurn();
+        boolean sideInCheck = board.isInCheck(sideToMove);
         if (depth <= 0) {
             // 将军局面补一层，避免浅层漏算强制将杀。
-            if (board.isInCheck(sideToMove)) {
+            if (sideInCheck) {
                 depth = 1;
             } else {
-                return evaluate(board, aiColor);
+                return quiescence(board, alpha, beta, aiColor, ply, 0);
             }
         }
 
-        long hash = computeHash(board);
         int originalAlpha = alpha;
-        TTEntry entry = transpositionTable.get(hash);
+        TTEntry entry = repetitionSensitive ? null : transpositionTable.get(hash);
         Move ttMove = null;
         if (entry != null) {
             ttMove = entry.bestMove;
@@ -532,6 +729,31 @@ public class MinimaxAI {
             }
         }
 
+        int staticEval = evaluate(board, aiColor);
+        if (!repetitionSensitive
+            && depth >= NULL_MOVE_MIN_DEPTH
+            && !sideInCheck
+            && Math.abs(beta) < MATE_SCORE / 2
+            && canUseNullMove(board, sideToMove)) {
+            if (staticEval >= beta - NULL_MOVE_STATIC_MARGIN) {
+                Board nullBoard = new Board(board);
+                nullBoard.setCurrentTurn(sideToMove.opposite());
+                int reduction = depth >= 8 ? (NULL_MOVE_REDUCTION + 1) : NULL_MOVE_REDUCTION;
+                int nullDepth = Math.max(0, depth - 1 - reduction);
+                int nullScore = -negamax(
+                    nullBoard,
+                    nullDepth,
+                    -beta,
+                    -beta + 1,
+                    Math.min(MAX_PLY - 1, ply + 1),
+                    aiColor
+                );
+                if (!timeUp && nullScore >= beta) {
+                    return nullScore;
+                }
+            }
+        }
+
         List<Move> validMoves = board.getAllValidMoves(sideToMove);
         if (validMoves.isEmpty()) {
             return evaluate(board, aiColor);
@@ -541,10 +763,12 @@ public class MinimaxAI {
         int bestScore = Integer.MIN_VALUE;
         Move bestMove = null;
         boolean firstMove = true;
+        int moveIndex = 0;
         for (Move move : validMoves) {
             if (isTimeUp()) {
                 break;
             }
+            moveIndex++;
 
             boolean isCapture = board.getPiece(move.getToRow(), move.getToCol()) != null;
             Board next = new Board(board);
@@ -555,9 +779,31 @@ public class MinimaxAI {
                 score = -negamax(next, depth - 1, -beta, -alpha, nextPly, aiColor);
                 firstMove = false;
             } else {
-                score = -negamax(next, depth - 1, -alpha - 1, -alpha, nextPly, aiColor);
+                int fullDepth = depth - 1;
+                boolean givesCheck = next.isInCheck(sideToMove.opposite());
+                if (depth <= FUTILITY_MAX_DEPTH
+                    && !sideInCheck
+                    && !isCapture
+                    && !givesCheck
+                    && !isKillerMove(move, ply)
+                    && staticEval + futilityMargin(depth) <= alpha) {
+                    continue;
+                }
+                boolean reduce = depth >= LMR_MIN_DEPTH
+                    && moveIndex >= LMR_LATE_MOVE_INDEX
+                    && !sideInCheck
+                    && !isCapture
+                    && !givesCheck
+                    && !isKillerMove(move, ply);
+                int searchDepth = reduce ? Math.max(1, fullDepth - 1) : fullDepth;
+
+                score = -negamax(next, searchDepth, -alpha - 1, -alpha, nextPly, aiColor);
+                if (!timeUp && reduce && score > alpha) {
+                    // LMR fail-high 回补：恢复原深度后再做零窗口确认。
+                    score = -negamax(next, fullDepth, -alpha - 1, -alpha, nextPly, aiColor);
+                }
                 if (!timeUp && score > alpha && score < beta) {
-                    score = -negamax(next, depth - 1, -beta, -alpha, nextPly, aiColor);
+                    score = -negamax(next, fullDepth, -beta, -alpha, nextPly, aiColor);
                 }
             }
 
@@ -577,7 +823,7 @@ public class MinimaxAI {
             }
         }
 
-        if (!timeUp && bestMove != null) {
+        if (!timeUp && bestMove != null && !repetitionSensitive) {
             int flag = TT_EXACT;
             if (bestScore <= originalAlpha) {
                 flag = TT_UPPER;
@@ -590,6 +836,133 @@ public class MinimaxAI {
             transpositionTable.put(hash, new TTEntry(depth, bestScore, flag, copyMove(bestMove)));
         }
         return bestScore;
+        } finally {
+            int current = repetitionCount.getOrDefault(hash, 0);
+            if (current <= 1) {
+                repetitionCount.remove(hash);
+            } else {
+                repetitionCount.put(hash, current - 1);
+            }
+        }
+    }
+
+    private int repetitionScore(Board board, PieceColor aiColor) {
+        int eval = evaluate(board, aiColor);
+        if (eval > REPETITION_EVAL_THRESHOLD) {
+            return REPETITION_DRAW_PENALTY_WINNING;
+        }
+        if (eval < -REPETITION_EVAL_THRESHOLD) {
+            return REPETITION_DRAW_BONUS_LOSING;
+        }
+        return 0;
+    }
+
+    private int quiescence(Board board, int alpha, int beta, PieceColor aiColor, int ply, int qDepth) {
+        if (isTimeUp()) {
+            return evaluate(board, aiColor);
+        }
+        int standPat = evaluate(board, aiColor);
+        if (standPat >= beta) {
+            return standPat;
+        }
+        if (standPat > alpha) {
+            alpha = standPat;
+        }
+        if (qDepth >= QUIESCENCE_MAX_DEPTH || ply >= MAX_PLY - 1) {
+            return standPat;
+        }
+
+        PieceColor side = board.getCurrentTurn();
+        List<Move> tacticalMoves = getQuiescenceMoves(board, side);
+        if (tacticalMoves.isEmpty()) {
+            return standPat;
+        }
+
+        int explored = 0;
+        for (Move move : tacticalMoves) {
+            if (isTimeUp()) {
+                break;
+            }
+            Piece captured = board.getPiece(move.getToRow(), move.getToCol());
+            if (captured != null) {
+                int optimistic = standPat + getPieceValue(captured) + QUIESCENCE_DELTA_MARGIN;
+                if (optimistic < alpha) {
+                    continue;
+                }
+            }
+            Board next = new Board(board);
+            next.movePiece(move);
+            int score = -quiescence(
+                next,
+                -beta,
+                -alpha,
+                aiColor,
+                Math.min(MAX_PLY - 1, ply + 1),
+                qDepth + 1
+            );
+            if (score >= beta) {
+                return score;
+            }
+            if (score > alpha) {
+                alpha = score;
+            }
+            explored++;
+            if (explored >= QUIESCENCE_MAX_MOVES) {
+                break;
+            }
+        }
+        return alpha;
+    }
+
+    private List<Move> getQuiescenceMoves(Board board, PieceColor side) {
+        List<Move> all = board.getAllValidMoves(side);
+        if (all.isEmpty()) {
+            return all;
+        }
+        List<MoveOrder> captures = new ArrayList<MoveOrder>(all.size());
+        for (Move move : all) {
+            Piece captured = board.getPiece(move.getToRow(), move.getToCol());
+            if (captured == null) {
+                continue;
+            }
+            Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
+            int see = staticExchangeEval(board, move, side, SEE_MAX_DEPTH);
+            int score = getPieceValue(captured) * 20
+                - (attacker == null ? 0 : getPieceValue(attacker))
+                + see * 18;
+            if (see < SEE_BAD_CAPTURE_THRESHOLD && getPieceValue(captured) < 430) {
+                continue;
+            }
+            captures.add(new MoveOrder(move, score));
+        }
+        captures.sort((a, b) -> Integer.compare(b.score, a.score));
+        List<Move> result = new ArrayList<Move>(Math.min(QUIESCENCE_MAX_MOVES, captures.size()));
+        for (MoveOrder moveOrder : captures) {
+            result.add(moveOrder.move);
+            if (result.size() >= QUIESCENCE_MAX_MOVES) {
+                break;
+            }
+        }
+        return result;
+    }
+
+    private void seedRepetitionHistory(Board board) {
+        repetitionCount.clear();
+        if (board == null) {
+            return;
+        }
+        int totalMoves = board.getMoveCount();
+        if (totalMoves <= 0) {
+            return;
+        }
+        for (int ply = 0; ply < totalMoves; ply++) {
+            Board prior = board.getBoardAtMove(ply);
+            if (prior == null) {
+                continue;
+            }
+            long key = computeHash(prior);
+            repetitionCount.put(key, repetitionCount.getOrDefault(key, 0) + 1);
+        }
     }
 
     private boolean isTimeUp() {
@@ -783,7 +1156,12 @@ public class MinimaxAI {
             Piece captured = board.getPiece(move.getToRow(), move.getToCol());
             Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
             if (captured != null && attacker != null) {
+                int see = staticExchangeEval(board, move, side, SEE_MAX_DEPTH);
                 score += 2_000_000 + getPieceValue(captured) * 16 - getPieceValue(attacker);
+                score += see * 22;
+                if (see < 0) {
+                    score += see * 6;
+                }
             } else {
                 if (killer1 != null && isSameMove(move, killer1)) {
                     score += 1_500_000;
@@ -957,6 +1335,9 @@ public class MinimaxAI {
             }
         }
 
+        score += evaluateGuardStructure(board, aiColor);
+        score -= evaluateGuardStructure(board, aiColor.opposite());
+
         if (board.isInCheck(aiColor.opposite())) {
             score += 30;
         }
@@ -975,6 +1356,25 @@ public class MinimaxAI {
             return 0;
         }
         return score;
+    }
+
+    private int evaluateGuardStructure(Board board, PieceColor color) {
+        int guardScore = 0;
+        for (int row = 0; row < Board.ROWS; row++) {
+            for (int col = 0; col < Board.COLS; col++) {
+                Piece piece = board.getPiece(row, col);
+                if (piece == null || piece.getColor() != color) {
+                    continue;
+                }
+                PieceType type = piece.getType();
+                if (type == PieceType.SHI || type == PieceType.SHI_RED) {
+                    guardScore += GUARD_WEIGHT_SHI;
+                } else if (type == PieceType.XIANG || type == PieceType.XIANG_RED) {
+                    guardScore += GUARD_WEIGHT_XIANG;
+                }
+            }
+        }
+        return guardScore;
     }
 
     private int getPieceValue(Piece piece) {
@@ -1058,6 +1458,119 @@ public class MinimaxAI {
         return 0;
     }
 
+    private int staticExchangeEval(Board board, Move move, PieceColor mover, int maxDepth) {
+        if (board == null || move == null || mover == null) {
+            return 0;
+        }
+        Piece captured = board.getPiece(move.getToRow(), move.getToCol());
+        Piece attacker = board.getPiece(move.getFromRow(), move.getFromCol());
+        if (captured == null || attacker == null) {
+            return 0;
+        }
+        Board next = new Board(board);
+        next.movePiece(move);
+        int firstGain = getPieceValue(captured);
+        int replyGain = seeBestCaptureGain(next, move.getToRow(), move.getToCol(), mover.opposite(), 1, maxDepth);
+        return firstGain - replyGain;
+    }
+
+    private int seeBestCaptureGain(Board board, int targetRow, int targetCol, PieceColor side, int depth, int maxDepth) {
+        if (board == null || side == null || depth > maxDepth) {
+            return 0;
+        }
+        List<Move> attackers = getCaptureMovesToSquare(board, side, targetRow, targetCol);
+        if (attackers.isEmpty()) {
+            return 0;
+        }
+        Move least = selectLeastValuableAttacker(board, attackers);
+        if (least == null) {
+            return 0;
+        }
+        Piece victim = board.getPiece(targetRow, targetCol);
+        if (victim == null) {
+            return 0;
+        }
+        int gainNow = getPieceValue(victim);
+        Board next = new Board(board);
+        next.movePiece(least);
+        int gainLater = seeBestCaptureGain(next, targetRow, targetCol, side.opposite(), depth + 1, maxDepth);
+        return Math.max(0, gainNow - gainLater);
+    }
+
+    private Move selectLeastValuableAttacker(Board board, List<Move> attackers) {
+        Move best = null;
+        int bestValue = Integer.MAX_VALUE;
+        for (Move move : attackers) {
+            Piece piece = board.getPiece(move.getFromRow(), move.getFromCol());
+            if (piece == null) {
+                continue;
+            }
+            int value = getPieceValue(piece);
+            if (value < bestValue) {
+                bestValue = value;
+                best = move;
+            }
+        }
+        return best;
+    }
+
+    private List<Move> getCaptureMovesToSquare(Board board, PieceColor side, int targetRow, int targetCol) {
+        List<Move> all = board.getAllValidMoves(side);
+        if (all.isEmpty()) {
+            return all;
+        }
+        List<Move> captures = new ArrayList<Move>();
+        for (Move move : all) {
+            if (move.getToRow() == targetRow && move.getToCol() == targetCol) {
+                Piece captured = board.getPiece(targetRow, targetCol);
+                if (captured != null && captured.getColor() != side) {
+                    captures.add(move);
+                }
+            }
+        }
+        return captures;
+    }
+
+    private boolean canUseNullMove(Board board, PieceColor side) {
+        int pawnCount = 0;
+        for (int row = 0; row < Board.ROWS; row++) {
+            for (int col = 0; col < Board.COLS; col++) {
+                Piece piece = board.getPiece(row, col);
+                if (piece == null || piece.getColor() != side) {
+                    continue;
+                }
+                PieceType type = piece.getType();
+                if (type == PieceType.CHE || type == PieceType.CHE_RED
+                    || type == PieceType.MA || type == PieceType.MA_RED
+                    || type == PieceType.PAO || type == PieceType.PAO_RED) {
+                    return true;
+                }
+                if (type == PieceType.ZU || type == PieceType.ZU_RED) {
+                    pawnCount++;
+                }
+            }
+        }
+        // 仅剩将士象时禁用 null-move，避免残局误剪；有多个兵仍可作为机动子力。
+        return pawnCount >= 2;
+    }
+
+    private int futilityMargin(int depth) {
+        if (depth <= 1) {
+            return FUTILITY_MARGIN_DEPTH_1;
+        }
+        if (depth == 2) {
+            return FUTILITY_MARGIN_DEPTH_2;
+        }
+        return FUTILITY_MARGIN_DEPTH_2 + 120;
+    }
+
+    private boolean isKillerMove(Move move, int ply) {
+        if (move == null || ply < 0 || ply >= MAX_PLY) {
+            return false;
+        }
+        return isSameMove(move, killerMoves[ply][0]) || isSameMove(move, killerMoves[ply][1]);
+    }
+
     private boolean isSameMove(Move a, Move b) {
         return a != null && b != null
             && a.getFromRow() == b.getFromRow()
@@ -1087,6 +1600,16 @@ public class MinimaxAI {
         private SearchResult(Move bestMove, int score) {
             this.bestMove = bestMove;
             this.score = score;
+        }
+    }
+
+    private static final class AspirationSearchOutcome {
+        private final SearchResult result;
+        private final int attempts;
+
+        private AspirationSearchOutcome(SearchResult result, int attempts) {
+            this.result = result;
+            this.attempts = attempts;
         }
     }
 }
