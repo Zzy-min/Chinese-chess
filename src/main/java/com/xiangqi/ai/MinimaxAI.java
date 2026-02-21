@@ -734,6 +734,9 @@ public class MinimaxAI {
             }
             return 0;
         }
+        if (ply >= MAX_PLY - 1) {
+            return evaluate(board, aiColor);
+        }
 
         PieceColor sideToMove = board.getCurrentTurn();
         boolean sideInCheck = board.isInCheck(sideToMove);
