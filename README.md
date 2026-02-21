@@ -12,6 +12,7 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 你可自由选择先后手，执黑时棋盘自动翻转到底侧视角。  
 桌面与浏览器双端可用，浏览器模式可独立运行不中断。  
 每一步更清晰，每一局更流畅，专注纯粹对弈体验。  
+浏览器端现已升级为宫阙主题动态舞台：接入 GSAP 宫廷过场动效（开局/将军/绝杀）与 PixiJS 渲染链，棋子采用 bevel + shadow bloom + specular 分层材质，立体雕刻质感更强。  
 近期 AI 引擎已完成连续升级：重复局面控制、静态搜索延伸（Quiescence）、Null Move / LMR / Futility 裁剪、自适应 Aspiration Window 与 SEE（静态交换评估）接入，显著降低中后盘长考与战术漏算。
 
 ## 最新版本特性
@@ -49,6 +50,9 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 - 人机一步一响应强化：简单/中等难度最短步间隔下调，网页轮询与落子链路进一步提速
 - 交互灵敏度提升：桌面端扩大落点命中范围，快捷模式下点击反馈更快
 - 棋子立体雕刻感增强：新增高光/暗角/倒角光带（桌面）与棋子凹凸阴影（浏览器）
+- 浏览器端视觉引擎升级：接入 `PixiJS` 作为主渲染链，保留 Canvas 兜底回退
+- 3D 深雕棋子材质：`bevel + shadow bloom + specular` 分层叠加，棋子厚度与金属反光更明显
+- 宫廷过场动效：`开局 / 将军 / 绝杀` 三套独立 `GSAP timeline`，含金匾提示与舞台光效脉冲
 - 第五轮开源对标优化：新增超快应答通道（简单/中等）、动态 Quiescence 预算与受控将军延伸，并补充对标清单 `docs/open-source-benchmark-round5.md`
 
 ## AI 与算法
