@@ -608,7 +608,7 @@ public class XiangqiFrame extends JFrame {
 
     private void openInBrowser() {
         try {
-            URI uri = URI.create("http://" + BrowserModeMain.TRUSTED_HOST + ":" + BrowserModeMain.PORT + "/");
+            URI uri = buildTrustedBrowserUri();
             // 每次打开浏览器模式都重启服务，避免旧进程导致资源（如音效）版本不一致
             restartStandaloneBrowserServer();
             waitBrowserServerReady(uri, 6000);
@@ -627,6 +627,27 @@ public class XiangqiFrame extends JFrame {
                 "错误",
                 JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private URI buildTrustedBrowserUri() {
+        String host = BrowserModeMain.TRUSTED_HOST;
+        int port = BrowserModeMain.PORT;
+        if (!isValidBrowserHost(host) || !isValidPort(port)) {
+            throw new IllegalArgumentException("非法浏览器地址配置");
+        }
+        return URI.create("http://" + host + ":" + port + "/");
+    }
+
+    private boolean isValidBrowserHost(String host) {
+        if (host == null) {
+            return false;
+        }
+        String normalized = host.trim().toLowerCase();
+        return "127.0.0.1".equals(normalized) || "localhost".equals(normalized);
+    }
+
+    private boolean isValidPort(int port) {
+        return port >= 1 && port <= 65535;
     }
 
     private void restartStandaloneBrowserServer() throws IOException {
