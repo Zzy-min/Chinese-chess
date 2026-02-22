@@ -7,6 +7,7 @@ import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.PieceType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,7 @@ public class MinimaxAI {
         }
     });
     private static final ConcurrentHashMap<Long, CachedBestMove> RESULT_CACHE = new ConcurrentHashMap<Long, CachedBestMove>();
+    private static final Object RESULT_CACHE_MAINTENANCE_LOCK = new Object();
 
     public enum Difficulty {
         EASY("简单", 2, 380, 0.30),
@@ -177,6 +179,7 @@ public class MinimaxAI {
     private final Map<Long, TTEntry> transpositionTable = new ConcurrentHashMap<Long, TTEntry>(1 << 15);
     private final Map<Long, Integer> repetitionCount = new ConcurrentHashMap<Long, Integer>(256);
     private final Map<Long, Integer> seeCache = new ConcurrentHashMap<Long, Integer>(2048);
+    private final Object ttMaintenanceLock = new Object();
     private final int[][][] historyHeuristic = new int[2][90][90];
     private final Move[][] killerMoves = new Move[MAX_PLY][2];
 
@@ -620,11 +623,20 @@ public class MinimaxAI {
         int window = Math.max(1, Math.min(ROOT_PARALLEL_THREADS, ordered.size()));
         ExecutorCompletionService<SearchResult> completion = new ExecutorCompletionService<SearchResult>(ROOT_EXECUTOR);
         List<Future<SearchResult>> inFlight = new ArrayList<Future<SearchResult>>(window);
+        final Difficulty difficultySnapshot = difficulty;
+        final long startSnapshot = searchStartTime;
+        final int limitSnapshot = searchTimeLimitMs;
+        final long deadlineSnapshot = searchDeadlineMs;
+        final boolean fastModeSnapshot = searchFastMode;
+        final Map<Long, Integer> repetitionSnapshot = new HashMap<Long, Integer>(repetitionCount);
         int submitted = 0;
         int completed = 0;
 
         while (submitted < ordered.size() && inFlight.size() < window && !isTimeUp()) {
-            Future<SearchResult> future = completion.submit(createRootTask(board, aiColor, ordered.get(submitted), depth));
+            Future<SearchResult> future = completion.submit(createRootTask(
+                board, aiColor, ordered.get(submitted), depth,
+                difficultySnapshot, startSnapshot, limitSnapshot, deadlineSnapshot, fastModeSnapshot, repetitionSnapshot
+            ));
             inFlight.add(future);
             submitted++;
         }
@@ -650,7 +662,10 @@ public class MinimaxAI {
                     bestMove = result.bestMove;
                 }
                 while (submitted < ordered.size() && (submitted - completed) < window && !isTimeUp()) {
-                    Future<SearchResult> nextFuture = completion.submit(createRootTask(board, aiColor, ordered.get(submitted), depth));
+                    Future<SearchResult> nextFuture = completion.submit(createRootTask(
+                        board, aiColor, ordered.get(submitted), depth,
+                        difficultySnapshot, startSnapshot, limitSnapshot, deadlineSnapshot, fastModeSnapshot, repetitionSnapshot
+                    ));
                     inFlight.add(nextFuture);
                     submitted++;
                 }
@@ -661,7 +676,10 @@ public class MinimaxAI {
             } catch (ExecutionException e) {
                 // 忽略个别任务失败，继续汇总其他根节点结果
                 while (submitted < ordered.size() && (submitted - completed) < window && !isTimeUp()) {
-                    Future<SearchResult> nextFuture = completion.submit(createRootTask(board, aiColor, ordered.get(submitted), depth));
+                    Future<SearchResult> nextFuture = completion.submit(createRootTask(
+                        board, aiColor, ordered.get(submitted), depth,
+                        difficultySnapshot, startSnapshot, limitSnapshot, deadlineSnapshot, fastModeSnapshot, repetitionSnapshot
+                    ));
                     inFlight.add(nextFuture);
                     submitted++;
                 }
@@ -676,7 +694,10 @@ public class MinimaxAI {
         return new SearchResult(bestMove, bestScore);
     }
 
-    private Callable<SearchResult> createRootTask(Board board, PieceColor aiColor, Move move, int depth) {
+    private Callable<SearchResult> createRootTask(Board board, PieceColor aiColor, Move move, int depth,
+                                                  Difficulty difficultySnapshot, long startSnapshot, int limitSnapshot,
+                                                  long deadlineSnapshot, boolean fastModeSnapshot,
+                                                  Map<Long, Integer> repetitionSnapshot) {
         final Move rootMove = copyMove(move);
         final Board rootBoard = new Board(board);
         rootBoard.movePiece(rootMove);
@@ -684,14 +705,14 @@ public class MinimaxAI {
             @Override
             public SearchResult call() {
                 MinimaxAI worker = new MinimaxAI();
-                worker.setDifficulty(difficulty);
-                worker.searchStartTime = searchStartTime;
-                worker.searchTimeLimitMs = searchTimeLimitMs;
-                worker.searchDeadlineMs = searchDeadlineMs;
+                worker.setDifficulty(difficultySnapshot);
+                worker.searchStartTime = startSnapshot;
+                worker.searchTimeLimitMs = limitSnapshot;
+                worker.searchDeadlineMs = deadlineSnapshot;
                 worker.timeUp = false;
                 worker.timeCheckCounter = 0;
-                worker.searchFastMode = searchFastMode;
-                worker.repetitionCount.putAll(repetitionCount);
+                worker.searchFastMode = fastModeSnapshot;
+                worker.repetitionCount.putAll(repetitionSnapshot);
                 int score = -worker.negamax(rootBoard, depth - 1, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, 1, aiColor);
                 return new SearchResult(rootMove, score);
             }
@@ -774,7 +795,7 @@ public class MinimaxAI {
         TTEntry entry = repetitionSensitive ? null : transpositionTable.get(hash);
         Move ttMove = null;
         if (entry != null) {
-            ttMove = entry.bestMove;
+            ttMove = entry.bestMove == null ? null : copyMove(entry.bestMove);
             if (entry.depth >= depth) {
                 if (entry.flag == TT_EXACT) {
                     return entry.score;
@@ -891,10 +912,7 @@ public class MinimaxAI {
             } else if (bestScore >= beta) {
                 flag = TT_LOWER;
             }
-            if (transpositionTable.size() >= TT_MAX_ENTRIES) {
-                transpositionTable.clear();
-            }
-            transpositionTable.put(hash, new TTEntry(depth, bestScore, flag, copyMove(bestMove)));
+            storeTransposition(hash, depth, bestScore, flag, bestMove);
         }
         return bestScore;
         } finally {
@@ -1189,6 +1207,20 @@ public class MinimaxAI {
         TIME_PRESSURE_EMA[idx] = prev * (1.0 - TIME_PRESSURE_ALPHA) + ratio * TIME_PRESSURE_ALPHA;
     }
 
+    private void storeTransposition(long hash, int depth, int score, int flag, Move bestMove) {
+        if (bestMove == null) {
+            return;
+        }
+        if (transpositionTable.size() >= TT_MAX_ENTRIES) {
+            synchronized (ttMaintenanceLock) {
+                if (transpositionTable.size() >= TT_MAX_ENTRIES) {
+                    transpositionTable.clear();
+                }
+            }
+        }
+        transpositionTable.put(hash, new TTEntry(depth, score, flag, copyMove(bestMove)));
+    }
+
     private long buildResultCacheKey(Board board, PieceColor aiColor, Difficulty diff) {
         long h = computeHash(board);
         h ^= ((long) diff.ordinal() & 0xFFL) << 56;
@@ -1202,7 +1234,7 @@ public class MinimaxAI {
             return null;
         }
         if (System.currentTimeMillis() > cached.expiresAt) {
-            RESULT_CACHE.remove(key);
+            RESULT_CACHE.remove(key, cached);
             return null;
         }
         if (cached.move == null || validMoves == null) {
@@ -1220,10 +1252,35 @@ public class MinimaxAI {
         if (move == null) {
             return;
         }
-        if (RESULT_CACHE.size() >= RESULT_CACHE_MAX_ENTRIES) {
-            RESULT_CACHE.clear();
+        long now = System.currentTimeMillis();
+        pruneResultCacheIfNeeded(now);
+        RESULT_CACHE.put(key, new CachedBestMove(copyMove(move), now + RESULT_CACHE_TTL_MS));
+    }
+
+    private static void pruneResultCacheIfNeeded(long now) {
+        if (RESULT_CACHE.size() < RESULT_CACHE_MAX_ENTRIES) {
+            return;
         }
-        RESULT_CACHE.put(key, new CachedBestMove(copyMove(move), System.currentTimeMillis() + RESULT_CACHE_TTL_MS));
+        synchronized (RESULT_CACHE_MAINTENANCE_LOCK) {
+            if (RESULT_CACHE.size() < RESULT_CACHE_MAX_ENTRIES) {
+                return;
+            }
+            for (Map.Entry<Long, CachedBestMove> entry : RESULT_CACHE.entrySet()) {
+                CachedBestMove value = entry.getValue();
+                if (value == null || now > value.expiresAt) {
+                    RESULT_CACHE.remove(entry.getKey(), value);
+                }
+            }
+            if (RESULT_CACHE.size() <= RESULT_CACHE_MAX_ENTRIES) {
+                return;
+            }
+            List<Map.Entry<Long, CachedBestMove>> entries = new ArrayList<Map.Entry<Long, CachedBestMove>>(RESULT_CACHE.entrySet());
+            Collections.sort(entries, (a, b) -> Long.compare(a.getValue().expiresAt, b.getValue().expiresAt));
+            for (int i = 0; i < entries.size() && RESULT_CACHE.size() > RESULT_CACHE_MAX_ENTRIES; i++) {
+                Map.Entry<Long, CachedBestMove> entry = entries.get(i);
+                RESULT_CACHE.remove(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     private void orderMoves(List<Move> moves, Board board, Move pvMove, int ply) {
