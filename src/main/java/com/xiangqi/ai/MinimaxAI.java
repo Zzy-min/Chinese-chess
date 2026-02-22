@@ -174,9 +174,9 @@ public class MinimaxAI {
     private int timeCheckCounter;
     private boolean searchFastMode;
 
-    private final Map<Long, TTEntry> transpositionTable = new HashMap<Long, TTEntry>(1 << 15);
-    private final Map<Long, Integer> repetitionCount = new HashMap<Long, Integer>(256);
-    private final Map<Long, Integer> seeCache = new HashMap<Long, Integer>(2048);
+    private final Map<Long, TTEntry> transpositionTable = new ConcurrentHashMap<Long, TTEntry>(1 << 15);
+    private final Map<Long, Integer> repetitionCount = new ConcurrentHashMap<Long, Integer>(256);
+    private final Map<Long, Integer> seeCache = new ConcurrentHashMap<Long, Integer>(2048);
     private final int[][][] historyHeuristic = new int[2][90][90];
     private final Move[][] killerMoves = new Move[MAX_PLY][2];
 

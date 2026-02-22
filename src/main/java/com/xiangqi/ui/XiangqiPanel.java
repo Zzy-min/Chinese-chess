@@ -650,7 +650,7 @@ public class XiangqiPanel extends JPanel {
     private void drawPiece(Graphics2D g2d, Piece piece, int row, int col) {
         int centerX = gridCenterXByBoardCol(col);
         int centerY = gridCenterYByBoardRow(row);
-        boolean rotateInward = false;
+        boolean rotateInward = isBoardFlipped();
         if (rotateInward) {
             g2d.rotate(Math.PI, centerX, centerY);
         }
@@ -993,11 +993,112 @@ public class XiangqiPanel extends JPanel {
     }
 
     public void loadPosition(String fen) {
-        // 简单的FEN加载功能，用于残局
-        board = new Board();
-        // TODO: 实现FEN解析
-        initializeBoard();
-        repaint();
+        if (fen == null || fen.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "FEN 不能为空", "加载局面失败", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            board = parseFenToBoard(fen.trim());
+            selectedRow = -1;
+            selectedCol = -1;
+            reviewBoard = null;
+            reviewMoveIndex = 0;
+            isHumanTurn = (gameMode == GameMode.PVP) || (board.getCurrentTurn() == humanColor);
+            lastMoveTimestamp = 0L;
+            repaint();
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, "FEN 格式错误：" + ex.getMessage(), "加载局面失败", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private Board parseFenToBoard(String fen) {
+        String[] parts = fen.split("\\s+");
+        if (parts.length == 0 || parts[0].trim().isEmpty()) {
+            throw new IllegalArgumentException("缺少棋盘字段");
+        }
+
+        String[] rows = parts[0].split("/");
+        if (rows.length != Board.ROWS) {
+            throw new IllegalArgumentException("行数必须为 " + Board.ROWS);
+        }
+
+        Board parsed = new Board();
+        for (int r = 0; r < Board.ROWS; r++) {
+            for (int c = 0; c < Board.COLS; c++) {
+                parsed.setPiece(r, c, null);
+            }
+        }
+
+        for (int r = 0; r < Board.ROWS; r++) {
+            int col = 0;
+            String line = rows[r];
+            for (int i = 0; i < line.length(); i++) {
+                char ch = line.charAt(i);
+                if (Character.isDigit(ch)) {
+                    col += ch - '0';
+                    continue;
+                }
+                Piece piece = createPieceFromFenChar(ch, r, col);
+                if (piece == null) {
+                    throw new IllegalArgumentException("不支持的棋子字符: " + ch);
+                }
+                if (col < 0 || col >= Board.COLS) {
+                    throw new IllegalArgumentException("第 " + (r + 1) + " 行列数越界");
+                }
+                parsed.setPiece(r, col, piece);
+                col++;
+            }
+            if (col != Board.COLS) {
+                throw new IllegalArgumentException("第 " + (r + 1) + " 行列数不是 " + Board.COLS);
+            }
+        }
+
+        PieceColor turn = PieceColor.RED;
+        if (parts.length >= 2) {
+            String side = parts[1].trim().toLowerCase();
+            if ("b".equals(side)) {
+                turn = PieceColor.BLACK;
+            } else if (!"w".equals(side)) {
+                throw new IllegalArgumentException("行棋方字段必须为 w 或 b");
+            }
+        }
+        parsed.setCurrentTurn(turn);
+        return parsed;
+    }
+
+    private Piece createPieceFromFenChar(char ch, int row, int col) {
+        switch (ch) {
+            case 'r':
+                return new Piece(PieceType.CHE, PieceColor.BLACK, row, col);
+            case 'n':
+                return new Piece(PieceType.MA, PieceColor.BLACK, row, col);
+            case 'b':
+                return new Piece(PieceType.XIANG, PieceColor.BLACK, row, col);
+            case 'a':
+                return new Piece(PieceType.SHI, PieceColor.BLACK, row, col);
+            case 'k':
+                return new Piece(PieceType.JIANG, PieceColor.BLACK, row, col);
+            case 'c':
+                return new Piece(PieceType.PAO, PieceColor.BLACK, row, col);
+            case 'p':
+                return new Piece(PieceType.ZU, PieceColor.BLACK, row, col);
+            case 'R':
+                return new Piece(PieceType.CHE_RED, PieceColor.RED, row, col);
+            case 'N':
+                return new Piece(PieceType.MA_RED, PieceColor.RED, row, col);
+            case 'B':
+                return new Piece(PieceType.XIANG_RED, PieceColor.RED, row, col);
+            case 'A':
+                return new Piece(PieceType.SHI_RED, PieceColor.RED, row, col);
+            case 'K':
+                return new Piece(PieceType.SHUAI, PieceColor.RED, row, col);
+            case 'C':
+                return new Piece(PieceType.PAO_RED, PieceColor.RED, row, col);
+            case 'P':
+                return new Piece(PieceType.ZU_RED, PieceColor.RED, row, col);
+            default:
+                return null;
+        }
     }
 
     // 棋盘回顾相关方法
