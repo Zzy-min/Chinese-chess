@@ -91,7 +91,7 @@ public class Board {
         }
     }
 
-    public void movePiece(Move move) {
+    public synchronized void movePiece(Move move) {
         Piece piece = board[move.getFromRow()][move.getFromCol()];
         Piece captured = board[move.getToRow()][move.getToCol()]; // 保存被吃的棋子
 
@@ -109,7 +109,7 @@ public class Board {
     /**
      * 悔棋 - 撤销最后一步
      */
-    public void undoMove() {
+    public synchronized void undoMove() {
         if (moveHistory.isEmpty()) {
             return;
         }
