@@ -9,6 +9,11 @@ import com.xiangqi.model.Move;
 import com.xiangqi.model.Piece;
 import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.TacticDetector;
+import com.xiangqi.model.gomoku.GomokuAI;
+import com.xiangqi.model.gomoku.GomokuBoard;
+import com.xiangqi.model.gomoku.GomokuMove;
+import com.xiangqi.model.gomoku.GomokuPlaceResult;
+import com.xiangqi.model.gomoku.GomokuStone;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +37,8 @@ import java.util.concurrent.ThreadFactory;
 
 public class WebXiangqiServer {
     private static final long MIN_MOVE_INTERVAL_MS = 120L;
+    private static final String GAME_XIANGQI = "XIANGQI";
+    private static final String GAME_GOMOKU = "GOMOKU";
     private static final WebXiangqiServer INSTANCE = new WebXiangqiServer();
     private static final String SID_COOKIE = "XQSID";
     private static final int HTTP_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 4);
@@ -110,9 +117,10 @@ public class WebXiangqiServer {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
+        String gameType = parseGameType(query.getOrDefault("gameType", GAME_XIANGQI));
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
         withSession(exchange, "new", session -> {
-            session.reset("pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            session.resetByGame(gameType, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             return session.toJson();
         });
     }
@@ -122,9 +130,14 @@ public class WebXiangqiServer {
         String name = query.getOrDefault("name", "七星聚会");
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
+        String gameType = parseGameType(query.getOrDefault("gameType", GAME_XIANGQI));
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
         withSession(exchange, "endgame", session -> {
-            session.loadEndgame(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            if (GAME_GOMOKU.equals(gameType)) {
+                session.resetByGame(GAME_GOMOKU, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            } else {
+                session.loadEndgame(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            }
             return session.toJson();
         });
     }
@@ -274,6 +287,13 @@ public class WebXiangqiServer {
         }
     }
 
+    private String parseGameType(String raw) {
+        if (raw == null) {
+            return GAME_XIANGQI;
+        }
+        return GAME_GOMOKU.equalsIgnoreCase(raw) ? GAME_GOMOKU : GAME_XIANGQI;
+    }
+
     private int parseInt(String raw, int defaultValue) {
         try {
         return Integer.parseInt(raw);
@@ -380,7 +400,10 @@ public class WebXiangqiServer {
     private static final class Session {
         private static final int PERF_RING_CAP = 240;
         private static final int PERF_EVENT_CAP = 120;
+        private String gameType = GAME_XIANGQI;
         private Board board = new Board();
+        private GomokuBoard gomokuBoard = new GomokuBoard();
+        private final GomokuAI gomokuAI = new GomokuAI();
         private boolean pvcMode;
         private MinimaxAI.Difficulty difficulty = MinimaxAI.Difficulty.MEDIUM;
         private int selectedRow = -1;
@@ -390,14 +413,19 @@ public class WebXiangqiServer {
         private String tacticText = "";
         private String currentEndgame = "标准开局";
         private long tacticUntil = 0L;
+        private String gomokuForbiddenReason = "";
+        private GomokuStone gomokuSurrenderedStone = GomokuStone.EMPTY;
         private long lastMoveAt = 0L;
         private boolean aiPending = false;
         private long aiDueAt = 0L;
         private long aiEpoch = 0L;
         private CompletableFuture<Move> aiFuture = null;
+        private CompletableFuture<int[]> gomokuAiFuture = null;
         private long aiFutureEpoch = -1L;
         private PieceColor aiFutureColor = null;
+        private long gomokuAiFutureEpoch = -1L;
         private PieceColor surrenderedColor = null;
+        private GomokuStone gomokuHumanStone = GomokuStone.BLACK;
         private PieceColor trackedTurn = null;
         private long turnStartedAt = System.currentTimeMillis();
         private int redCompletedMoves = 0;
@@ -435,7 +463,17 @@ public class WebXiangqiServer {
             }
         }
 
+        void resetByGame(String gameType, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            this.gameType = GAME_GOMOKU.equalsIgnoreCase(gameType) ? GAME_GOMOKU : GAME_XIANGQI;
+            if (isGomoku()) {
+                resetGomoku(pvcMode, difficulty, humanFirst);
+            } else {
+                reset(pvcMode, difficulty, humanFirst);
+            }
+        }
+
         void reset(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            this.gameType = GAME_XIANGQI;
             this.board = new Board();
             this.pvcMode = pvcMode;
             this.difficulty = difficulty;
@@ -454,7 +492,11 @@ public class WebXiangqiServer {
             this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
+            this.gomokuAiFuture = null;
+            this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
+            this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.gomokuForbiddenReason = "";
             this.trackedTurn = board.getCurrentTurn();
             this.turnStartedAt = System.currentTimeMillis();
             this.redCompletedMoves = 0;
@@ -479,7 +521,56 @@ public class WebXiangqiServer {
             }
         }
 
+        private void resetGomoku(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            this.gomokuBoard = new GomokuBoard();
+            this.pvcMode = pvcMode;
+            this.difficulty = difficulty;
+            this.gomokuHumanStone = humanFirst ? GomokuStone.BLACK : GomokuStone.WHITE;
+            this.selectedRow = -1;
+            this.selectedCol = -1;
+            this.reviewMode = false;
+            this.reviewMoveIndex = 0;
+            this.tacticText = "";
+            this.tacticUntil = 0L;
+            this.currentEndgame = "标准开局";
+            this.gomokuForbiddenReason = "";
+            this.lastMoveAt = 0L;
+            this.aiPending = false;
+            this.aiDueAt = 0L;
+            this.aiEpoch++;
+            this.aiFuture = null;
+            this.aiFutureEpoch = -1L;
+            this.aiFutureColor = null;
+            this.gomokuAiFuture = null;
+            this.gomokuAiFutureEpoch = -1L;
+            this.surrenderedColor = null;
+            this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.trackedTurn = null;
+            this.turnStartedAt = System.currentTimeMillis();
+            this.redCompletedMoves = 0;
+            this.blackCompletedMoves = 0;
+            this.started = true;
+            this.timeoutLoser = null;
+            this.timeoutType = null;
+            this.redTotalRemainingMs = -1L;
+            this.blackTotalRemainingMs = -1L;
+            this.lastTickAt = System.currentTimeMillis();
+            this.pvpClockEnabled = false;
+            this.agreedDraw = false;
+            this.autoDraw = false;
+            this.drawReason = "";
+            this.noCaptureHalfMoves = 0;
+            this.positionCount.clear();
+            this.tacticSeq++;
+
+            if (pvcMode && gomokuBoard.getCurrentTurn() != gomokuHumanStone && !gomokuBoard.isGameOver()) {
+                aiPending = true;
+                aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
+            }
+        }
+
         void loadEndgame(String endgameName, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            this.gameType = GAME_XIANGQI;
             this.board = new Board();
             EndgameLoader.loadEndgame(this.board, endgameName);
             this.pvcMode = pvcMode;
@@ -499,7 +590,10 @@ public class WebXiangqiServer {
             this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
+            this.gomokuAiFuture = null;
+            this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
+            this.gomokuSurrenderedStone = GomokuStone.EMPTY;
             this.trackedTurn = board.getCurrentTurn();
             this.turnStartedAt = System.currentTimeMillis();
             this.redCompletedMoves = 0;
@@ -523,11 +617,17 @@ public class WebXiangqiServer {
                 aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
             }
         }
+
+        private boolean isGomoku() {
+            return GAME_GOMOKU.equals(gameType);
+        }
+
         void startReview() {
             if (!started) {
                 return;
             }
-            if (board.canUndo()) {
+            boolean can = isGomoku() ? gomokuBoard.canUndo() : board.canUndo();
+            if (can) {
                 reviewMode = true;
                 reviewMoveIndex = 0;
                 selectedRow = -1;
@@ -549,7 +649,8 @@ public class WebXiangqiServer {
         }
 
         void reviewNext() {
-            if (reviewMode && reviewMoveIndex < board.getMoveCount()) {
+            int maxMove = isGomoku() ? gomokuBoard.getMoveCount() : board.getMoveCount();
+            if (reviewMode && reviewMoveIndex < maxMove) {
                 reviewMoveIndex++;
             }
         }
@@ -559,6 +660,10 @@ public class WebXiangqiServer {
                 return;
             }
             tick();
+            if (isGomoku()) {
+                clickGomoku(row, col);
+                return;
+            }
             if (row < 0 || row >= Board.ROWS || col < 0 || col >= Board.COLS || isGameOver()) {
                 selectedRow = -1;
                 selectedCol = -1;
@@ -605,8 +710,72 @@ public class WebXiangqiServer {
             }
         }
 
+        private void clickGomoku(int row, int col) {
+            if (row < 0 || row >= GomokuBoard.SIZE || col < 0 || col >= GomokuBoard.SIZE || isGameOver()) {
+                return;
+            }
+            if (pvcMode && gomokuBoard.getCurrentTurn() != gomokuHumanStone) {
+                return;
+            }
+            GomokuPlaceResult result = gomokuBoard.place(row, col, true);
+            if (!result.isSuccess()) {
+                if (result.isForbidden()) {
+                    gomokuForbiddenReason = result.getReason();
+                    tacticText = result.getReason();
+                    tacticUntil = System.currentTimeMillis() + 500;
+                    tacticSeq++;
+                }
+                return;
+            }
+            gomokuForbiddenReason = "";
+            markMove();
+            aiEpoch++;
+            selectedRow = -1;
+            selectedCol = -1;
+            tacticText = gomokuBoard.getWinner() != GomokuStone.EMPTY ? "绝杀" : "";
+            if (!tacticText.isEmpty()) {
+                tacticUntil = System.currentTimeMillis() + 500;
+                tacticSeq++;
+            }
+
+            if (pvcMode && !isGameOver() && gomokuBoard.getCurrentTurn() != gomokuHumanStone) {
+                aiPending = true;
+                aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
+            }
+        }
+
         void undo() {
-            if (!started || reviewMode || !board.canUndo() || isGameOver()) {
+            if (!started || reviewMode || isGameOver()) {
+                return;
+            }
+            if (isGomoku()) {
+                if (!gomokuBoard.canUndo()) {
+                    return;
+                }
+                if (pvcMode) {
+                    gomokuBoard.undoMove();
+                    if (gomokuBoard.canUndo()) {
+                        gomokuBoard.undoMove();
+                    }
+                } else {
+                    gomokuBoard.undoMove();
+                }
+                selectedRow = -1;
+                selectedCol = -1;
+                aiEpoch++;
+                aiFuture = null;
+                aiFutureEpoch = -1L;
+                aiFutureColor = null;
+                gomokuAiFuture = null;
+                gomokuAiFutureEpoch = -1L;
+                agreedDraw = false;
+                autoDraw = false;
+                drawReason = "";
+                tacticText = "";
+                gomokuForbiddenReason = "";
+                return;
+            }
+            if (!board.canUndo()) {
                 return;
             }
             if (pvcMode) {
@@ -633,6 +802,17 @@ public class WebXiangqiServer {
 
         void surrender() {
             if (!started || isGameOver() || reviewMode) {
+                return;
+            }
+            if (isGomoku()) {
+                gomokuSurrenderedStone = gomokuBoard.getCurrentTurn();
+                aiPending = false;
+                aiDueAt = 0L;
+                aiEpoch++;
+                gomokuAiFuture = null;
+                gomokuAiFutureEpoch = -1L;
+                selectedRow = -1;
+                selectedCol = -1;
                 return;
             }
             surrenderedColor = board.getCurrentTurn();
@@ -663,12 +843,28 @@ public class WebXiangqiServer {
         }
 
         private boolean isGameOver() {
+            if (isGomoku()) {
+                return timeoutLoser != null || gomokuSurrenderedStone != GomokuStone.EMPTY || agreedDraw || autoDraw || gomokuBoard.isGameOver();
+            }
             return timeoutLoser != null || surrenderedColor != null || agreedDraw || autoDraw || board.isGameOver();
         }
 
         private String getGameResult() {
             if (!started) {
                 return "点击“新开一局”开始对局";
+            }
+            if (isGomoku()) {
+                if (gomokuSurrenderedStone == GomokuStone.BLACK) {
+                    return "黑方认输！白方获胜";
+                }
+                if (gomokuSurrenderedStone == GomokuStone.WHITE) {
+                    return "白方认输！黑方获胜";
+                }
+                if (agreedDraw || autoDraw) {
+                    return (drawReason == null || drawReason.isEmpty()) ? "和棋" : drawReason;
+                }
+                String result = gomokuBoard.getGameResult();
+                return result == null ? "" : result;
             }
             if (timeoutLoser == PieceColor.RED) {
                 return "TOTAL".equals(timeoutType) ? "红方总时超时！黑方获胜" : "红方步时超限！黑方获胜";
@@ -688,6 +884,9 @@ public class WebXiangqiServer {
             return board.getGameResult();
         }
         private void updateTurnTracking() {
+            if (isGomoku()) {
+                return;
+            }
             PieceColor current = board.getCurrentTurn();
             if (trackedTurn == null) {
                 trackedTurn = current;
@@ -714,6 +913,9 @@ public class WebXiangqiServer {
             if (!started || reviewMode || isGameOver()) {
                 return -1;
             }
+            if (isGomoku()) {
+                return -1;
+            }
             if (!pvcMode && !pvpClockEnabled) {
                 return -1;
             }
@@ -726,6 +928,10 @@ public class WebXiangqiServer {
 
         void tick() {
             if (!started) {
+                return;
+            }
+            if (isGomoku()) {
+                tickGomoku();
                 return;
             }
             long now = System.currentTimeMillis();
@@ -809,6 +1015,70 @@ public class WebXiangqiServer {
                 worker.setDifficulty(currentDifficulty);
                 return worker.findBestMove(snapshot, aiColor);
             }, AI_EXECUTOR);
+        }
+
+        private void tickGomoku() {
+            if (!aiPending || reviewMode || isGameOver() || !pvcMode) {
+                return;
+            }
+            if (System.currentTimeMillis() < aiDueAt) {
+                return;
+            }
+            if (gomokuBoard.getCurrentTurn() == gomokuHumanStone) {
+                aiPending = false;
+                return;
+            }
+            if (gomokuAiFuture != null) {
+                if (!gomokuAiFuture.isDone()) {
+                    return;
+                }
+                int[] aiMove;
+                try {
+                    aiMove = gomokuAiFuture.getNow(null);
+                } catch (Exception ignored) {
+                    aiMove = null;
+                }
+                if (aiMove == null) {
+                    aiMove = findFirstLegalGomokuMove();
+                }
+                if (gomokuAiFutureEpoch == aiEpoch && aiMove != null) {
+                    GomokuPlaceResult placed = gomokuBoard.place(aiMove[0], aiMove[1], true);
+                    if (placed.isSuccess()) {
+                        markMove();
+                        tacticText = gomokuBoard.getWinner() != GomokuStone.EMPTY ? "绝杀" : "";
+                        if (!tacticText.isEmpty()) {
+                            tacticUntil = System.currentTimeMillis() + 500;
+                            tacticSeq++;
+                        }
+                        aiEpoch++;
+                    }
+                }
+                gomokuAiFuture = null;
+                gomokuAiFutureEpoch = -1L;
+                aiPending = false;
+                return;
+            }
+            final GomokuBoard snapshot = new GomokuBoard(gomokuBoard);
+            final MinimaxAI.Difficulty currentDifficulty = this.difficulty;
+            final GomokuStone aiStone = gomokuBoard.getCurrentTurn();
+            final long launchEpoch = aiEpoch;
+            gomokuAiFutureEpoch = launchEpoch;
+            gomokuAiFuture = CompletableFuture.supplyAsync(() ->
+                gomokuAI.findBestMove(snapshot, aiStone, currentDifficulty), AI_EXECUTOR);
+        }
+
+        private int[] findFirstLegalGomokuMove() {
+            for (int r = 0; r < GomokuBoard.SIZE; r++) {
+                for (int c = 0; c < GomokuBoard.SIZE; c++) {
+                    GomokuBoard test = new GomokuBoard(gomokuBoard);
+                    test.setCurrentTurnForSearch(gomokuBoard.getCurrentTurn());
+                    GomokuPlaceResult pr = test.place(r, c, true);
+                    if (pr.isSuccess()) {
+                        return new int[] {r, c};
+                    }
+                }
+            }
+            return null;
         }
 
         private boolean canMoveNow() {
@@ -907,6 +1177,9 @@ public class WebXiangqiServer {
         }
 
         String toJson() {
+            if (isGomoku()) {
+                return toJsonGomoku();
+            }
             Board boardToDraw = reviewMode ? board.getBoardAtMove(reviewMoveIndex) : board;
             if (boardToDraw == null) {
                 boardToDraw = board;
@@ -915,6 +1188,11 @@ public class WebXiangqiServer {
             StringBuilder sb = new StringBuilder(4096);
             sb.append('{');
             sb.append("\"seq\":").append(++responseSeq).append(',');
+            sb.append("\"gameType\":\"").append(GAME_XIANGQI).append("\",");
+            sb.append("\"boardSize\":9,");
+            sb.append("\"boardRows\":10,");
+            sb.append("\"boardCols\":9,");
+            sb.append("\"ruleset\":\"xiangqi_standard\",");
             sb.append("\"started\":").append(started).append(',');
             sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
             sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
@@ -960,6 +1238,95 @@ public class WebXiangqiServer {
                         sb.append("\"name\":\"").append(escape(piece.getType().getDisplayName())).append("\",");
                         sb.append("\"color\":\"").append(piece.getColor()).append("\"");
                         sb.append('}');
+                    }
+                }
+                sb.append(']');
+            }
+            sb.append(']');
+            sb.append('}');
+            return sb.toString();
+        }
+
+        private String toJsonGomoku() {
+            GomokuStone[][] boardToDraw = reviewMode ? gomokuBoard.getBoardAtMove(reviewMoveIndex) : gomokuBoard.getBoardAtMove(gomokuBoard.getMoveCount());
+            if (boardToDraw == null) {
+                boardToDraw = gomokuBoard.getBoardAtMove(gomokuBoard.getMoveCount());
+            }
+
+            StringBuilder sb = new StringBuilder(6144);
+            sb.append('{');
+            sb.append("\"seq\":").append(++responseSeq).append(',');
+            sb.append("\"gameType\":\"").append(GAME_GOMOKU).append("\",");
+            sb.append("\"boardSize\":").append(GomokuBoard.SIZE).append(',');
+            sb.append("\"boardRows\":").append(GomokuBoard.SIZE).append(',');
+            sb.append("\"boardCols\":").append(GomokuBoard.SIZE).append(',');
+            sb.append("\"ruleset\":\"renju_forbidden_black\",");
+            sb.append("\"started\":").append(started).append(',');
+            sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
+            sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
+            sb.append("\"difficultyText\":\"").append(difficulty.getDisplayName()).append("\",");
+            sb.append("\"pvcHumanColor\":\"").append(gomokuHumanStone.name()).append("\",");
+            sb.append("\"endgame\":\"标准开局\",");
+            sb.append("\"currentTurn\":\"").append(gomokuBoard.getCurrentTurn().name()).append("\",");
+            sb.append("\"gameOver\":").append(isGameOver()).append(',');
+            sb.append("\"canDraw\":").append(started && !reviewMode && !isGameOver() && !pvcMode).append(',');
+            sb.append("\"result\":\"").append(escape(getGameResult())).append("\",");
+            sb.append("\"drawReason\":\"").append(escape((agreedDraw || autoDraw) ? drawReason : "")).append("\",");
+            sb.append("\"selectedRow\":").append(-1).append(',');
+            sb.append("\"selectedCol\":").append(-1).append(',');
+            sb.append("\"canReview\":").append(gomokuBoard.canUndo()).append(',');
+            sb.append("\"reviewMode\":").append(reviewMode).append(',');
+            sb.append("\"reviewMoveIndex\":").append(reviewMoveIndex).append(',');
+            sb.append("\"reviewMaxMove\":").append(gomokuBoard.getMoveCount()).append(',');
+            sb.append("\"stepRemainSec\":-1,");
+            sb.append("\"redTotalSec\":-1,");
+            sb.append("\"blackTotalSec\":-1,");
+            sb.append("\"tacticText\":\"").append(escape(tacticText)).append("\",");
+            sb.append("\"tacticSeq\":").append(tacticSeq).append(',');
+            appendRecentMovesGomoku(sb, reviewMode ? reviewMoveIndex : gomokuBoard.getMoveCount());
+            sb.append(',');
+            sb.append("\"gomoku\":{");
+            sb.append("\"forbiddenEnabled\":true,");
+            sb.append("\"forbiddenReason\":\"").append(escape(gomokuForbiddenReason)).append("\",");
+            sb.append("\"forbiddenPoints\":[");
+            List<int[]> forbidden = gomokuBoard.getForbiddenPointsForBlack(80);
+            for (int i = 0; i < forbidden.size(); i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                int[] p = forbidden.get(i);
+                sb.append("{\"row\":").append(p[0]).append(",\"col\":").append(p[1]).append('}');
+            }
+            sb.append("],");
+            int[] winLine = gomokuBoard.getWinnerLine();
+            if (winLine == null) {
+                sb.append("\"winnerLine\":null");
+            } else {
+                sb.append("\"winnerLine\":{\"fromRow\":").append(winLine[0])
+                    .append(",\"fromCol\":").append(winLine[1])
+                    .append(",\"toRow\":").append(winLine[2])
+                    .append(",\"toCol\":").append(winLine[3]).append('}');
+            }
+            sb.append("},");
+            sb.append("\"board\":[");
+            for (int row = 0; row < GomokuBoard.SIZE; row++) {
+                if (row > 0) {
+                    sb.append(',');
+                }
+                sb.append('[');
+                for (int col = 0; col < GomokuBoard.SIZE; col++) {
+                    if (col > 0) {
+                        sb.append(',');
+                    }
+                    GomokuStone stone = boardToDraw[row][col];
+                    if (stone == GomokuStone.EMPTY) {
+                        sb.append("null");
+                    } else {
+                        sb.append("{\"name\":\"")
+                            .append(stone == GomokuStone.BLACK ? "黑" : "白")
+                            .append("\",\"color\":\"")
+                            .append(stone.name())
+                            .append("\"}");
                     }
                 }
                 sb.append(']');
@@ -1058,6 +1425,28 @@ public class WebXiangqiServer {
             sb.append(']');
         }
 
+        private void appendRecentMovesGomoku(StringBuilder sb, int moveIndex) {
+            List<GomokuMove> history = gomokuBoard.getMoveHistory();
+            sb.append("\"recentMoves\":[");
+            int total = Math.min(moveIndex, history.size());
+            int show = Math.min(2, total);
+            for (int i = 0; i < show; i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                GomokuMove move = history.get(total - 1 - i);
+                sb.append('{');
+                sb.append("\"order\":").append(i + 1).append(',');
+                sb.append("\"color\":\"").append(move.getStone().name()).append("\",");
+                sb.append("\"fromRow\":").append(move.getRow()).append(',');
+                sb.append("\"fromCol\":").append(move.getCol()).append(',');
+                sb.append("\"toRow\":").append(move.getRow()).append(',');
+                sb.append("\"toCol\":").append(move.getCol());
+                sb.append('}');
+            }
+            sb.append(']');
+        }
+
         private String escape(String input) {
             if (input == null) {
                 return "";
@@ -1097,8 +1486,12 @@ public class WebXiangqiServer {
             "    .filigree{position:absolute;inset:86px 28px 86px 28px;opacity:.85;}",
             "    .filigree path,.filigree rect{vector-effect:non-scaling-stroke;}",
             "    .side{background:linear-gradient(180deg,rgba(255,252,245,.95),rgba(247,235,212,.96));border:1px solid #e0c49a;border-radius:12px;padding:10px;overflow:auto;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 0 -8px 14px rgba(135,92,50,.18);}",
-            "    .boardStage{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;}",
-            "    canvas{position:relative;z-index:1;display:block;width:100%;height:100%;border:3px solid #9a6b34;border-radius:10px;background:linear-gradient(180deg,#22326e,#1a244f);box-shadow:0 10px 18px rgba(11,7,3,.45),inset 0 0 22px rgba(17,10,4,.35);image-rendering:auto;touch-action:none;}",
+            "    .boardStage{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;perspective:1600px;}",
+            "    .flipStage{position:relative;transform-style:preserve-3d;transition:transform .42s cubic-bezier(.22,.61,.36,1);}",
+            "    .flipStage.gomokuFace{transform:rotateY(180deg);}",
+            "    .boardFace{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;align-items:center;justify-content:center;}",
+            "    .boardFaceBack{transform:rotateY(180deg);}",
+            "    .boardFace canvas{position:relative;z-index:1;display:block;width:100%;height:100%;border:3px solid #9a6b34;border-radius:10px;background:linear-gradient(180deg,#22326e,#1a244f);box-shadow:0 10px 18px rgba(11,7,3,.45),inset 0 0 22px rgba(17,10,4,.35);image-rendering:auto;touch-action:none;}",
             "    .courtBanner{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);min-width:138px;padding:10px 22px;border-radius:12px;border:1px solid rgba(255,228,178,.68);background:linear-gradient(180deg,rgba(95,57,24,.9),rgba(46,25,12,.92));color:#ffe6b6;font-size:30px;font-weight:700;letter-spacing:6px;text-align:center;text-shadow:0 2px 4px rgba(0,0,0,.5);box-shadow:0 12px 22px rgba(12,6,2,.45),inset 0 1px 0 rgba(255,237,207,.55);opacity:0;pointer-events:none;z-index:9;}",
             "    .courtBanner[data-tone='crimson']{background:linear-gradient(180deg,rgba(130,32,24,.92),rgba(62,13,10,.92));border-color:rgba(255,186,168,.7);color:#ffd7ce;}",
             "    .courtBanner[data-tone='blackgold']{background:linear-gradient(180deg,rgba(56,45,26,.95),rgba(15,12,9,.96));border-color:rgba(234,201,132,.72);color:#ffe09a;}",
@@ -1183,17 +1576,23 @@ public class WebXiangqiServer {
             "            <rect x=\"34\" y=\"34\" width=\"932\" height=\"932\" fill=\"none\" stroke=\"url(#goldLine)\" stroke-width=\"2\"/>",
             "          </svg>",
             "        </div>",
-            "        <div id=\"boardStage\" class=\"boardStage\"><canvas id=\"board\" width=\"800\" height=\"900\"></canvas></div>",
+            "        <div id=\"boardStage\" class=\"boardStage\">",
+            "          <div id=\"flipStage\" class=\"flipStage\">",
+            "            <div class=\"boardFace boardFaceFront\"><canvas id=\"boardXQ\" width=\"800\" height=\"900\"></canvas></div>",
+            "            <div class=\"boardFace boardFaceBack\"><canvas id=\"boardGK\" width=\"800\" height=\"900\"></canvas></div>",
+            "          </div>",
+            "        </div>",
             "      </div>",
             "      <div class=\"side\">",
             "        <div class=\"title\">控制面板</div>",
+            "        <div class=\"row\"><select id=\"gameType\"><option value=\"XIANGQI\" selected>中国象棋</option><option value=\"GOMOKU\">五子棋</option></select></div>",
             "        <div class=\"row\"><select id=\"mode\"><option value=\"pvp\">双人对战</option><option value=\"pvc\">人机对战</option></select><select id=\"difficulty\"><option value=\"EASY\">简单</option><option value=\"MEDIUM\" selected>中等</option><option value=\"HARD\">困难</option></select></div>",
             "        <div class=\"row\"><select id=\"firstHand\" disabled><option value=\"true\" selected>我先手（执红）</option><option value=\"false\">我后手（执黑）</option></select></div>",
             "        <div class=\"row\"><button id=\"newGame\">新开一局</button><button id=\"undo\">悔棋</button></div>",
             "        <div class=\"row\"><button id=\"surrender\">认输</button><button id=\"drawBtn\">和棋</button></div>",
             "        <div class=\"row\"><button id=\"soundToggle\">音效:开</button></div>",
-            "        <div class=\"title\" style=\"margin-top:8px\">残局练习</div>",
-            "        <div class=\"egGrid\">",
+            "        <div id=\"endgameTitle\" class=\"title\" style=\"margin-top:8px\">残局练习</div>",
+            "        <div id=\"endgameGrid\" class=\"egGrid\">",
             "          <button class=\"egBtn\" data-name=\"七星聚会\">七星聚会</button><button class=\"egBtn\" data-name=\"蚯蚓降龙\">蚯蚓降龙</button>",
             "          <button class=\"egBtn\" data-name=\"千里独行\">千里独行</button><button class=\"egBtn\" data-name=\"野马操田\">野马操田</button>",
             "          <button class=\"egBtn\" data-name=\"梅花谱\">梅花谱</button><button class=\"egBtn\" data-name=\"百局象棋谱\">百局象棋谱</button>",
@@ -1215,12 +1614,12 @@ public class WebXiangqiServer {
             "<script src=\"https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js\"></script>",
             "<script src=\"https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js\"></script>",
             "<script>",
-            "const BASE_W=800,BASE_H=900,CELL=68,MARGIN=98,R=29;",
-            "const canvas=document.getElementById('board'); const boardStage=document.getElementById('boardStage'); const boardCard=canvas.closest('.boardCard'); const ctx=canvas.getContext('2d',{alpha:true});",
+            "const BASE_W=800,BASE_H=900,CELL=68,MARGIN=98,R=29,GAME_XIANGQI='XIANGQI',GAME_GOMOKU='GOMOKU',GK_SIZE=15,GK_MARGIN=86,GK_CELL=(BASE_W-GK_MARGIN*2)/(GK_SIZE-1),GK_R=Math.max(9,Math.floor(GK_CELL*0.43));",
+            "const canvas=document.getElementById('boardXQ'); const gomokuCanvas=document.getElementById('boardGK'); const boardStage=document.getElementById('boardStage'); const flipStage=document.getElementById('flipStage'); const boardCard=boardStage.closest('.boardCard'); const ctx=canvas.getContext('2d',{alpha:true}); const gctx=gomokuCanvas.getContext('2d',{alpha:true});",
             "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1)),anim=null,animKey='',pollTimer=0,lastStateStamp='',actionQueue=Promise.resolve(),lastAppliedSeq=0,lastPerfPostAt=0,lastTacticSeq=0,tacticOverlayText='',tacticOverlayUntil=0,courtBannerTimer=0,lastOpeningSeq=0,lastCheckSeq=0,lastMateSeq=0,lastMateAnimKey='';",
             "const SID_KEY='xq_sid';function makeSid(){if(window.crypto&&window.crypto.randomUUID)return window.crypto.randomUUID().replace(/-/g,'');return String(Date.now())+Math.random().toString(16).slice(2);}const sid=(()=>{let v=sessionStorage.getItem(SID_KEY);if(!v){v=makeSid();sessionStorage.setItem(SID_KEY,v);}return v;})();function withSid(path){const sep=path.includes('?')?'&':'?';return path+sep+'sid='+encodeURIComponent(sid);}",
             "const moveAudio=new Audio('/assets/audio/move.wav');const mateAudio=new Audio('/assets/audio/mate.wav');moveAudio.preload='auto';mateAudio.preload='auto';moveAudio.volume=0.92;mateAudio.volume=0.98;let audioUnlocked=false,lastMoveSoundKey='',lastMateSoundKey='';let soundEnabled=(localStorage.getItem('xq_sound_enabled')??'1')!=='0';",
-            "const ui={statusTag:document.getElementById('statusTag'),stepTop:document.getElementById('stepTop'),totalTop:document.getElementById('totalTop'),modeTag:document.getElementById('modeTag'),endgameTag:document.getElementById('endgameTag'),drawReasonTag:document.getElementById('drawReasonTag'),reviewTag:document.getElementById('reviewTag'),info:document.getElementById('info'),undo:document.getElementById('undo'),surrender:document.getElementById('surrender'),drawBtn:document.getElementById('drawBtn'),reviewStart:document.getElementById('reviewStart'),reviewPrev:document.getElementById('reviewPrev'),reviewNext:document.getElementById('reviewNext'),reviewExit:document.getElementById('reviewExit'),mode:document.getElementById('mode'),firstHand:document.getElementById('firstHand')};function setTxt(el,v){if(el&&el.textContent!==v)el.textContent=v;}function setDis(el,v){if(el&&el.disabled!==v)el.disabled=v;}",
+            "const ui={statusTag:document.getElementById('statusTag'),stepTop:document.getElementById('stepTop'),totalTop:document.getElementById('totalTop'),modeTag:document.getElementById('modeTag'),endgameTag:document.getElementById('endgameTag'),drawReasonTag:document.getElementById('drawReasonTag'),reviewTag:document.getElementById('reviewTag'),info:document.getElementById('info'),undo:document.getElementById('undo'),surrender:document.getElementById('surrender'),drawBtn:document.getElementById('drawBtn'),reviewStart:document.getElementById('reviewStart'),reviewPrev:document.getElementById('reviewPrev'),reviewNext:document.getElementById('reviewNext'),reviewExit:document.getElementById('reviewExit'),mode:document.getElementById('mode'),firstHand:document.getElementById('firstHand'),gameType:document.getElementById('gameType'),endgameTitle:document.getElementById('endgameTitle'),endgameGrid:document.getElementById('endgameGrid')};function setTxt(el,v){if(el&&el.textContent!==v)el.textContent=v;}function setDis(el,v){if(el&&el.disabled!==v)el.disabled=v;}",
             "const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');const pieceSpriteCache=Object.create(null);let pixiReady=false,pixiApp=null,pixiLayers=null,pixiBoardTexture=null;",
             "const BOARD_TEXTURE_URL='https://commons.wikimedia.org/wiki/Special:FilePath/Xiangqi%20board.svg';const boardTex=new Image();let boardTexReady=false;boardTex.crossOrigin='anonymous';boardTex.onload=()=>{boardTexReady=true;drawStatic();scheduleRender();};boardTex.src=BOARD_TEXTURE_URL;",
             "function initPixiRenderer(){if(!window.PIXI)return;try{pixiApp=new PIXI.Application({view:canvas,width:BASE_W,height:BASE_H,backgroundAlpha:0,antialias:true,resolution:dpr,autoDensity:false,autoStart:false,sharedTicker:false});pixiApp.stop();pixiLayers={root:new PIXI.Container(),staticLayer:new PIXI.Container(),markerLayer:new PIXI.Container(),pieceLayer:new PIXI.Container(),fxLayer:new PIXI.Container(),uiLayer:new PIXI.Container()};pixiLayers.root.sortableChildren=true;pixiLayers.root.addChild(pixiLayers.staticLayer,pixiLayers.markerLayer,pixiLayers.pieceLayer,pixiLayers.fxLayer,pixiLayers.uiLayer);pixiApp.stage.addChild(pixiLayers.root);pixiReady=true;}catch(_e){pixiReady=false;}}",
@@ -1229,13 +1628,15 @@ public class WebXiangqiServer {
             "function playOpeningCeremony(){if(!window.gsap)return;flashBanner('开局','gold');const tl=gsap.timeline();tl.fromTo('.boardCard',{filter:'brightness(.86) saturate(.9)'},{filter:'brightness(1.05) saturate(1.12)',duration:.32,ease:'power2.out'}).to('.boardCard',{filter:'brightness(1) saturate(1)',duration:.44,ease:'power2.inOut'});tl.fromTo('.topMeta',{boxShadow:'0 0 0 rgba(0,0,0,0)'},{boxShadow:'0 0 26px rgba(255,220,150,.38)',duration:.28},0).to('.topMeta',{boxShadow:'inset 0 1px 0 rgba(255,236,206,.7),inset 0 -6px 10px rgba(85,43,12,.45),0 6px 14px rgba(18,9,4,.35)',duration:.46},'>-.02');}",
             "function playCheckCeremony(){flashBanner('将军','crimson',500);}",
             "function playMateCeremony(){flashBanner('绝杀','blackgold',500);}",
-            "function setupCanvas(){const maxW=Math.max(280,boardCard.clientWidth-24);const maxH=Math.max(360,boardCard.clientHeight-28);const fitWByH=Math.floor(maxH*BASE_W/BASE_H);const rawW=Math.max(260,Math.min(maxW,fitWByH));const palaceScale=window.innerWidth<=768?0.84:0.78;const cssW=Math.round(rawW*palaceScale);const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;boardStage.style.width=cssW+'px';boardStage.style.height=cssH+'px';canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';if(pixiReady&&pixiApp){dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1));pixiApp.renderer.resolution=dpr;pixiApp.renderer.resize(BASE_W,BASE_H);}else{canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);}scheduleRender();}",
+            "function syncGamePanels(gameType){const g=gameType||((state&&state.gameType)||ui.gameType.value||GAME_XIANGQI);if(ui.gameType&&ui.gameType.value!==g)ui.gameType.value=g;const isG=g===GAME_GOMOKU;if(flipStage)flipStage.classList.toggle('gomokuFace',isG);const palace=document.querySelector('.palaceFrame');if(palace)palace.style.display=isG?'none':'';if(ui.endgameTitle)ui.endgameTitle.style.display=isG?'none':'';if(ui.endgameGrid)ui.endgameGrid.style.display=isG?'none':'grid';if(ui.firstHand){const v=ui.firstHand.value;ui.firstHand.innerHTML=isG?'<option value=\"true\" selected>我先手（执黑）</option><option value=\"false\">我后手（执白）</option>':'<option value=\"true\" selected>我先手（执红）</option><option value=\"false\">我后手（执黑）</option>';if(v==='false')ui.firstHand.value='false';}}",
+            "function setupCanvas(){const maxW=Math.max(280,boardCard.clientWidth-24);const maxH=Math.max(360,boardCard.clientHeight-28);const fitWByH=Math.floor(maxH*BASE_W/BASE_H);const rawW=Math.max(260,Math.min(maxW,fitWByH));const palaceScale=window.innerWidth<=768?0.84:0.78;const cssW=Math.round(rawW*palaceScale);const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;boardStage.style.width=cssW+'px';boardStage.style.height=cssH+'px';if(flipStage){flipStage.style.width=cssW+'px';flipStage.style.height=cssH+'px';}canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';gomokuCanvas.style.width=cssW+'px';gomokuCanvas.style.height=cssH+'px';if(pixiReady&&pixiApp){dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1));pixiApp.renderer.resolution=dpr;pixiApp.renderer.resize(BASE_W,BASE_H);}else{canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);}gomokuCanvas.width=Math.round(cssW*dpr);gomokuCanvas.height=Math.round(cssH*dpr);gctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);scheduleRender();}",
             "window.addEventListener('resize', setupCanvas);",
             "function syncSoundToggle(){const btn=document.getElementById('soundToggle');if(btn)btn.textContent='音效:'+(soundEnabled?'开':'关');}function toggleSound(){soundEnabled=!soundEnabled;localStorage.setItem('xq_sound_enabled',soundEnabled?'1':'0');syncSoundToggle();}function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;[moveAudio,mateAudio].forEach(a=>{const p=a.play();if(p&&p.catch){p.then(()=>{a.pause();a.currentTime=0;}).catch(()=>{});}else{a.pause();a.currentTime=0;}});}function playSound(a){if(!soundEnabled||!audioUnlocked)return;try{a.pause();a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(_e){}}",
-            "const isFlipped=()=>{if(!state||state.reviewMode)return false;if(state.mode==='PVP')return state.currentTurn==='BLACK';return state.mode==='PVC'&&state.pvcHumanColor==='BLACK';};const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];function pickGrid(x,y){const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);const hitExpand=state&&state.mode==='PVC'?(state.difficulty==='EASY'?14:11):10;const minX=MARGIN-R-hitExpand,maxX=MARGIN+8*CELL+R+hitExpand,minY=MARGIN-R-hitExpand,maxY=MARGIN+9*CELL+R+hitExpand;if(x<minX||x>maxX||y<minY||y>maxY)return null;const cc=Math.max(0,Math.min(8,vcol)),rr=Math.max(0,Math.min(9,vrow));return {row:br(rr),col:bc(cc)};}",
+            "const isGomoku=()=>state&&state.gameType===GAME_GOMOKU;const isFlipped=()=>{if(!state||state.reviewMode||isGomoku())return false;if(state.mode==='PVP')return state.currentTurn==='BLACK';return state.mode==='PVC'&&state.pvcHumanColor==='BLACK';};const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];const gPos=(r,c)=>[GK_MARGIN+c*GK_CELL,GK_MARGIN+r*GK_CELL];function pickGrid(x,y){if(isGomoku()){const c=Math.round((x-GK_MARGIN)/GK_CELL),r=Math.round((y-GK_MARGIN)/GK_CELL);if(r<0||r>=GK_SIZE||c<0||c>=GK_SIZE)return null;const px=GK_MARGIN+c*GK_CELL,py=GK_MARGIN+r*GK_CELL;if(Math.hypot(x-px,y-py)>GK_CELL*0.48)return null;return {row:r,col:c};}const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);const hitExpand=state&&state.mode==='PVC'?(state.difficulty==='EASY'?14:11):10;const minX=MARGIN-R-hitExpand,maxX=MARGIN+8*CELL+R+hitExpand,minY=MARGIN-R-hitExpand,maxY=MARGIN+9*CELL+R+hitExpand;if(x<minX||x>maxX||y<minY||y>maxY)return null;const cc=Math.max(0,Math.min(8,vcol)),rr=Math.max(0,Math.min(9,vrow));return {row:br(rr),col:bc(cc)};}",
             "function drawStatic(){if(pixiReady){drawStaticPixi();return;}cctx.clearRect(0,0,BASE_W,BASE_H);const bx=MARGIN-34,by=MARGIN-34,bw=8*CELL+68,bh=9*CELL+68;if(boardTexReady){cctx.drawImage(boardTex,bx,by,bw,bh);}else{const g=cctx.createLinearGradient(0,0,0,BASE_H);g.addColorStop(0,'#2c3f88');g.addColorStop(1,'#1f2f66');cctx.fillStyle=g;cctx.fillRect(bx,by,bw,bh);}const vignette=cctx.createRadialGradient(BASE_W/2,BASE_H/2,120,BASE_W/2,BASE_H/2,520);vignette.addColorStop(0,'rgba(255,255,255,.05)');vignette.addColorStop(1,'rgba(0,0,0,.16)');cctx.fillStyle=vignette;cctx.fillRect(bx,by,bw,bh);cctx.fillStyle='rgba(20,33,88,.34)';cctx.fillRect(MARGIN-2,MARGIN-2,8*CELL+4,9*CELL+4);cctx.save();cctx.shadowColor='rgba(0,0,0,.35)';cctx.shadowBlur=16;cctx.strokeStyle='rgba(96,57,24,.96)';cctx.lineWidth=14;cctx.strokeRect(bx-11,by-11,bw+22,bh+22);cctx.restore();cctx.strokeStyle='#7f4f25';cctx.lineWidth=8;cctx.strokeRect(bx-6,by-6,bw+12,bh+12);cctx.strokeStyle='#dfbc77';cctx.lineWidth=3;cctx.strokeRect(bx,by,bw,bh);cctx.strokeStyle='rgba(255,240,210,.75)';cctx.lineWidth=1.5;cctx.strokeRect(bx+3,by+3,bw-6,bh-6);const corner=(x,y,sx,sy)=>{cctx.strokeStyle='rgba(225,196,130,.96)';cctx.lineWidth=2;cctx.beginPath();cctx.moveTo(x,y);cctx.lineTo(x+sx*18,y);cctx.lineTo(x+sx*18,y+sy*18);cctx.moveTo(x+sx*6,y);cctx.lineTo(x+sx*24,y);cctx.moveTo(x,y+sy*6);cctx.lineTo(x,y+sy*24);cctx.stroke();};corner(bx+10,by+10,1,1);corner(bx+bw-10,by+10,-1,1);corner(bx+10,by+bh-10,1,-1);corner(bx+bw-10,by+bh-10,-1,-1);const topY=by-20;const botY=by+bh+20;cctx.strokeStyle='rgba(108,64,28,.9)';cctx.lineWidth=3;cctx.beginPath();cctx.moveTo(bx+30,topY);cctx.bezierCurveTo(bx+bw*0.32,topY-16,bx+bw*0.68,topY-16,bx+bw-30,topY);cctx.moveTo(bx+30,botY);cctx.bezierCurveTo(bx+bw*0.32,botY+16,bx+bw*0.68,botY+16,bx+bw-30,botY);cctx.stroke();cctx.strokeStyle='rgba(213,178,106,.86)';cctx.lineWidth=2;for(let r=0;r<10;r++){const y=MARGIN+r*CELL;cctx.beginPath();cctx.moveTo(MARGIN,y);cctx.lineTo(MARGIN+8*CELL,y);cctx.stroke();}for(let c=0;c<9;c++){const x=MARGIN+c*CELL;cctx.beginPath();if(c===0||c===8){cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+9*CELL);}else{cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+4*CELL);cctx.moveTo(x,MARGIN+5*CELL);cctx.lineTo(x,MARGIN+9*CELL);}cctx.stroke();}cctx.beginPath();cctx.moveTo(MARGIN+3*CELL,MARGIN);cctx.lineTo(MARGIN+5*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN);cctx.lineTo(MARGIN+3*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+3*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+5*CELL,MARGIN+9*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+3*CELL,MARGIN+9*CELL);cctx.stroke();const ry=MARGIN+4*CELL+3;cctx.shadowColor='rgba(0,0,0,.26)';cctx.shadowBlur=10;cctx.fillStyle='rgba(35,54,124,.92)';cctx.beginPath();cctx.roundRect(MARGIN+12,ry,8*CELL-24,CELL-8,22);cctx.fill();cctx.shadowBlur=0;cctx.strokeStyle='rgba(213,178,106,.44)';cctx.beginPath();cctx.moveTo(MARGIN, MARGIN+4*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+4*CELL);cctx.moveTo(MARGIN,MARGIN+5*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+5*CELL);cctx.stroke();cctx.font='bold 45px KaiTi';cctx.fillStyle='#d8b574';cctx.fillText('楚 河',MARGIN+CELL-10,MARGIN+4*CELL+44);cctx.fillText('汉 界',MARGIN+5*CELL+8,MARGIN+4*CELL+44);}",
             "function scheduleRender(){if(needRender)return;needRender=true;requestAnimationFrame(()=>{needRender=false;draw();});}",
-            "function draw(){const t0=performance.now();if(pixiReady){drawPixi();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}return;}ctx.clearRect(0,0,BASE_W,BASE_H);ctx.drawImage(cache,0,0);if(!state)return;drawMarkers();drawPieces();drawMoveAnim();drawSelection();drawTacticFlash();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}}",
+            "function drawGomokuBoard(){const ctx=gctx;ctx.clearRect(0,0,BASE_W,BASE_H);const bs=(GK_SIZE-1)*GK_CELL,bx=GK_MARGIN-26,by=GK_MARGIN-26,bw=bs+52,bh=bs+52;const wood=ctx.createLinearGradient(0,0,0,BASE_H);wood.addColorStop(0,'#d4b17a');wood.addColorStop(1,'#b98a53');ctx.fillStyle=wood;ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='rgba(84,48,24,.9)';ctx.lineWidth=9;ctx.strokeRect(bx-6,by-6,bw+12,bh+12);ctx.strokeStyle='rgba(248,226,184,.8)';ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);ctx.strokeStyle='rgba(95,60,35,.78)';ctx.lineWidth=1.6;for(let i=0;i<GK_SIZE;i++){const t=GK_MARGIN+i*GK_CELL;ctx.beginPath();ctx.moveTo(GK_MARGIN,t);ctx.lineTo(GK_MARGIN+bs,t);ctx.stroke();ctx.beginPath();ctx.moveTo(t,GK_MARGIN);ctx.lineTo(t,GK_MARGIN+bs);ctx.stroke();}const stars=[[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];ctx.fillStyle='rgba(88,56,32,.8)';for(const p of stars){const [x,y]=gPos(p[0],p[1]);ctx.beginPath();ctx.arc(x,y,3.2,0,Math.PI*2);ctx.fill();}if(state&&state.gomoku&&state.gomoku.forbiddenPoints&&state.currentTurn==='BLACK'&&!state.gameOver){ctx.strokeStyle='rgba(190,52,46,.55)';ctx.lineWidth=1.4;for(const fp of state.gomoku.forbiddenPoints){const [x,y]=gPos(fp.row,fp.col);ctx.beginPath();ctx.moveTo(x-4,y-4);ctx.lineTo(x+4,y+4);ctx.moveTo(x+4,y-4);ctx.lineTo(x-4,y+4);ctx.stroke();}}if(state&&state.board){for(let r=0;r<GK_SIZE;r++){for(let c=0;c<GK_SIZE;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=gPos(r,c);const black=p.color==='BLACK';const rg=ctx.createRadialGradient(x-GK_R*.35,y-GK_R*.45,1,x,y,GK_R*1.05);if(black){rg.addColorStop(0,'#666');rg.addColorStop(.55,'#222');rg.addColorStop(1,'#050505');}else{rg.addColorStop(0,'#fff');rg.addColorStop(.55,'#ece9e2');rg.addColorStop(1,'#cfc7bb');}ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,GK_R,0,Math.PI*2);ctx.fill();ctx.strokeStyle=black?'rgba(10,10,10,.95)':'rgba(120,112,98,.9)';ctx.lineWidth=1.2;ctx.stroke();}}}if(state&&state.recentMoves){for(const m of state.recentMoves){const [x,y]=gPos(m.toRow,m.toCol);ctx.strokeStyle=m.order===1?'rgba(214,58,50,.95)':'rgba(60,160,88,.85)';ctx.lineWidth=m.order===1?2.8:2;ctx.beginPath();ctx.arc(x,y,GK_R+4,0,Math.PI*2);ctx.stroke();}}if(state&&state.gomoku&&state.gomoku.winnerLine){const w=state.gomoku.winnerLine,[x1,y1]=gPos(w.fromRow,w.fromCol),[x2,y2]=gPos(w.toRow,w.toCol);ctx.strokeStyle='rgba(212,60,52,.95)';ctx.lineWidth=4.6;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}}",
+            "function draw(){const t0=performance.now();if(state&&state.gameType===GAME_GOMOKU){drawGomokuBoard();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}return;}if(pixiReady){drawPixi();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}return;}ctx.clearRect(0,0,BASE_W,BASE_H);ctx.drawImage(cache,0,0);if(!state)return;drawMarkers();drawPieces();drawMoveAnim();drawSelection();drawTacticFlash();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}}",
             "function drawStaticPixi(){if(!pixiReady||!pixiLayers)return;const sl=pixiLayers.staticLayer;sl.removeChildren();const bx=MARGIN-34,by=MARGIN-34,bw=8*CELL+68,bh=9*CELL+68;const bg=new PIXI.Graphics();bg.beginFill(0x243b80,0.96);bg.drawRoundedRect(bx,by,bw,bh,10);bg.endFill();sl.addChild(bg);if(boardTexReady){if(!pixiBoardTexture)pixiBoardTexture=PIXI.Texture.from(boardTex);const texSprite=new PIXI.Sprite(pixiBoardTexture);texSprite.x=bx;texSprite.y=by;texSprite.width=bw;texSprite.height=bh;texSprite.alpha=.92;sl.addChild(texSprite);}const grid=new PIXI.Graphics();grid.lineStyle(2,0xd5b26a,.9);for(let r=0;r<10;r++){const y=MARGIN+r*CELL;grid.moveTo(MARGIN,y);grid.lineTo(MARGIN+8*CELL,y);}for(let c=0;c<9;c++){const x=MARGIN+c*CELL;if(c===0||c===8){grid.moveTo(x,MARGIN);grid.lineTo(x,MARGIN+9*CELL);}else{grid.moveTo(x,MARGIN);grid.lineTo(x,MARGIN+4*CELL);grid.moveTo(x,MARGIN+5*CELL);grid.lineTo(x,MARGIN+9*CELL);}}grid.moveTo(MARGIN+3*CELL,MARGIN);grid.lineTo(MARGIN+5*CELL,MARGIN+2*CELL);grid.moveTo(MARGIN+5*CELL,MARGIN);grid.lineTo(MARGIN+3*CELL,MARGIN+2*CELL);grid.moveTo(MARGIN+3*CELL,MARGIN+7*CELL);grid.lineTo(MARGIN+5*CELL,MARGIN+9*CELL);grid.moveTo(MARGIN+5*CELL,MARGIN+7*CELL);grid.lineTo(MARGIN+3*CELL,MARGIN+9*CELL);sl.addChild(grid);const river=new PIXI.Graphics();river.beginFill(0x20357a,.92);river.drawRoundedRect(MARGIN+12,MARGIN+4*CELL+3,8*CELL-24,CELL-8,20);river.endFill();sl.addChild(river);const frame=new PIXI.Graphics();frame.lineStyle(12,0x5d3718,.55);frame.drawRect(bx-10,by-10,bw+20,bh+20);frame.lineStyle(3,0xdfbc77,.95);frame.drawRect(bx,by,bw,bh);sl.addChild(frame);const riverTextL=new PIXI.Text('楚 河',{fontFamily:'KaiTi,STKaiti,serif',fontSize:45,fontWeight:'700',fill:0xd8b574});riverTextL.x=MARGIN+CELL-10;riverTextL.y=MARGIN+4*CELL+6;const riverTextR=new PIXI.Text('汉 界',{fontFamily:'KaiTi,STKaiti,serif',fontSize:45,fontWeight:'700',fill:0xd8b574});riverTextR.x=MARGIN+5*CELL+8;riverTextR.y=MARGIN+4*CELL+6;sl.addChild(riverTextL,riverTextR);}",
             "function getPieceTexturePixi(name,color){const key='pixi|'+color+'|'+name;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+18);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;g.fillStyle='rgba(10,6,2,.28)';g.beginPath();g.ellipse(cx+2,cy+5,R*1.02,R*.83,0,0,Math.PI*2);g.fill();const rg=g.createRadialGradient(cx-R*.36,cy-R*.48,R*.1,cx,cy,R*1.08);if(color==='RED'){rg.addColorStop(0,'#fff9ef');rg.addColorStop(.34,'#f4dfc2');rg.addColorStop(.7,'#d5b189');rg.addColorStop(1,'#996946');}else{rg.addColorStop(0,'#ffffff');rg.addColorStop(.36,'#ece8df');rg.addColorStop(.7,'#c5bdb2');rg.addColorStop(1,'#8f8477');}g.fillStyle=rg;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();const bevel=g.createLinearGradient(cx,cy-R*.95,cx,cy+R*.95);bevel.addColorStop(0,'rgba(255,255,255,.45)');bevel.addColorStop(.4,'rgba(255,255,255,.08)');bevel.addColorStop(1,'rgba(0,0,0,.26)');g.strokeStyle=bevel;g.lineWidth=3.2;g.beginPath();g.arc(cx,cy,R-1.7,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(80,45,18,.95)';g.lineWidth=2.3;g.beginPath();g.arc(cx,cy,R-3.3,0,Math.PI*2);g.stroke();g.strokeStyle=color==='RED'?'#c63f37':'#202020';g.lineWidth=2.3;g.beginPath();g.arc(cx,cy,R-5.6,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(243,219,173,.92)';g.lineWidth=1.1;g.beginPath();g.arc(cx,cy,R-8.2,0,Math.PI*2);g.stroke();const spec=g.createRadialGradient(cx-R*.42,cy-R*.56,1,cx-R*.1,cy-R*.18,R*.92);spec.addColorStop(0,'rgba(255,255,255,.58)');spec.addColorStop(.4,'rgba(255,255,255,.2)');spec.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=spec;g.beginPath();g.arc(cx,cy,R-5,Math.PI*.98,Math.PI*1.92);g.lineTo(cx,cy);g.closePath();g.fill();g.font='bold 32px KaiTi';g.lineWidth=1.1;g.strokeStyle='rgba(255,246,225,.36)';const w=g.measureText(name).width;g.strokeText(name,cx-w/2,cy+11);g.fillStyle=color==='RED'?'#bc332c':'#141414';g.fillText(name,cx-w/2,cy+11);const tex=PIXI.Texture.from(can);pieceSpriteCache[key]=tex;return tex;}",
             "function getPieceBloomTexturePixi(color){const key='pixi-bloom|'+color;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+26);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;const grd=g.createRadialGradient(cx,cy,R*.3,cx,cy,R*1.25);if(color==='RED'){grd.addColorStop(0,'rgba(255,150,130,.26)');grd.addColorStop(.6,'rgba(207,78,62,.14)');grd.addColorStop(1,'rgba(160,45,34,0)');}else{grd.addColorStop(0,'rgba(255,246,224,.23)');grd.addColorStop(.6,'rgba(206,197,178,.13)');grd.addColorStop(1,'rgba(120,112,98,0)');}g.fillStyle=grd;g.beginPath();g.arc(cx,cy,R*1.25,0,Math.PI*2);g.fill();const tex=PIXI.Texture.from(can);pieceSpriteCache[key]=tex;return tex;}",
@@ -1250,20 +1651,20 @@ public class WebXiangqiServer {
             "function makePieceSprite(name,color){const key=color+'|'+name;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+12);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;g.fillStyle='rgba(13,8,0,.24)';g.beginPath();g.ellipse(cx+2,cy+3,R*0.98,R*0.82,0,0,Math.PI*2);g.fill();const rg=g.createRadialGradient(cx-9,cy-10,4,cx,cy,R);if(color==='RED'){rg.addColorStop(0,'#fff7ec');rg.addColorStop(0.62,'#efd8bd');rg.addColorStop(1,'#d1ad86');}else{rg.addColorStop(0,'#ffffff');rg.addColorStop(0.62,'#ebe7df');rg.addColorStop(1,'#c7c2b8');}g.fillStyle=rg;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();const sh=g.createLinearGradient(cx,cy-R*0.2,cx,cy+R);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.22)');g.fillStyle=sh;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();g.strokeStyle='rgba(88,58,29,.94)';g.lineWidth=2.4;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.stroke();g.strokeStyle=(color==='RED')?'#d24c45':'#252525';g.lineWidth=2.8;g.beginPath();g.arc(cx,cy,R-3,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(229,207,160,.9)';g.lineWidth=1.2;g.beginPath();g.arc(cx,cy,R-6,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(255,248,224,.72)';g.lineWidth=1;g.beginPath();g.arc(cx-1,cy-1,R-9,Math.PI*1.05,Math.PI*1.82);g.stroke();g.fillStyle='rgba(255,255,255,.22)';g.beginPath();g.arc(cx-8,cy-10,7,0,Math.PI*2);g.fill();g.font='bold 32px KaiTi';g.lineWidth=0.9;g.strokeStyle='rgba(255,244,220,.22)';const w=g.measureText(name).width;g.strokeText(name,cx-w/2,cy+11);g.fillStyle=(color==='RED')?'#c43d36':'#1b1b1b';g.fillText(name,cx-w/2,cy+11);pieceSpriteCache[key]=can;return can;}function drawPieceDisc(x,y,name,color){const s=makePieceSprite(name,color);ctx.drawImage(s,x-s.width/2,y-s.height/2);}function drawPieces(){for(let r=0;r<10;r++){for(let c=0;c<9;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=pos(r,c);drawPieceDisc(x,y,p.name,p.color);}}}",
             "function drawMarkers(){if(!state.recentMoves)return;for(const m of state.recentMoves){const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);const color=m.color==='RED'?'rgba(198,64,60,.94)':'rgba(35,35,35,.94)';const glow=m.color==='RED'?'rgba(255,134,126,.22)':'rgba(160,160,160,.18)';ctx.fillStyle=glow;ctx.beginPath();ctx.arc(fx,fy,R-5,0,Math.PI*2);ctx.fill();const dx=tx-fx,dy=ty-fy,len=Math.hypot(dx,dy);if(len>8){const ux=dx/len,uy=dy/len;const sx=fx+ux*(R-7),sy=fy+uy*(R-7),ex=tx-ux*(R-6),ey=ty-uy*(R-6);ctx.strokeStyle=color;ctx.lineWidth=(m.order===1)?3.8:3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();const hs=10,px=-uy,py=ux;const ax1=ex-ux*hs+px*hs*0.62,ay1=ey-uy*hs+py*hs*0.62,ax2=ex-ux*hs-px*hs*0.62,ay2=ey-uy*hs-py*hs*0.62;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ax1,ay1);ctx.lineTo(ax2,ay2);ctx.closePath();ctx.fillStyle=color;ctx.fill();}ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(fx,fy,R-10,0,Math.PI*2);ctx.stroke();const s=(m.order===1)?R+9:R+6;ctx.lineWidth=(m.order===1)?3.6:2.8;ctx.strokeRect(tx-s,ty-s,s*2,s*2);const br=(m.order===1)?11:9,bx=tx+s-4,by=ty-s+4;ctx.fillStyle='rgba(251,243,224,.96)';ctx.beginPath();ctx.arc(bx,by,br,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='rgba(22,22,22,.95)';ctx.font=(m.order===1)?'bold 13px Consolas':'bold 12px Consolas';ctx.fillText(String(m.order),bx-3,by+4);}}",
             "function drawSelection(){if(state.reviewMode)return;if(state.selectedRow>=0&&state.selectedCol>=0){const [x,y]=pos(state.selectedRow,state.selectedCol);const s=CELL/2-4;ctx.strokeStyle='rgba(20,160,90,.92)';ctx.lineWidth=2.8;ctx.strokeRect(x-s,y-s,s*2,s*2);ctx.strokeStyle='rgba(168,228,196,.95)';ctx.lineWidth=1.6;ctx.strokeRect(x-s+3,y-s+3,s*2-6,s*2-6);}}",
-            "function drawTacticFlash(){if(!tacticOverlayText||performance.now()>tacticOverlayUntil)return;ctx.fillStyle='rgba(7,10,26,.82)';ctx.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.strokeStyle='#d8b86f';ctx.lineWidth=2;ctx.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.font='bold 36px Microsoft YaHei UI';ctx.fillStyle='#ffd86e';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(tacticOverlayText,BASE_W/2,BASE_H/2-2);ctx.textAlign='start';ctx.textBaseline='alphabetic';}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:120};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');const rs=state.result||'';const isMateCue=(state.tacticText==='绝杀')||(state.gameOver&&(/胜|获胜|将死/.test(rs)));if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(isMateCue){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(isMateCue&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}function stateStamp(s){if(!s)return'';const m=(s.recentMoves&&s.recentMoves.length)?s.recentMoves[0]:null;return [s.seq,s.started,s.mode,s.currentTurn,s.gameOver,s.result,s.selectedRow,s.selectedCol,s.reviewMode,s.reviewMoveIndex,s.reviewMaxMove,s.tacticSeq,m?m.fromRow:'',m?m.fromCol:'',m?m.toRow:'',m?m.toCol:''].join('|');}",
+            "function drawTacticFlash(){if(!tacticOverlayText||performance.now()>tacticOverlayUntil)return;ctx.fillStyle='rgba(7,10,26,.82)';ctx.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.strokeStyle='#d8b86f';ctx.lineWidth=2;ctx.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);ctx.font='bold 36px Microsoft YaHei UI';ctx.fillStyle='#ffd86e';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(tacticOverlayText,BASE_W/2,BASE_H/2-2);ctx.textAlign='start';ctx.textBaseline='alphabetic';}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length||state.gameType===GAME_GOMOKU)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:120};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');const rs=state.result||'';const isMateCue=(state.tacticText==='绝杀')||(state.gameOver&&(/胜|获胜|将死/.test(rs)));if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(isMateCue){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(isMateCue&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}function stateStamp(s){if(!s)return'';const m=(s.recentMoves&&s.recentMoves.length)?s.recentMoves[0]:null;return [s.seq,s.gameType,s.started,s.mode,s.currentTurn,s.gameOver,s.result,s.selectedRow,s.selectedCol,s.reviewMode,s.reviewMoveIndex,s.reviewMaxMove,s.tacticSeq,m?m.fromRow:'',m?m.fromCol:'',m?m.toRow:'',m?m.toCol:''].join('|');}",
             "async function api(path){const base=withSid(path);const q=base.includes('?')?'&':'?';const url=base+q+'_t='+Date.now();const res=await fetch(url,{cache:'no-store'});return await res.json();}",
-            "function applyState(data){const seq=(data&&data.seq)||0;if(seq&&seq<lastAppliedSeq)return;lastAppliedSeq=Math.max(lastAppliedSeq,seq);const prev=lastStateStamp;const wasStarted=!!(state&&state.started);const wasGameOver=!!(state&&state.gameOver);state=data;const tq=state.tacticSeq||0;const rs=state.result||'';if(tq>lastTacticSeq&&state.tacticText){lastTacticSeq=tq;const tt=state.tacticText||'';if(tt.indexOf('将军')>=0||tt==='绝杀'){tacticOverlayText='';tacticOverlayUntil=0;}else{tacticOverlayText=tt;tacticOverlayUntil=performance.now()+500;}}if(!state.reviewMode&&state.started&&!wasStarted&&seq!==lastOpeningSeq){lastOpeningSeq=seq;playOpeningCeremony();}if(!state.reviewMode&&tq>lastCheckSeq&&state.tacticText&&state.tacticText.indexOf('将军')>=0){lastCheckSeq=tq;playCheckCeremony();}const isMateState=(state.tacticText==='绝杀')||(state.gameOver&&(/胜|获胜|将死/.test(rs)));if(!state.reviewMode&&isMateState){const rm=(state.recentMoves&&state.recentMoves.length)?state.recentMoves[0]:null;const mateKey=[seq,tq,rs,rm?rm.fromRow:'',rm?rm.fromCol:'',rm?rm.toRow:'',rm?rm.toCol:''].join('|');if(mateKey!==lastMateAnimKey){lastMateAnimKey=mateKey;lastMateSeq=tq||seq;playMateCeremony();}}ui.firstHand.disabled=ui.mode.value!=='pvc';setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红';setTxt(ui.modeTag,'模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+state.difficultyText+(state.mode==='PVC'?humanTxt:''));setTxt(ui.endgameTag,'残局: '+(state.endgame||'标准开局'));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+(state.currentTurn==='RED'?'红方':'黑方'))));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}",
+            "function applyState(data){const seq=(data&&data.seq)||0;if(seq&&seq<lastAppliedSeq)return;lastAppliedSeq=Math.max(lastAppliedSeq,seq);const prev=lastStateStamp;const wasStarted=!!(state&&state.started);state=data||{};syncGamePanels(state.gameType||GAME_XIANGQI);const isG=state.gameType===GAME_GOMOKU;const tq=state.tacticSeq||0;const rs=state.result||'';if(tq>lastTacticSeq&&state.tacticText){lastTacticSeq=tq;const tt=state.tacticText||'';if(!isG&&(tt.indexOf('将军')>=0||tt==='绝杀')){tacticOverlayText='';tacticOverlayUntil=0;}else{tacticOverlayText=tt;tacticOverlayUntil=performance.now()+500;}}if(!state.reviewMode&&state.started&&!wasStarted&&seq!==lastOpeningSeq){lastOpeningSeq=seq;playOpeningCeremony();}if(!isG&&!state.reviewMode&&tq>lastCheckSeq&&state.tacticText&&state.tacticText.indexOf('将军')>=0){lastCheckSeq=tq;playCheckCeremony();}if(!isG&&!state.reviewMode&&((state.tacticText==='绝杀')||(state.gameOver&&(/胜|获胜|将死/.test(rs))))){const rm=(state.recentMoves&&state.recentMoves.length)?state.recentMoves[0]:null;const mateKey=[seq,tq,rs,rm?rm.fromRow:'',rm?rm.fromCol:'',rm?rm.toRow:'',rm?rm.toCol:''].join('|');if(mateKey!==lastMateAnimKey){lastMateAnimKey=mateKey;lastMateSeq=tq||seq;playMateCeremony();}}ui.firstHand.disabled=ui.mode.value!=='pvc';setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=isG?(state.pvcHumanColor==='WHITE'?' / 玩家执白':' / 玩家执黑'):(state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红');setTxt(ui.modeTag,'棋种: '+(isG?'五子棋':'中国象棋')+' / 模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+(state.difficultyText||'-')+(state.mode==='PVC'?humanTxt:''));setTxt(ui.endgameTag,isG?'规则: 黑方禁手（三三/四四/长连）':('残局: '+(state.endgame||'标准开局')));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');const turnTxt=isG?(state.currentTurn==='WHITE'?'白方':'黑方'):(state.currentTurn==='RED'?'红方':'黑方');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+turnTxt)));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);document.querySelectorAll('.egBtn').forEach(btn=>{btn.disabled=isG;});handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}",
             "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;const t0=performance.now();try{const data=await api('/api/state');if(seq!==reqSeq)return;applyState(data);}finally{pending=false;const cost=performance.now()-t0;if(cost>120){api('/api/perf/event?type=state_fetch&cost='+Math.round(cost)).catch(()=>{});}}}",
             "async function act(path){const data=await api(path);applyState(data);}function enqueueAct(path){actionQueue=actionQueue.then(()=>act(path)).catch(()=>{});return actionQueue;}",
-            "document.addEventListener('pointerdown',unlockAudio,{once:true});canvas.addEventListener('pointerdown',e=>{if(state&&(!state.started||state.reviewMode||state.gameOver))return;e.preventDefault();const rect=canvas.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;const p=state&&state.board&&state.board[g.row]?state.board[g.row][g.col]:null;if(state&&state.selectedRow<0&&p&&p.color===state.currentTurn&&(state.mode!=='PVC'||p.color===state.pvcHumanColor)){state.selectedRow=g.row;state.selectedCol=g.col;scheduleRender();}enqueueAct('/api/click?row='+g.row+'&col='+g.col);},{passive:false});",
-            "document.getElementById('newGame').addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value;enqueueAct('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h);});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,name=encodeURIComponent(btn.dataset.name);enqueueAct('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h);}));",
+            "document.addEventListener('pointerdown',unlockAudio,{once:true});function onBoardPointer(e,el){if(state&&(!state.started||state.reviewMode||state.gameOver))return;e.preventDefault();const rect=el.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;const p=state&&state.board&&state.board[g.row]?state.board[g.row][g.col]:null;if(state&&state.selectedRow<0&&p&&p.color===state.currentTurn&&(state.mode!=='PVC'||p.color===state.pvcHumanColor)){state.selectedRow=g.row;state.selectedCol=g.col;scheduleRender();}enqueueAct('/api/click?row='+g.row+'&col='+g.col);}canvas.addEventListener('pointerdown',e=>onBoardPointer(e,canvas),{passive:false});gomokuCanvas.addEventListener('pointerdown',e=>onBoardPointer(e,gomokuCanvas),{passive:false});",
+            "document.getElementById('newGame').addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=ui.gameType.value;enqueueAct('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g);});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=ui.gameType.value,name=encodeURIComponent(btn.dataset.name);enqueueAct('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g);}));",
             "document.getElementById('undo').addEventListener('click',()=>enqueueAct('/api/undo'));document.getElementById('surrender').addEventListener('click',()=>{if(confirm('确定要认输吗？')){enqueueAct('/api/surrender');}});document.getElementById('drawBtn').addEventListener('click',()=>{if(confirm('确认本局和棋？')){enqueueAct('/api/draw');}});document.getElementById('soundToggle').addEventListener('click',toggleSound);",
             "document.getElementById('reviewStart').addEventListener('click',()=>enqueueAct('/api/review/start'));",
             "document.getElementById('reviewPrev').addEventListener('click',()=>enqueueAct('/api/review/prev'));",
             "document.getElementById('reviewNext').addEventListener('click',()=>enqueueAct('/api/review/next'));",
             "document.getElementById('reviewExit').addEventListener('click',()=>enqueueAct('/api/review/exit'));",
-            "ui.mode.addEventListener('change',()=>{ui.firstHand.disabled=ui.mode.value!=='pvc';});",
-            "function pollDelay(){if(document.hidden)return 900;if(!state||!state.started)return 120;if(state.mode==='PVC'&&state.currentTurn!==state.pvcHumanColor)return 58;return 82;}function schedulePoll(){clearTimeout(pollTimer);pollTimer=setTimeout(async()=>{await refresh();schedulePoll();},pollDelay());}document.addEventListener('visibilitychange',schedulePoll);initPixiRenderer();drawStatic();setupCanvas();runCourtAnimations();syncSoundToggle();refresh().finally(schedulePoll);",
+            "ui.mode.addEventListener('change',()=>{ui.firstHand.disabled=ui.mode.value!=='pvc';});ui.gameType.addEventListener('change',()=>{syncGamePanels(ui.gameType.value);ui.firstHand.disabled=ui.mode.value!=='pvc';});",
+            "function pollDelay(){if(document.hidden)return 900;if(!state||!state.started)return 120;if(state.mode==='PVC'&&state.currentTurn!==state.pvcHumanColor)return 58;return 82;}function schedulePoll(){clearTimeout(pollTimer);pollTimer=setTimeout(async()=>{await refresh();schedulePoll();},pollDelay());}document.addEventListener('visibilitychange',schedulePoll);initPixiRenderer();drawStatic();setupCanvas();runCourtAnimations();syncSoundToggle();syncGamePanels(ui.gameType.value);refresh().finally(schedulePoll);",
             "</script>",
             "</body>",
             "</html>");
