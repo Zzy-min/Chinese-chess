@@ -54,8 +54,7 @@ public class WebXiangqiServer {
 
     private HttpServer server;
     private URI uri;
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
-    private final Map<String, Long> sessionLastSeen = new ConcurrentHashMap<>();
+    private final Map<String, SessionSlot> sessions = new ConcurrentHashMap<>();
     private volatile long lastSessionCleanupAt = 0L;
 
     private WebXiangqiServer() {
@@ -115,7 +114,6 @@ public class WebXiangqiServer {
             uri = null;
         }
         sessions.clear();
-        sessionLastSeen.clear();
         shutdownExecutor(HTTP_EXECUTOR);
         HTTP_EXECUTOR = null;
         shutdownExecutor(AI_EXECUTOR);
@@ -401,41 +399,37 @@ public class WebXiangqiServer {
                 return;
             }
             lastSessionCleanupAt = now;
-            for (Map.Entry<String, Long> entry : sessionLastSeen.entrySet()) {
-                Long lastSeen = entry.getValue();
-                if (lastSeen == null || now - lastSeen > SESSION_TTL_MS) {
-                    removeSession(entry.getKey());
+            for (Map.Entry<String, SessionSlot> entry : sessions.entrySet()) {
+                SessionSlot slot = entry.getValue();
+                if (slot == null || now - slot.lastSeen > SESSION_TTL_MS) {
+                    sessions.remove(entry.getKey(), slot);
                 }
             }
             if (sessions.size() > SESSION_MAX_ENTRIES) {
-                List<Map.Entry<String, Long>> entries = new ArrayList<Map.Entry<String, Long>>(sessionLastSeen.entrySet());
-                Collections.sort(entries, new java.util.Comparator<Map.Entry<String, Long>>() {
+                List<Map.Entry<String, SessionSlot>> entries = new ArrayList<Map.Entry<String, SessionSlot>>(sessions.entrySet());
+                Collections.sort(entries, new java.util.Comparator<Map.Entry<String, SessionSlot>>() {
                     @Override
-                    public int compare(Map.Entry<String, Long> a, Map.Entry<String, Long> b) {
-                        long av = a.getValue() == null ? 0L : a.getValue();
-                        long bv = b.getValue() == null ? 0L : b.getValue();
+                    public int compare(Map.Entry<String, SessionSlot> a, Map.Entry<String, SessionSlot> b) {
+                        long av = a.getValue() == null ? 0L : a.getValue().lastSeen;
+                        long bv = b.getValue() == null ? 0L : b.getValue().lastSeen;
                         return Long.compare(av, bv);
                     }
                 });
                 int toRemove = sessions.size() - SESSION_MAX_ENTRIES;
                 for (int i = 0; i < toRemove && i < entries.size(); i++) {
-                    removeSession(entries.get(i).getKey());
+                    sessions.remove(entries.get(i).getKey(), entries.get(i).getValue());
                 }
             }
         }
     }
 
-    private void removeSession(String sid) {
-        if (sid == null) {
-            return;
-        }
-        sessions.remove(sid);
-        sessionLastSeen.remove(sid);
-    }
+    private static final class SessionSlot {
+        private final Session session;
+        private volatile long lastSeen;
 
-    private void touchSession(String sid) {
-        if (sid != null) {
-            sessionLastSeen.put(sid, System.currentTimeMillis());
+        private SessionSlot(Session session, long lastSeen) {
+            this.session = session;
+            this.lastSeen = lastSeen;
         }
     }
 
@@ -450,9 +444,15 @@ public class WebXiangqiServer {
             sid = UUID.randomUUID().toString().replace("-", "");
             exchange.getResponseHeaders().add("Set-Cookie", SID_COOKIE + "=" + sid + "; Path=/; HttpOnly; SameSite=Lax");
         }
-        Session session = sessions.computeIfAbsent(sid, key -> new Session());
-        touchSession(sid);
-        return session;
+        final long now = System.currentTimeMillis();
+        SessionSlot slot = sessions.compute(sid, (key, existing) -> {
+            if (existing == null) {
+                return new SessionSlot(new Session(), now);
+            }
+            existing.lastSeen = now;
+            return existing;
+        });
+        return slot.session;
     }
 
     private String readSidFromCookie(HttpExchange exchange) {
