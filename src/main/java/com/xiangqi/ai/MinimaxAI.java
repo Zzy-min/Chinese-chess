@@ -15,11 +15,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * 中国象棋AI - 迭代加深 + Alpha-Beta + 置换表 + 启发式排序
@@ -617,64 +617,85 @@ public class MinimaxAI {
     }
 
     private SearchResult searchRootParallel(Board board, PieceColor aiColor, List<Move> ordered, int depth) {
-        List<Future<SearchResult>> futures = new ArrayList<Future<SearchResult>>(ordered.size());
-        for (Move move : ordered) {
-            if (isTimeUp()) {
-                break;
-            }
-            final Move rootMove = copyMove(move);
-            final Board rootBoard = new Board(board);
-            rootBoard.movePiece(rootMove);
-            futures.add(ROOT_EXECUTOR.submit(new Callable<SearchResult>() {
-                @Override
-                public SearchResult call() {
-                    MinimaxAI worker = new MinimaxAI();
-                    worker.setDifficulty(difficulty);
-                    worker.searchStartTime = searchStartTime;
-                    worker.searchTimeLimitMs = searchTimeLimitMs;
-                    worker.searchDeadlineMs = searchDeadlineMs;
-                    worker.timeUp = false;
-                    worker.timeCheckCounter = 0;
-                    worker.searchFastMode = searchFastMode;
-                    worker.repetitionCount.putAll(repetitionCount);
-                    int score = -worker.negamax(rootBoard, depth - 1, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, 1, aiColor);
-                    return new SearchResult(rootMove, score);
-                }
-            }));
+        int window = Math.max(1, Math.min(ROOT_PARALLEL_THREADS, ordered.size()));
+        ExecutorCompletionService<SearchResult> completion = new ExecutorCompletionService<SearchResult>(ROOT_EXECUTOR);
+        List<Future<SearchResult>> inFlight = new ArrayList<Future<SearchResult>>(window);
+        int submitted = 0;
+        int completed = 0;
+
+        while (submitted < ordered.size() && inFlight.size() < window && !isTimeUp()) {
+            Future<SearchResult> future = completion.submit(createRootTask(board, aiColor, ordered.get(submitted), depth));
+            inFlight.add(future);
+            submitted++;
         }
 
         int bestScore = Integer.MIN_VALUE;
         Move bestMove = null;
-        for (Future<SearchResult> future : futures) {
+        while (completed < submitted) {
             long remainMs = searchDeadlineMs - System.currentTimeMillis();
             if (remainMs <= 0) {
                 timeUp = true;
                 break;
             }
             try {
-                SearchResult result = future.get(Math.max(1L, remainMs), TimeUnit.MILLISECONDS);
+                Future<SearchResult> future = completion.poll(Math.max(1L, remainMs), TimeUnit.MILLISECONDS);
+                if (future == null) {
+                    timeUp = true;
+                    break;
+                }
+                completed++;
+                SearchResult result = future.get();
                 if (result != null && result.bestMove != null && result.score > bestScore) {
                     bestScore = result.score;
                     bestMove = result.bestMove;
                 }
-            } catch (TimeoutException e) {
-                timeUp = true;
-                break;
+                while (submitted < ordered.size() && (submitted - completed) < window && !isTimeUp()) {
+                    Future<SearchResult> nextFuture = completion.submit(createRootTask(board, aiColor, ordered.get(submitted), depth));
+                    inFlight.add(nextFuture);
+                    submitted++;
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 timeUp = true;
                 break;
             } catch (ExecutionException e) {
                 // 忽略个别任务失败，继续汇总其他根节点结果
+                while (submitted < ordered.size() && (submitted - completed) < window && !isTimeUp()) {
+                    Future<SearchResult> nextFuture = completion.submit(createRootTask(board, aiColor, ordered.get(submitted), depth));
+                    inFlight.add(nextFuture);
+                    submitted++;
+                }
             }
         }
 
-        for (Future<SearchResult> future : futures) {
+        for (Future<SearchResult> future : inFlight) {
             if (!future.isDone()) {
                 future.cancel(true);
             }
         }
         return new SearchResult(bestMove, bestScore);
+    }
+
+    private Callable<SearchResult> createRootTask(Board board, PieceColor aiColor, Move move, int depth) {
+        final Move rootMove = copyMove(move);
+        final Board rootBoard = new Board(board);
+        rootBoard.movePiece(rootMove);
+        return new Callable<SearchResult>() {
+            @Override
+            public SearchResult call() {
+                MinimaxAI worker = new MinimaxAI();
+                worker.setDifficulty(difficulty);
+                worker.searchStartTime = searchStartTime;
+                worker.searchTimeLimitMs = searchTimeLimitMs;
+                worker.searchDeadlineMs = searchDeadlineMs;
+                worker.timeUp = false;
+                worker.timeCheckCounter = 0;
+                worker.searchFastMode = searchFastMode;
+                worker.repetitionCount.putAll(repetitionCount);
+                int score = -worker.negamax(rootBoard, depth - 1, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, 1, aiColor);
+                return new SearchResult(rootMove, score);
+            }
+        };
     }
 
     private EndgameCurve curveFor(EndgameStudySet.Tier tier, Difficulty difficulty) {
