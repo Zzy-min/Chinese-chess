@@ -19,13 +19,13 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
  * 中国象棋AI - 迭代加深 + Alpha-Beta + 置换表 + 启发式排序
  */
 public class MinimaxAI {
-    private static final Random RANDOM = new Random();
     private static final int MATE_SCORE = 200000;
 
     private static final int TT_EXACT = 0;
@@ -229,9 +229,9 @@ public class MinimaxAI {
         }
 
         if (ply >= MIDGAME_PLY_FAST_CAP && !endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
-            && difficulty.getRandomPickChance() > 0 && RANDOM.nextDouble() < difficulty.getRandomPickChance()) {
+            && difficulty.getRandomPickChance() > 0 && ThreadLocalRandom.current().nextDouble() < difficulty.getRandomPickChance()) {
             int topN = Math.max(1, Math.min(4, validMoves.size()));
-            return validMoves.get(RANDOM.nextInt(topN));
+            return validMoves.get(ThreadLocalRandom.current().nextInt(topN));
         }
 
         int maxDepth = difficulty.getMaxDepth();
