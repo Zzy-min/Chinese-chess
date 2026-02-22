@@ -25,6 +25,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 public class WebXiangqiServer {
     private static final long MIN_MOVE_INTERVAL_MS = 120L;
@@ -43,12 +45,18 @@ public class WebXiangqiServer {
     private static final String SID_COOKIE = "XQSID";
     private static final int HTTP_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 4);
     private static final int AI_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
-    private static final ExecutorService HTTP_EXECUTOR = Executors.newFixedThreadPool(HTTP_THREADS, namedFactory("xq-http-"));
-    private static final ExecutorService AI_EXECUTOR = Executors.newFixedThreadPool(AI_THREADS, namedFactory("xq-ai-"));
+    private static final long SESSION_TTL_MS = TimeUnit.HOURS.toMillis(6);
+    private static final long SESSION_CLEAN_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1);
+    private static final int SESSION_MAX_ENTRIES = 5000;
+    private static volatile ExecutorService HTTP_EXECUTOR = createExecutor(HTTP_THREADS, "xq-http-");
+    private static volatile ExecutorService AI_EXECUTOR = createExecutor(AI_THREADS, "xq-ai-");
+    private static volatile boolean SHUTDOWN_HOOK_INSTALLED = false;
 
     private HttpServer server;
     private URI uri;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private final Map<String, Long> sessionLastSeen = new ConcurrentHashMap<>();
+    private volatile long lastSessionCleanupAt = 0L;
 
     private WebXiangqiServer() {
     }
@@ -69,6 +77,9 @@ public class WebXiangqiServer {
         if (server != null) {
             return uri;
         }
+        HTTP_EXECUTOR = ensureExecutor(HTTP_EXECUTOR, HTTP_THREADS, "xq-http-");
+        AI_EXECUTOR = ensureExecutor(AI_EXECUTOR, AI_THREADS, "xq-ai-");
+        installShutdownHookOnce();
 
         int bindPort = preferredPort > 0 ? preferredPort : 0;
         String host = (bindHost == null || bindHost.trim().isEmpty()) ? "127.0.0.1" : bindHost.trim();
@@ -95,6 +106,20 @@ public class WebXiangqiServer {
         String uriHost = "0.0.0.0".equals(host) ? "127.0.0.1" : host;
         uri = URI.create("http://" + uriHost + ":" + server.getAddress().getPort() + "/");
         return uri;
+    }
+
+    public synchronized void stop() {
+        if (server != null) {
+            server.stop(0);
+            server = null;
+            uri = null;
+        }
+        sessions.clear();
+        sessionLastSeen.clear();
+        shutdownExecutor(HTTP_EXECUTOR);
+        HTTP_EXECUTOR = null;
+        shutdownExecutor(AI_EXECUTOR);
+        AI_EXECUTOR = null;
     }
 
     private void handleIndex(HttpExchange exchange) throws IOException {
@@ -322,7 +347,100 @@ public class WebXiangqiServer {
         };
     }
 
+    private static ExecutorService createExecutor(int threads, String prefix) {
+        return Executors.newFixedThreadPool(threads, namedFactory(prefix));
+    }
+
+    private static ExecutorService ensureExecutor(ExecutorService executor, int threads, String prefix) {
+        if (executor == null || executor.isShutdown() || executor.isTerminated()) {
+            return createExecutor(threads, prefix);
+        }
+        return executor;
+    }
+
+    private static void shutdownExecutor(ExecutorService executor) {
+        if (executor == null) {
+            return;
+        }
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            executor.shutdownNow();
+        }
+    }
+
+    private void installShutdownHookOnce() {
+        if (SHUTDOWN_HOOK_INSTALLED) {
+            return;
+        }
+        synchronized (WebXiangqiServer.class) {
+            if (SHUTDOWN_HOOK_INSTALLED) {
+                return;
+            }
+            Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    INSTANCE.stop();
+                }
+            }, "xq-server-shutdown"));
+            SHUTDOWN_HOOK_INSTALLED = true;
+        }
+    }
+
+    private void cleanupSessionsIfNeeded() {
+        long now = System.currentTimeMillis();
+        if (now - lastSessionCleanupAt < SESSION_CLEAN_INTERVAL_MS) {
+            return;
+        }
+        synchronized (this) {
+            if (now - lastSessionCleanupAt < SESSION_CLEAN_INTERVAL_MS) {
+                return;
+            }
+            lastSessionCleanupAt = now;
+            for (Map.Entry<String, Long> entry : sessionLastSeen.entrySet()) {
+                Long lastSeen = entry.getValue();
+                if (lastSeen == null || now - lastSeen > SESSION_TTL_MS) {
+                    removeSession(entry.getKey());
+                }
+            }
+            if (sessions.size() > SESSION_MAX_ENTRIES) {
+                List<Map.Entry<String, Long>> entries = new ArrayList<Map.Entry<String, Long>>(sessionLastSeen.entrySet());
+                Collections.sort(entries, new java.util.Comparator<Map.Entry<String, Long>>() {
+                    @Override
+                    public int compare(Map.Entry<String, Long> a, Map.Entry<String, Long> b) {
+                        long av = a.getValue() == null ? 0L : a.getValue();
+                        long bv = b.getValue() == null ? 0L : b.getValue();
+                        return Long.compare(av, bv);
+                    }
+                });
+                int toRemove = sessions.size() - SESSION_MAX_ENTRIES;
+                for (int i = 0; i < toRemove && i < entries.size(); i++) {
+                    removeSession(entries.get(i).getKey());
+                }
+            }
+        }
+    }
+
+    private void removeSession(String sid) {
+        if (sid == null) {
+            return;
+        }
+        sessions.remove(sid);
+        sessionLastSeen.remove(sid);
+    }
+
+    private void touchSession(String sid) {
+        if (sid != null) {
+            sessionLastSeen.put(sid, System.currentTimeMillis());
+        }
+    }
+
     private Session getSession(HttpExchange exchange) {
+        cleanupSessionsIfNeeded();
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         String sid = query.get("sid");
         if (!isValidSid(sid)) {
@@ -332,7 +450,9 @@ public class WebXiangqiServer {
             sid = UUID.randomUUID().toString().replace("-", "");
             exchange.getResponseHeaders().add("Set-Cookie", SID_COOKIE + "=" + sid + "; Path=/; HttpOnly; SameSite=Lax");
         }
-        return sessions.computeIfAbsent(sid, key -> new Session());
+        Session session = sessions.computeIfAbsent(sid, key -> new Session());
+        touchSession(sid);
+        return session;
     }
 
     private String readSidFromCookie(HttpExchange exchange) {

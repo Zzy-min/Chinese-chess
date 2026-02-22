@@ -1,5 +1,7 @@
 package com.xiangqi.model;
 
+import java.util.Objects;
+
 /**
  * 移动类 - 表示棋子的移动
  */
@@ -49,6 +51,11 @@ public class Move {
         Move move = (Move) obj;
         return fromRow == move.fromRow && fromCol == move.fromCol &&
                 toRow == move.toRow && toCol == move.toCol;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(fromRow, fromCol, toRow, toCol);
     }
 
     @Override
