@@ -464,11 +464,21 @@ public class WebXiangqiServer {
             if (header == null || header.trim().isEmpty()) {
                 continue;
             }
+            if (header.length() > 4096) {
+                continue;
+            }
             String[] cookies = header.split(";");
             for (String cookie : cookies) {
                 String item = cookie.trim();
                 if (item.startsWith(SID_COOKIE + "=")) {
-                    return item.substring((SID_COOKIE + "=").length()).trim();
+                    String candidate = item.substring((SID_COOKIE + "=").length()).trim();
+                    if (candidate.startsWith("\"") && candidate.endsWith("\"") && candidate.length() >= 2) {
+                        candidate = candidate.substring(1, candidate.length() - 1).trim();
+                    }
+                    if (isValidSid(candidate)) {
+                        return candidate;
+                    }
+                    return null;
                 }
             }
         }

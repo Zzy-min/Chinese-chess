@@ -635,15 +635,17 @@ public class XiangqiFrame extends JFrame {
     }
 
     private void stopServerOnPort(int port) {
-        if (!isWindows()) {
-            return;
-        }
         Integer pid = findListeningPid(port);
         if (pid == null) {
             return;
         }
         try {
-            Process kill = new ProcessBuilder("taskkill", "/PID", String.valueOf(pid), "/F").start();
+            Process kill;
+            if (isWindows()) {
+                kill = new ProcessBuilder("taskkill", "/PID", String.valueOf(pid), "/F").start();
+            } else {
+                kill = new ProcessBuilder("kill", "-TERM", String.valueOf(pid)).start();
+            }
             kill.waitFor();
         } catch (Exception ignored) {
             // 失败时保持静默，后续由启动逻辑与健康检查兜底
@@ -651,6 +653,13 @@ public class XiangqiFrame extends JFrame {
     }
 
     private Integer findListeningPid(int port) {
+        if (isWindows()) {
+            return findListeningPidWindows(port);
+        }
+        return findListeningPidUnix(port);
+    }
+
+    private Integer findListeningPidWindows(int port) {
         try {
             Process query = new ProcessBuilder("netstat", "-ano", "-p", "tcp").start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(query.getInputStream()))) {
@@ -673,6 +682,21 @@ public class XiangqiFrame extends JFrame {
         return null;
     }
 
+    private Integer findListeningPidUnix(int port) {
+        try {
+            Process query = new ProcessBuilder("lsof", "-t", "-i", "tcp:" + port).start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(query.getInputStream()))) {
+                String line = reader.readLine();
+                if (line != null && !line.trim().isEmpty()) {
+                    return Integer.parseInt(line.trim());
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
+    }
+
     private boolean isWindows() {
         String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("win");
@@ -680,9 +704,14 @@ public class XiangqiFrame extends JFrame {
 
     private void launchStandaloneBrowserServer() throws IOException {
         String javaHome = System.getProperty("java.home");
-        String javaw = javaHome + java.io.File.separator + "bin" + java.io.File.separator + "javaw.exe";
-        String javaExe = javaHome + java.io.File.separator + "bin" + java.io.File.separator + "java.exe";
-        String javaBin = new java.io.File(javaw).exists() ? javaw : javaExe;
+        String javaBin;
+        if (isWindows()) {
+            String javaw = javaHome + java.io.File.separator + "bin" + java.io.File.separator + "javaw.exe";
+            String javaExe = javaHome + java.io.File.separator + "bin" + java.io.File.separator + "java.exe";
+            javaBin = new java.io.File(javaw).exists() ? javaw : javaExe;
+        } else {
+            javaBin = javaHome + java.io.File.separator + "bin" + java.io.File.separator + "java";
+        }
 
         ProcessBuilder pb = new ProcessBuilder(
             javaBin,
