@@ -8,6 +8,8 @@ import javax.swing.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * 游戏控制器 - 管理游戏逻辑和状态
@@ -68,6 +70,8 @@ public class GameController {
     private long lastUpdateTime;
     private Runnable onTimeUpdate;
     private Runnable onGameOver;
+    private SwingWorker<Move, Void> aiWorker;
+    private Timer aiDelayTimer;
 
     // 游戏状态
     private boolean hasRedSurrendered;
@@ -285,6 +289,7 @@ public class GameController {
     }
 
     public void startPvPGame(TimeControl control) {
+        cancelPendingAiTasks();
         if (control != null) {
             this.timeControl = control;
         }
@@ -310,6 +315,7 @@ public class GameController {
     }
 
     public void startPvCGame(MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+        cancelPendingAiTasks();
         setAiDifficulty(difficulty);
         pvcHumanFirst = humanFirst;
 
@@ -382,7 +388,8 @@ public class GameController {
             return;
         }
 
-        SwingWorker<Move, Void> worker = new SwingWorker<Move, Void>() {
+        cancelPendingAiTasks();
+        aiWorker = new SwingWorker<Move, Void>() {
             @Override
             protected Move doInBackground() {
                 return ai.findBestMove(panel.getBoard(), aiColor);
@@ -392,35 +399,67 @@ public class GameController {
             protected void done() {
                 try {
                     Move move = get();
-                    SwingUtilities.invokeLater(() -> {
+                    if (move == null || gameEnded || !isRunning) {
+                        return;
+                    }
+                    long wait = getAiMoveIntervalMs() - (System.currentTimeMillis() - panel.getLastMoveTimestamp());
+                    int delay = (int) Math.max(0L, wait);
+                    aiDelayTimer = new Timer(delay, evt -> {
+                        aiDelayTimer = null;
                         if (gameEnded || !isRunning) {
                             return;
                         }
-                        long wait = getAiMoveIntervalMs() - (System.currentTimeMillis() - panel.getLastMoveTimestamp());
-                        int delay = (int) Math.max(0L, wait);
-                        Timer delayTimer = new Timer(delay, evt -> {
-                            if (gameEnded || !isRunning) {
-                                return;
-                            }
-                            panel.makeAIMove(move);
-                            updateAutoDrawStateAfterMove();
-                            if (autoDraw) {
-                                endGame();
-                                return;
-                            }
-                            if (panel.getBoard().isGameOver()) {
-                                endGame();
-                            }
-                        });
-                        delayTimer.setRepeats(false);
-                        delayTimer.start();
+                        panel.makeAIMove(move);
+                        updateAutoDrawStateAfterMove();
+                        if (autoDraw) {
+                            endGame();
+                            return;
+                        }
+                        if (panel.getBoard().isGameOver()) {
+                            endGame();
+                        }
                     });
+                    aiDelayTimer.setRepeats(false);
+                    aiDelayTimer.start();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (CancellationException e) {
+                    // 被取消属于正常流程（重开/结束时触发）
+                } catch (ExecutionException e) {
+                    showAiError(e.getCause() == null ? e : e.getCause());
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    showAiError(e);
+                } finally {
+                    aiWorker = null;
                 }
             }
         };
-        worker.execute();
+        aiWorker.execute();
+    }
+
+    private void cancelPendingAiTasks() {
+        if (aiDelayTimer != null) {
+            aiDelayTimer.stop();
+            aiDelayTimer = null;
+        }
+        if (aiWorker != null && !aiWorker.isDone()) {
+            aiWorker.cancel(true);
+            aiWorker = null;
+        }
+    }
+
+    private void showAiError(Throwable t) {
+        String msg = t == null ? "未知错误" : t.getMessage();
+        if (msg == null || msg.trim().isEmpty()) {
+            msg = t == null ? "未知错误" : t.getClass().getSimpleName();
+        }
+        String text = "AI计算失败：" + msg;
+        SwingUtilities.invokeLater(() ->
+            JOptionPane.showMessageDialog(panel, text, "AI错误", JOptionPane.ERROR_MESSAGE)
+        );
+        if (t != null) {
+            t.printStackTrace();
+        }
     }
 
     public void surrender() {
@@ -469,6 +508,7 @@ public class GameController {
         panel.setInteractionEnabled(false);
         panel.setHumanTurn(false);
         panel.setOnMoveComplete(null);
+        cancelPendingAiTasks();
         stopTimer();
 
         String result = getGameResult();
@@ -535,6 +575,7 @@ public class GameController {
 
     public void loadEndgame(String endgameName, XiangqiPanel.GameMode mode, MinimaxAI.Difficulty difficulty) {
         setAiDifficulty(difficulty);
+        cancelPendingAiTasks();
 
         panel.setGameMode(mode);
         panel.setInteractionEnabled(true);
@@ -759,6 +800,7 @@ public class GameController {
         isRunning = false;
         gameEnded = true;
         panel.setInteractionEnabled(false);
+        cancelPendingAiTasks();
         stopTimer();
     }
 }
