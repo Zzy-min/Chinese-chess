@@ -11,6 +11,8 @@ import java.util.Set;
 public final class GomokuAI {
     private static final long WIN_SCORE = 1_000_000_000L;
     private static final long LOSING_THREAT_PENALTY = 850_000_000L;
+    private static final long FORK_THREAT_BONUS = 240_000_000L;
+    private static final long SINGLE_THREAT_BONUS = 80_000_000L;
     private final Random random = new Random();
 
     public int[] findBestMove(GomokuBoard board, GomokuStone aiStone, MinimaxAI.Difficulty difficulty) {
@@ -29,6 +31,8 @@ public final class GomokuAI {
         if (urgentBlock != null) {
             return urgentBlock;
         }
+
+        candidates = limitCandidatesByDifficulty(board, aiStone, candidates, difficulty);
 
         if (difficulty != MinimaxAI.Difficulty.EASY) {
             int depth = difficulty == MinimaxAI.Difficulty.HARD ? 4 : 3;
@@ -123,18 +127,21 @@ public final class GomokuAI {
         List<int[]> all = collectCandidates(board);
         List<int[]> tactical = collectTacticalMoves(board, side, all);
         if (!tactical.isEmpty()) {
-            return rankTopMoves(board, side, tactical, width, difficulty);
+            return rankTopMoves(board, side, tactical, width, difficulty, true);
         }
-        return rankTopMoves(board, side, all, width, difficulty);
+        return rankTopMoves(board, side, all, width, difficulty, false);
     }
 
-    private List<int[]> rankTopMoves(GomokuBoard board, GomokuStone side, List<int[]> moves, int width, MinimaxAI.Difficulty difficulty) {
+    private List<int[]> rankTopMoves(GomokuBoard board, GomokuStone side, List<int[]> moves, int width,
+                                     MinimaxAI.Difficulty difficulty, boolean preciseScore) {
         if (moves.isEmpty()) {
             return moves;
         }
         List<ScoredMove> scored = new ArrayList<>(moves.size());
         for (int[] m : moves) {
-            long s = scoreMove(board, m[0], m[1], side, difficulty);
+            long s = preciseScore
+                ? scoreMove(board, m[0], m[1], side, difficulty)
+                : scoreMoveForOrdering(board, m[0], m[1], side);
             scored.add(new ScoredMove(m[0], m[1], s));
         }
         scored.sort((a, b) -> Long.compare(b.score, a.score));
@@ -192,9 +199,10 @@ public final class GomokuAI {
 
     private long staticEvaluate(GomokuBoard board, GomokuStone rootStone) {
         GomokuStone opp = rootStone.opposite();
-        long me = bestOnePly(board, rootStone);
-        long enemy = bestOnePly(board, opp);
-        int oppImmediateWins = countImmediateWins(board, opp);
+        List<int[]> candidates = collectCandidates(board);
+        long me = bestOnePly(board, rootStone, candidates);
+        long enemy = bestOnePly(board, opp, candidates);
+        int oppImmediateWins = countImmediateWins(board, opp, candidates, 3);
         long tension = oppImmediateWins > 0 ? (280_000_000L + (oppImmediateWins - 1L) * 60_000_000L) : 0L;
         return me - enemy - tension;
     }
@@ -243,23 +251,57 @@ public final class GomokuAI {
             return 1_000_000_000L;
         }
 
+        List<int[]> candidates = collectCandidates(me);
         long own = localPatternScore(me, row, col, aiStone);
         long den = localPatternScore(me, row, col, opp);
-        int oppWinCount = countImmediateWins(me, opp);
-        long risk = oppWinCount > 0 ? (LOSING_THREAT_PENALTY + (oppWinCount - 1L) * 50_000_000L) : 0L;
+        int myWinCount = countImmediateWins(me, aiStone, candidates, 2);
+        int oppWinCount = countImmediateWins(me, opp, candidates, 3);
+        long risk = oppWinCount > 0 ? (LOSING_THREAT_PENALTY + (oppWinCount - 1L) * 55_000_000L) : 0L;
         long score = own * 5 + den * 3 - risk;
+        score += centerControlBonus(row, col);
+        if (myWinCount >= 2) {
+            score += FORK_THREAT_BONUS;
+        } else if (myWinCount == 1) {
+            score += SINGLE_THREAT_BONUS;
+        }
 
         if (difficulty == MinimaxAI.Difficulty.HARD) {
-            long oppBest = bestOnePly(me, opp);
+            long oppBest = bestOnePly(me, opp, candidates);
             score -= oppBest / 2;
         }
         return score;
     }
 
-    private long bestOnePly(GomokuBoard board, GomokuStone side) {
-        List<int[]> candidates = collectCandidates(board);
+    private long scoreMoveForOrdering(GomokuBoard board, int row, int col, GomokuStone side) {
+        GomokuStone opp = side.opposite();
+        GomokuBoard me = new GomokuBoard(board);
+        me.setCurrentTurnForSearch(side);
+        GomokuPlaceResult meRes = me.place(row, col, true);
+        if (!meRes.isSuccess()) {
+            return Long.MIN_VALUE / 2;
+        }
+        if (me.getWinner() == side) {
+            return WIN_SCORE;
+        }
+        List<int[]> candidates = collectCandidates(me);
+        int oppWinCount = countImmediateWins(me, opp, candidates, 1);
+        int myWinCount = countImmediateWins(me, side, candidates, 1);
+        long own = localPatternScore(me, row, col, side);
+        long den = localPatternScore(me, row, col, opp);
+        long score = own * 4 + den * 2 + centerControlBonus(row, col);
+        if (myWinCount > 0) {
+            score += 35_000_000L;
+        }
+        if (oppWinCount > 0) {
+            score -= 220_000_000L;
+        }
+        return score;
+    }
+
+    private long bestOnePly(GomokuBoard board, GomokuStone side, List<int[]> candidates) {
         long best = Long.MIN_VALUE / 4;
-        for (int[] c : candidates) {
+        List<int[]> use = (candidates == null || candidates.isEmpty()) ? collectCandidates(board) : candidates;
+        for (int[] c : use) {
             GomokuBoard copy = new GomokuBoard(board);
             copy.setCurrentTurnForSearch(side);
             GomokuPlaceResult pr = copy.place(c[0], c[1], true);
@@ -282,10 +324,18 @@ public final class GomokuAI {
     }
 
     private int countImmediateWins(GomokuBoard board, GomokuStone side) {
-        return collectImmediateWinningMoves(board, side, collectCandidates(board)).size();
+        return countImmediateWins(board, side, collectCandidates(board), Integer.MAX_VALUE);
+    }
+
+    private int countImmediateWins(GomokuBoard board, GomokuStone side, List<int[]> candidates, int limit) {
+        return collectImmediateWinningMoves(board, side, candidates, limit).size();
     }
 
     private List<int[]> collectImmediateWinningMoves(GomokuBoard board, GomokuStone side, List<int[]> candidates) {
+        return collectImmediateWinningMoves(board, side, candidates, Integer.MAX_VALUE);
+    }
+
+    private List<int[]> collectImmediateWinningMoves(GomokuBoard board, GomokuStone side, List<int[]> candidates, int limit) {
         List<int[]> wins = new ArrayList<>();
         Set<Integer> seen = new HashSet<>();
         for (int[] c : candidates) {
@@ -298,6 +348,9 @@ public final class GomokuAI {
             GomokuPlaceResult pr = copy.place(c[0], c[1], true);
             if (pr.isSuccess() && copy.getWinner() == side) {
                 wins.add(new int[] {c[0], c[1]});
+                if (wins.size() >= limit) {
+                    break;
+                }
             }
         }
         return wins;
@@ -385,6 +438,33 @@ public final class GomokuAI {
             out.add(new int[] {v / GomokuBoard.SIZE, v % GomokuBoard.SIZE});
         }
         return out;
+    }
+
+    private List<int[]> limitCandidatesByDifficulty(GomokuBoard board, GomokuStone side, List<int[]> candidates,
+                                                    MinimaxAI.Difficulty difficulty) {
+        int cap;
+        if (difficulty == MinimaxAI.Difficulty.HARD) {
+            cap = 40;
+        } else if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
+            cap = 30;
+        } else {
+            cap = 20;
+        }
+        if (candidates.size() <= cap) {
+            return candidates;
+        }
+        List<int[]> tactical = collectTacticalMoves(board, side, candidates);
+        if (!tactical.isEmpty() && tactical.size() <= cap) {
+            return tactical;
+        }
+        List<int[]> source = tactical.isEmpty() ? candidates : tactical;
+        return rankTopMoves(board, side, source, cap, difficulty, false);
+    }
+
+    private long centerControlBonus(int row, int col) {
+        int center = GomokuBoard.SIZE / 2;
+        int dist = Math.abs(row - center) + Math.abs(col - center);
+        return Math.max(0L, 48L - dist * 5L);
     }
 
     private static final class ScoredMove {
