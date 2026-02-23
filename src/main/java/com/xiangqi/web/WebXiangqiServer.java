@@ -2,6 +2,8 @@ package com.xiangqi.web;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.xiangqi.ai.BuiltinXiangqiEngine;
+import com.xiangqi.ai.ConfigurableXiangqiEngine;
 import com.xiangqi.controller.EndgameLoader;
 import com.xiangqi.ai.MinimaxAI;
 import com.xiangqi.model.Board;
@@ -9,7 +11,8 @@ import com.xiangqi.model.Move;
 import com.xiangqi.model.Piece;
 import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.TacticDetector;
-import com.xiangqi.model.gomoku.GomokuAI;
+import com.xiangqi.model.gomoku.BuiltinGomokuEngine;
+import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
 import com.xiangqi.model.gomoku.GomokuBoard;
 import com.xiangqi.model.gomoku.GomokuMove;
 import com.xiangqi.model.gomoku.GomokuPlaceResult;
@@ -113,6 +116,11 @@ public class WebXiangqiServer {
             server = null;
             uri = null;
         }
+        for (SessionSlot slot : sessions.values()) {
+            if (slot != null && slot.session != null) {
+                slot.session.close();
+            }
+        }
         sessions.clear();
         shutdownExecutor(HTTP_EXECUTOR);
         HTTP_EXECUTOR = null;
@@ -141,8 +149,12 @@ public class WebXiangqiServer {
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
         String gameType = parseGameType(query.getOrDefault("gameType", GAME_XIANGQI));
+        String xiangqiEngine = query.getOrDefault("xiangqiEngine", "");
+        String gomokuEngine = query.getOrDefault("gomokuEngine", "");
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
         withSession(exchange, "new", session -> {
+            session.setXiangqiEnginePreference(xiangqiEngine);
+            session.setGomokuEnginePreference(gomokuEngine);
             session.resetByGame(gameType, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             return session.toJson();
         });
@@ -154,8 +166,12 @@ public class WebXiangqiServer {
         String mode = query.getOrDefault("mode", "pvp");
         String difficulty = query.getOrDefault("difficulty", "MEDIUM");
         String gameType = parseGameType(query.getOrDefault("gameType", GAME_XIANGQI));
+        String xiangqiEngine = query.getOrDefault("xiangqiEngine", "");
+        String gomokuEngine = query.getOrDefault("gomokuEngine", "");
         boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
         withSession(exchange, "endgame", session -> {
+            session.setXiangqiEnginePreference(xiangqiEngine);
+            session.setGomokuEnginePreference(gomokuEngine);
             if (GAME_GOMOKU.equals(gameType)) {
                 session.resetByGame(GAME_GOMOKU, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             } else {
@@ -402,6 +418,9 @@ public class WebXiangqiServer {
             for (Map.Entry<String, SessionSlot> entry : sessions.entrySet()) {
                 SessionSlot slot = entry.getValue();
                 if (slot == null || now - slot.lastSeen > SESSION_TTL_MS) {
+                    if (slot != null && slot.session != null) {
+                        slot.session.close();
+                    }
                     sessions.remove(entry.getKey(), slot);
                 }
             }
@@ -417,6 +436,10 @@ public class WebXiangqiServer {
                 });
                 int toRemove = sessions.size() - SESSION_MAX_ENTRIES;
                 for (int i = 0; i < toRemove && i < entries.size(); i++) {
+                    SessionSlot slot = entries.get(i).getValue();
+                    if (slot != null && slot.session != null) {
+                        slot.session.close();
+                    }
                     sessions.remove(entries.get(i).getKey(), entries.get(i).getValue());
                 }
             }
@@ -532,8 +555,9 @@ public class WebXiangqiServer {
         private static final int PERF_EVENT_CAP = 120;
         private String gameType = GAME_XIANGQI;
         private Board board = new Board();
+        private final ConfigurableXiangqiEngine xiangqiAI = new ConfigurableXiangqiEngine();
         private GomokuBoard gomokuBoard = new GomokuBoard();
-        private final GomokuAI gomokuAI = new GomokuAI();
+        private final ConfigurableGomokuEngine gomokuAI = new ConfigurableGomokuEngine();
         private boolean pvcMode;
         private MinimaxAI.Difficulty difficulty = MinimaxAI.Difficulty.MEDIUM;
         private int selectedRow = -1;
@@ -697,6 +721,20 @@ public class WebXiangqiServer {
                 aiPending = true;
                 aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
             }
+        }
+
+        void setGomokuEnginePreference(String preference) {
+            if (preference == null || preference.trim().isEmpty()) {
+                return;
+            }
+            gomokuAI.setPreferredEngine(preference);
+        }
+
+        void setXiangqiEnginePreference(String preference) {
+            if (preference == null || preference.trim().isEmpty()) {
+                return;
+            }
+            xiangqiAI.setPreferredEngine(preference);
         }
 
         void loadEndgame(String endgameName, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
@@ -1120,12 +1158,20 @@ public class WebXiangqiServer {
                 } catch (Exception ignored) {
                     aiMove = null;
                 }
-                if (aiFutureEpoch == aiEpoch && aiFutureColor == board.getCurrentTurn() && aiMove != null && board.isValidMove(aiMove)) {
-                    board.movePiece(aiMove);
-                    markMove();
-                    updateAutoDrawStateAfterMove();
-                    updateTacticFlash();
-                    aiEpoch++;
+                if (aiFutureEpoch == aiEpoch && aiFutureColor == board.getCurrentTurn()) {
+                    if (aiMove == null || !board.isValidMove(aiMove)) {
+                        aiMove = findBuiltinXiangqiMove();
+                    }
+                    if (aiMove == null || !board.isValidMove(aiMove)) {
+                        aiMove = findFirstLegalXiangqiMove();
+                    }
+                    if (aiMove != null && board.isValidMove(aiMove)) {
+                        board.movePiece(aiMove);
+                        markMove();
+                        updateAutoDrawStateAfterMove();
+                        updateTacticFlash();
+                        aiEpoch++;
+                    }
                 }
                 aiFuture = null;
                 aiFutureEpoch = -1L;
@@ -1140,11 +1186,30 @@ public class WebXiangqiServer {
             final long launchEpoch = aiEpoch;
             aiFutureEpoch = launchEpoch;
             aiFutureColor = aiColor;
-            aiFuture = CompletableFuture.supplyAsync(() -> {
-                MinimaxAI worker = new MinimaxAI();
-                worker.setDifficulty(currentDifficulty);
-                return worker.findBestMove(snapshot, aiColor);
-            }, AI_EXECUTOR);
+            aiFuture = CompletableFuture.supplyAsync(() ->
+                xiangqiAI.findBestMove(snapshot, aiColor, currentDifficulty), AI_EXECUTOR);
+        }
+
+        private Move findBuiltinXiangqiMove() {
+            try {
+                Board snapshot = new Board(board);
+                PieceColor side = board.getCurrentTurn();
+                Move m = new BuiltinXiangqiEngine().findBestMove(snapshot, side, difficulty);
+                if (m != null && board.isValidMove(m)) {
+                    return m;
+                }
+            } catch (Exception ignored) {
+                // ignore
+            }
+            return null;
+        }
+
+        private Move findFirstLegalXiangqiMove() {
+            List<Move> all = board.getAllValidMoves(board.getCurrentTurn());
+            if (all == null || all.isEmpty()) {
+                return null;
+            }
+            return all.get(0);
         }
 
         private void tickGomoku() {
@@ -1168,11 +1233,23 @@ public class WebXiangqiServer {
                 } catch (Exception ignored) {
                     aiMove = null;
                 }
-                if (aiMove == null) {
+                if (aiMove == null || !isLegalGomokuMove(aiMove)) {
+                    aiMove = findBuiltinGomokuMove();
+                }
+                if (aiMove == null || !isLegalGomokuMove(aiMove)) {
                     aiMove = findFirstLegalGomokuMove();
                 }
                 if (gomokuAiFutureEpoch == aiEpoch && aiMove != null) {
                     GomokuPlaceResult placed = gomokuBoard.place(aiMove[0], aiMove[1], true);
+                    if (!placed.isSuccess()) {
+                        int[] fallback = findBuiltinGomokuMove();
+                        if (fallback == null || !isLegalGomokuMove(fallback)) {
+                            fallback = findFirstLegalGomokuMove();
+                        }
+                        if (fallback != null) {
+                            placed = gomokuBoard.place(fallback[0], fallback[1], true);
+                        }
+                    }
                     if (placed.isSuccess()) {
                         markMove();
                         tacticText = gomokuBoard.getWinner() != GomokuStone.EMPTY ? "绝杀" : "";
@@ -1195,6 +1272,30 @@ public class WebXiangqiServer {
             gomokuAiFutureEpoch = launchEpoch;
             gomokuAiFuture = CompletableFuture.supplyAsync(() ->
                 gomokuAI.findBestMove(snapshot, aiStone, currentDifficulty), AI_EXECUTOR);
+        }
+
+        private int[] findBuiltinGomokuMove() {
+            try {
+                GomokuBoard snapshot = new GomokuBoard(gomokuBoard);
+                GomokuStone side = gomokuBoard.getCurrentTurn();
+                int[] m = new BuiltinGomokuEngine().findBestMove(snapshot, side, difficulty);
+                if (isLegalGomokuMove(m)) {
+                    return m;
+                }
+            } catch (Exception ignored) {
+                // ignore
+            }
+            return null;
+        }
+
+        private boolean isLegalGomokuMove(int[] move) {
+            if (move == null || move.length < 2) {
+                return false;
+            }
+            GomokuBoard test = new GomokuBoard(gomokuBoard);
+            test.setCurrentTurnForSearch(gomokuBoard.getCurrentTurn());
+            GomokuPlaceResult pr = test.place(move[0], move[1], true);
+            return pr.isSuccess();
         }
 
         private int[] findFirstLegalGomokuMove() {
@@ -1327,6 +1428,10 @@ public class WebXiangqiServer {
             sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
             sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
             sb.append("\"difficultyText\":\"").append(difficulty.getDisplayName()).append("\",");
+            sb.append("\"xiangqiAiEngine\":\"").append(escape(xiangqiAI.getEngineId())).append("\",");
+            sb.append("\"xiangqiAiEngineText\":\"").append(escape(xiangqiAI.getEngineText())).append("\",");
+            sb.append("\"xiangqiAiSelected\":\"").append(escape(xiangqiAI.getPreferredEngine())).append("\",");
+            sb.append("\"xiangqiAiPikafishConfigured\":").append(xiangqiAI.isPikafishConfigured()).append(',');
             sb.append("\"pvcHumanColor\":\"").append(pvcHumanColor).append("\",");
             sb.append("\"endgame\":\"").append(escape(currentEndgame)).append("\",");
             sb.append("\"currentTurn\":\"").append(boardToDraw.getCurrentTurn()).append("\",");
@@ -1395,6 +1500,11 @@ public class WebXiangqiServer {
             sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
             sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
             sb.append("\"difficultyText\":\"").append(difficulty.getDisplayName()).append("\",");
+            sb.append("\"gomokuAiEngine\":\"").append(escape(gomokuAI.getEngineId())).append("\",");
+            sb.append("\"gomokuAiEngineText\":\"").append(escape(gomokuAI.getEngineText())).append("\",");
+            sb.append("\"gomokuAiSelected\":\"").append(escape(gomokuAI.getPreferredEngine())).append("\",");
+            sb.append("\"gomokuAiRapfiConfigured\":").append(gomokuAI.isRapfiConfigured()).append(',');
+            sb.append("\"gomokuAiAlphaConfigured\":").append(gomokuAI.isAlphaGomokuConfigured()).append(',');
             sb.append("\"pvcHumanColor\":\"").append(gomokuHumanStone.name()).append("\",");
             sb.append("\"endgame\":\"标准开局\",");
             sb.append("\"currentTurn\":\"").append(gomokuBoard.getCurrentTurn().name()).append("\",");
@@ -1417,6 +1527,8 @@ public class WebXiangqiServer {
             sb.append(',');
             sb.append("\"gomoku\":{");
             sb.append("\"forbiddenEnabled\":true,");
+            sb.append("\"aiEngine\":\"").append(escape(gomokuAI.getEngineId())).append("\",");
+            sb.append("\"aiEngineText\":\"").append(escape(gomokuAI.getEngineText())).append("\",");
             sb.append("\"forbiddenReason\":\"").append(escape(gomokuForbiddenReason)).append("\",");
             sb.append("\"forbiddenPoints\":[");
             List<int[]> forbidden = gomokuBoard.getForbiddenPointsForBlack(80);
@@ -1583,6 +1695,11 @@ public class WebXiangqiServer {
             }
             return input.replace("\\", "\\\\").replace("\"", "\\\"");
         }
+
+        void close() {
+            xiangqiAI.close();
+            gomokuAI.close();
+        }
     }
 
         private String html() {
@@ -1716,7 +1833,9 @@ public class WebXiangqiServer {
             "      <div class=\"side\">",
             "        <div class=\"title\">控制面板</div>",
             "        <div class=\"row\"><select id=\"gameType\"><option value=\"XIANGQI\" selected>中国象棋</option><option value=\"GOMOKU\">五子棋</option></select></div>",
+            "        <div class=\"row\"><select id=\"xiangqiEngine\"><option value=\"BUILTIN\" selected>象棋引擎: 内置AI</option><option value=\"PIKAFISH\">象棋引擎: Pikafish</option><option value=\"AUTO\">象棋引擎: 自动</option></select></div>",
             "        <div class=\"row\"><select id=\"mode\"><option value=\"pvp\">双人对战</option><option value=\"pvc\">人机对战</option></select><select id=\"difficulty\"><option value=\"EASY\">简单</option><option value=\"MEDIUM\" selected>中等</option><option value=\"HARD\">困难</option></select></div>",
+            "        <div class=\"row\"><select id=\"gomokuEngine\"><option value=\"BUILTIN\" selected>五子棋引擎: 内置AI</option><option value=\"RAPFI\">五子棋引擎: Rapfi</option><option value=\"ALPHAGOMOKU\">五子棋引擎: AlphaGomoku</option></select></div>",
             "        <div class=\"row\"><select id=\"firstHand\" disabled><option value=\"true\" selected>我先手（执红）</option><option value=\"false\">我后手（执黑）</option></select></div>",
             "        <div class=\"row\"><button id=\"newGame\">新开一局</button><button id=\"undo\">悔棋</button></div>",
             "        <div class=\"row\"><button id=\"surrender\">认输</button><button id=\"drawBtn\">和棋</button></div>",
@@ -1749,7 +1868,7 @@ public class WebXiangqiServer {
             "let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1)),anim=null,animKey='',pollTimer=0,lastStateStamp='',actionQueue=Promise.resolve(),lastAppliedSeq=0,lastPerfPostAt=0,lastTacticSeq=0,tacticOverlayText='',tacticOverlayUntil=0,courtBannerTimer=0,lastOpeningSeq=0,gameTypeIntent='';",
             "const SID_KEY='xq_sid';function makeSid(){if(window.crypto&&window.crypto.randomUUID)return window.crypto.randomUUID().replace(/-/g,'');return String(Date.now())+Math.random().toString(16).slice(2);}const sid=(()=>{let v=sessionStorage.getItem(SID_KEY);if(!v){v=makeSid();sessionStorage.setItem(SID_KEY,v);}return v;})();function withSid(path){const sep=path.includes('?')?'&':'?';return path+sep+'sid='+encodeURIComponent(sid);}",
             "const moveAudio=new Audio('/assets/audio/move.wav');const mateAudio=new Audio('/assets/audio/mate.wav');moveAudio.preload='auto';mateAudio.preload='auto';moveAudio.volume=0.92;mateAudio.volume=0.98;let audioUnlocked=false,lastMoveSoundKey='',lastMateSoundKey='';let soundEnabled=(localStorage.getItem('xq_sound_enabled')??'1')!=='0';",
-            "const ui={statusTag:document.getElementById('statusTag'),stepTop:document.getElementById('stepTop'),totalTop:document.getElementById('totalTop'),modeTag:document.getElementById('modeTag'),endgameTag:document.getElementById('endgameTag'),drawReasonTag:document.getElementById('drawReasonTag'),reviewTag:document.getElementById('reviewTag'),info:document.getElementById('info'),undo:document.getElementById('undo'),surrender:document.getElementById('surrender'),drawBtn:document.getElementById('drawBtn'),reviewStart:document.getElementById('reviewStart'),reviewPrev:document.getElementById('reviewPrev'),reviewNext:document.getElementById('reviewNext'),reviewExit:document.getElementById('reviewExit'),mode:document.getElementById('mode'),firstHand:document.getElementById('firstHand'),gameType:document.getElementById('gameType'),endgameTitle:document.getElementById('endgameTitle'),endgameGrid:document.getElementById('endgameGrid')};function setTxt(el,v){if(el&&el.textContent!==v)el.textContent=v;}function setDis(el,v){if(el&&el.disabled!==v)el.disabled=v;}",
+            "const ui={statusTag:document.getElementById('statusTag'),stepTop:document.getElementById('stepTop'),totalTop:document.getElementById('totalTop'),modeTag:document.getElementById('modeTag'),endgameTag:document.getElementById('endgameTag'),drawReasonTag:document.getElementById('drawReasonTag'),reviewTag:document.getElementById('reviewTag'),info:document.getElementById('info'),undo:document.getElementById('undo'),surrender:document.getElementById('surrender'),drawBtn:document.getElementById('drawBtn'),reviewStart:document.getElementById('reviewStart'),reviewPrev:document.getElementById('reviewPrev'),reviewNext:document.getElementById('reviewNext'),reviewExit:document.getElementById('reviewExit'),mode:document.getElementById('mode'),firstHand:document.getElementById('firstHand'),gameType:document.getElementById('gameType'),xiangqiEngine:document.getElementById('xiangqiEngine'),gomokuEngine:document.getElementById('gomokuEngine'),endgameTitle:document.getElementById('endgameTitle'),endgameGrid:document.getElementById('endgameGrid')};function setTxt(el,v){if(el&&el.textContent!==v)el.textContent=v;}function setDis(el,v){if(el&&el.disabled!==v)el.disabled=v;}",
             "const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');const pieceSpriteCache=Object.create(null);let pixiReady=false,pixiApp=null,pixiLayers=null,pixiBoardTexture=null;",
             "const BOARD_TEXTURE_URL='https://commons.wikimedia.org/wiki/Special:FilePath/Xiangqi%20board.svg';const boardTex=new Image();let boardTexReady=false;boardTex.crossOrigin='anonymous';boardTex.onload=()=>{boardTexReady=true;drawStatic();scheduleRender();};boardTex.src=BOARD_TEXTURE_URL;",
             "function initPixiRenderer(){if(!window.PIXI)return;try{pixiApp=new PIXI.Application({view:canvas,width:BASE_W,height:BASE_H,backgroundAlpha:0,antialias:true,resolution:dpr,autoDensity:false,autoStart:false,sharedTicker:false});pixiApp.stop();pixiLayers={root:new PIXI.Container(),staticLayer:new PIXI.Container(),markerLayer:new PIXI.Container(),pieceLayer:new PIXI.Container(),fxLayer:new PIXI.Container(),uiLayer:new PIXI.Container()};pixiLayers.root.sortableChildren=true;pixiLayers.root.addChild(pixiLayers.staticLayer,pixiLayers.markerLayer,pixiLayers.pieceLayer,pixiLayers.fxLayer,pixiLayers.uiLayer);pixiApp.stage.addChild(pixiLayers.root);pixiReady=true;}catch(_e){pixiReady=false;}}",
@@ -1758,7 +1877,7 @@ public class WebXiangqiServer {
             "function playOpeningCeremony(){if(!window.gsap)return;flashBanner('开局','gold');const tl=gsap.timeline();tl.fromTo('.boardCard',{filter:'brightness(.86) saturate(.9)'},{filter:'brightness(1.05) saturate(1.12)',duration:.32,ease:'power2.out'}).to('.boardCard',{filter:'brightness(1) saturate(1)',duration:.44,ease:'power2.inOut'});tl.fromTo('.topMeta',{boxShadow:'0 0 0 rgba(0,0,0,0)'},{boxShadow:'0 0 26px rgba(255,220,150,.38)',duration:.28},0).to('.topMeta',{boxShadow:'inset 0 1px 0 rgba(255,236,206,.7),inset 0 -6px 10px rgba(85,43,12,.45),0 6px 14px rgba(18,9,4,.35)',duration:.46},'>-.02');}",
             "function playCheckCeremony(){}",
             "function playMateCeremony(){}",
-            "function syncGamePanels(gameType){const g=gameType||((state&&state.gameType)||ui.gameType.value||GAME_XIANGQI);if(ui.gameType&&ui.gameType.value!==g)ui.gameType.value=g;const isG=g===GAME_GOMOKU;if(flipStage)flipStage.classList.toggle('gomokuFace',isG);const palace=document.querySelector('.palaceFrame');if(palace)palace.style.display=isG?'none':'';if(ui.endgameTitle)ui.endgameTitle.style.display=isG?'none':'';if(ui.endgameGrid)ui.endgameGrid.style.display=isG?'none':'grid';if(ui.firstHand){const v=ui.firstHand.value;ui.firstHand.innerHTML=isG?'<option value=\"true\" selected>我先手（执黑）</option><option value=\"false\">我后手（执白）</option>':'<option value=\"true\" selected>我先手（执红）</option><option value=\"false\">我后手（执黑）</option>';if(v==='false')ui.firstHand.value='false';}}",
+            "function syncGamePanels(gameType){const g=gameType||((state&&state.gameType)||ui.gameType.value||GAME_XIANGQI);if(ui.gameType&&ui.gameType.value!==g)ui.gameType.value=g;const isG=g===GAME_GOMOKU;if(flipStage)flipStage.classList.toggle('gomokuFace',isG);const palace=document.querySelector('.palaceFrame');if(palace)palace.style.display=isG?'none':'';if(ui.endgameTitle)ui.endgameTitle.style.display=isG?'none':'';if(ui.endgameGrid)ui.endgameGrid.style.display=isG?'none':'grid';if(ui.firstHand){const v=ui.firstHand.value;ui.firstHand.innerHTML=isG?'<option value=\"true\" selected>我先手（执黑）</option><option value=\"false\">我后手（执白）</option>':'<option value=\"true\" selected>我先手（执红）</option><option value=\"false\">我后手（执黑）</option>';if(v==='false')ui.firstHand.value='false';}if(ui.gomokuEngine){ui.gomokuEngine.disabled=!isG;const row=ui.gomokuEngine.closest('.row');if(row)row.style.display=isG?'':'none';}if(ui.xiangqiEngine){ui.xiangqiEngine.disabled=isG;const row=ui.xiangqiEngine.closest('.row');if(row)row.style.display=isG?'none':'';}}",
             "function setupCanvas(){const maxW=Math.max(280,boardCard.clientWidth-24);const maxH=Math.max(360,boardCard.clientHeight-28);const fitWByH=Math.floor(maxH*BASE_W/BASE_H);const rawW=Math.max(260,Math.min(maxW,fitWByH));const palaceScale=window.innerWidth<=768?0.84:0.78;const cssW=Math.round(rawW*palaceScale);const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;boardStage.style.width=cssW+'px';boardStage.style.height=cssH+'px';if(flipStage){flipStage.style.width=cssW+'px';flipStage.style.height=cssH+'px';}canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';gomokuCanvas.style.width=cssW+'px';gomokuCanvas.style.height=cssH+'px';if(pixiReady&&pixiApp){dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1));pixiApp.renderer.resolution=dpr;pixiApp.renderer.resize(BASE_W,BASE_H);}else{canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);}gomokuCanvas.width=Math.round(cssW*dpr);gomokuCanvas.height=Math.round(cssH*dpr);gctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);scheduleRender();}",
             "window.addEventListener('resize', setupCanvas);",
             "function syncSoundToggle(){const btn=document.getElementById('soundToggle');if(btn)btn.textContent='音效:'+(soundEnabled?'开':'关');}function toggleSound(){soundEnabled=!soundEnabled;localStorage.setItem('xq_sound_enabled',soundEnabled?'1':'0');syncSoundToggle();}function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;[moveAudio,mateAudio].forEach(a=>{const p=a.play();if(p&&p.catch){p.then(()=>{a.pause();a.currentTime=0;}).catch(()=>{});}else{a.pause();a.currentTime=0;}});}function playSound(a){if(!soundEnabled||!audioUnlocked)return;try{a.pause();a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(_e){}}",
@@ -1783,11 +1902,11 @@ public class WebXiangqiServer {
             "function drawSelection(){if(state.reviewMode)return;if(state.selectedRow>=0&&state.selectedCol>=0){const [x,y]=pos(state.selectedRow,state.selectedCol);const s=CELL/2-4;ctx.strokeStyle='rgba(20,160,90,.92)';ctx.lineWidth=2.8;ctx.strokeRect(x-s,y-s,s*2,s*2);ctx.strokeStyle='rgba(168,228,196,.95)';ctx.lineWidth=1.6;ctx.strokeRect(x-s+3,y-s+3,s*2-6,s*2-6);}}",
             "function drawTacticFlash(g){if(!tacticOverlayText||performance.now()>tacticOverlayUntil)return;const c=g||ctx;c.fillStyle='rgba(7,10,26,.82)';c.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);c.strokeStyle='#d8b86f';c.lineWidth=2;c.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);c.font='bold 36px Microsoft YaHei UI';c.fillStyle='#ffd86e';c.textAlign='center';c.textBaseline='middle';c.fillText(tacticOverlayText,BASE_W/2,BASE_H/2-2);c.textAlign='start';c.textBaseline='alphabetic';}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length||state.gameType===GAME_GOMOKU)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:120};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');const rs=state.result||'';const isMateCue=(state.tacticText==='绝杀')||(state.gameOver&&(/胜|获胜|将死/.test(rs)));if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(isMateCue){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(isMateCue&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}function stateStamp(s){if(!s)return'';const m=(s.recentMoves&&s.recentMoves.length)?s.recentMoves[0]:null;return [s.seq,s.gameType,s.started,s.mode,s.currentTurn,s.gameOver,s.result,s.selectedRow,s.selectedCol,s.reviewMode,s.reviewMoveIndex,s.reviewMaxMove,s.tacticSeq,m?m.fromRow:'',m?m.fromCol:'',m?m.toRow:'',m?m.toCol:''].join('|');}",
             "async function api(path){const base=withSid(path);const q=base.includes('?')?'&':'?';const url=base+q+'_t='+Date.now();const res=await fetch(url,{cache:'no-store'});return await res.json();}",
-            "function applyState(data){const seq=(data&&data.seq)||0;if(seq&&seq<lastAppliedSeq)return;lastAppliedSeq=Math.max(lastAppliedSeq,seq);const prev=lastStateStamp;const wasStarted=!!(state&&state.started);state=data||{};const uiType=(ui.gameType&&ui.gameType.value)||GAME_XIANGQI;const serverType=state.gameType||uiType;if(state.started&&gameTypeIntent&&serverType===gameTypeIntent){gameTypeIntent='';}const displayType=gameTypeIntent||(state.started?serverType:uiType);syncGamePanels(displayType);const isG=displayType===GAME_GOMOKU;const tq=state.tacticSeq||0;if(tq>lastTacticSeq&&state.tacticText){lastTacticSeq=tq;const tt=(state.tacticText||'').trim();if(tt&&tt!=='将军'){tacticOverlayText=tt;tacticOverlayUntil=performance.now()+500;}else{tacticOverlayText='';tacticOverlayUntil=0;}}if(!state.reviewMode&&state.started&&!wasStarted&&seq!==lastOpeningSeq){lastOpeningSeq=seq;playOpeningCeremony();}ui.firstHand.disabled=ui.mode.value!=='pvc';setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=isG?(state.pvcHumanColor==='WHITE'?' / 玩家执白':' / 玩家执黑'):(state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红');setTxt(ui.modeTag,'棋种: '+(isG?'五子棋':'中国象棋')+' / 模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+(state.difficultyText||'-')+(state.mode==='PVC'?humanTxt:''));setTxt(ui.endgameTag,isG?'规则: 黑方禁手（三三/四四/长连）':('残局: '+(state.endgame||'标准开局')));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');const turnTxt=isG?(state.currentTurn==='WHITE'?'白方':'黑方'):(state.currentTurn==='RED'?'红方':'黑方');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+turnTxt)));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);document.querySelectorAll('.egBtn').forEach(btn=>{btn.disabled=isG;});handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}",
+            "function applyState(data){const seq=(data&&data.seq)||0;if(seq&&seq<lastAppliedSeq)return;lastAppliedSeq=Math.max(lastAppliedSeq,seq);const prev=lastStateStamp;const wasStarted=!!(state&&state.started);state=data||{};const uiType=(ui.gameType&&ui.gameType.value)||GAME_XIANGQI;const serverType=state.gameType||uiType;if(state.started&&gameTypeIntent&&serverType===gameTypeIntent){gameTypeIntent='';}const displayType=gameTypeIntent||(state.started?serverType:uiType);syncGamePanels(displayType);const isG=displayType===GAME_GOMOKU;const tq=state.tacticSeq||0;if(tq>lastTacticSeq&&state.tacticText){lastTacticSeq=tq;const tt=(state.tacticText||'').trim();if(tt&&tt!=='将军'){tacticOverlayText=tt;tacticOverlayUntil=performance.now()+500;}else{tacticOverlayText='';tacticOverlayUntil=0;}}if(!state.reviewMode&&state.started&&!wasStarted&&seq!==lastOpeningSeq){lastOpeningSeq=seq;playOpeningCeremony();}ui.firstHand.disabled=ui.mode.value!=='pvc';if(ui.xiangqiEngine){const selected=(state&&state.xiangqiAiSelected)||ui.xiangqiEngine.value||'BUILTIN';if(ui.xiangqiEngine.value!==selected)ui.xiangqiEngine.value=selected;const pkOpt=ui.xiangqiEngine.querySelector('option[value=\"PIKAFISH\"]');if(pkOpt&&state)pkOpt.disabled=state.xiangqiAiPikafishConfigured===false;}if(ui.gomokuEngine){const selected=(state&&state.gomokuAiSelected)||ui.gomokuEngine.value||'BUILTIN';if(ui.gomokuEngine.value!==selected)ui.gomokuEngine.value=selected;const rapfiOpt=ui.gomokuEngine.querySelector('option[value=\"RAPFI\"]');const alphaOpt=ui.gomokuEngine.querySelector('option[value=\"ALPHAGOMOKU\"]');if(rapfiOpt&&state)rapfiOpt.disabled=state.gomokuAiRapfiConfigured===false;if(alphaOpt&&state)alphaOpt.disabled=state.gomokuAiAlphaConfigured===false;}setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=isG?(state.pvcHumanColor==='WHITE'?' / 玩家执白':' / 玩家执黑'):(state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红');setTxt(ui.modeTag,'棋种: '+(isG?'五子棋':'中国象棋')+' / 模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+(state.difficultyText||'-')+(state.mode==='PVC'?humanTxt:'')+((isG&&state.gomokuAiEngineText)?(' / 引擎:'+state.gomokuAiEngineText):((!isG&&state.xiangqiAiEngineText)?(' / 引擎:'+state.xiangqiAiEngineText):'')));setTxt(ui.endgameTag,isG?'规则: 黑方禁手（三三/四四/长连）':('残局: '+(state.endgame||'标准开局')));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');const turnTxt=isG?(state.currentTurn==='WHITE'?'白方':'黑方'):(state.currentTurn==='RED'?'红方':'黑方');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+turnTxt)));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);document.querySelectorAll('.egBtn').forEach(btn=>{btn.disabled=isG;});handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}",
             "async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;const t0=performance.now();try{const data=await api('/api/state');if(seq!==reqSeq)return;applyState(data);}finally{pending=false;const cost=performance.now()-t0;if(cost>120){api('/api/perf/event?type=state_fetch&cost='+Math.round(cost)).catch(()=>{});}}}",
             "async function act(path){const data=await api(path);applyState(data);}function enqueueAct(path){actionQueue=actionQueue.then(()=>act(path)).catch(()=>{});return actionQueue;}",
             "document.addEventListener('pointerdown',unlockAudio,{once:true});function onBoardPointer(e,el){if(state&&(!state.started||state.reviewMode||state.gameOver))return;e.preventDefault();const rect=el.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;const p=state&&state.board&&state.board[g.row]?state.board[g.row][g.col]:null;if(state&&state.selectedRow<0&&p&&p.color===state.currentTurn&&(state.mode!=='PVC'||p.color===state.pvcHumanColor)){state.selectedRow=g.row;state.selectedCol=g.col;scheduleRender();}enqueueAct('/api/click?row='+g.row+'&col='+g.col);}canvas.addEventListener('pointerdown',e=>onBoardPointer(e,canvas),{passive:false});gomokuCanvas.addEventListener('pointerdown',e=>onBoardPointer(e,gomokuCanvas),{passive:false});",
-            "document.getElementById('newGame').addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=selectedGameType();enqueueAct('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g);});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=selectedGameType(),name=encodeURIComponent(btn.dataset.name);enqueueAct('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g);}));",
+            "document.getElementById('newGame').addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=selectedGameType(),xe=ui.xiangqiEngine?ui.xiangqiEngine.value:'BUILTIN',ge=ui.gomokuEngine?ui.gomokuEngine.value:'BUILTIN';enqueueAct('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g+'&xiangqiEngine='+encodeURIComponent(xe)+'&gomokuEngine='+encodeURIComponent(ge));});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=selectedGameType(),xe=ui.xiangqiEngine?ui.xiangqiEngine.value:'BUILTIN',ge=ui.gomokuEngine?ui.gomokuEngine.value:'BUILTIN',name=encodeURIComponent(btn.dataset.name);enqueueAct('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g+'&xiangqiEngine='+encodeURIComponent(xe)+'&gomokuEngine='+encodeURIComponent(ge));}));",
             "document.getElementById('undo').addEventListener('click',()=>enqueueAct('/api/undo'));document.getElementById('surrender').addEventListener('click',()=>{if(confirm('确定要认输吗？')){enqueueAct('/api/surrender');}});document.getElementById('drawBtn').addEventListener('click',()=>{if(confirm('确认本局和棋？')){enqueueAct('/api/draw');}});document.getElementById('soundToggle').addEventListener('click',toggleSound);",
             "document.getElementById('reviewStart').addEventListener('click',()=>enqueueAct('/api/review/start'));",
             "document.getElementById('reviewPrev').addEventListener('click',()=>enqueueAct('/api/review/prev'));",

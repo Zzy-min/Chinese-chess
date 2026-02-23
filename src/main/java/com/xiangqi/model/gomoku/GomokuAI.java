@@ -10,6 +10,7 @@ import java.util.Set;
 
 public final class GomokuAI {
     private static final long WIN_SCORE = 1_000_000_000L;
+    private static final long LOSING_THREAT_PENALTY = 850_000_000L;
     private final Random random = new Random();
 
     public int[] findBestMove(GomokuBoard board, GomokuStone aiStone, MinimaxAI.Difficulty difficulty) {
@@ -30,8 +31,8 @@ public final class GomokuAI {
         }
 
         if (difficulty != MinimaxAI.Difficulty.EASY) {
-            int depth = difficulty == MinimaxAI.Difficulty.HARD ? 3 : 2;
-            int width = difficulty == MinimaxAI.Difficulty.HARD ? 12 : 8;
+            int depth = difficulty == MinimaxAI.Difficulty.HARD ? 4 : 3;
+            int width = difficulty == MinimaxAI.Difficulty.HARD ? 16 : 10;
             int[] deep = findBestByAlphaBeta(board, aiStone, depth, width, difficulty);
             if (deep != null) {
                 return deep;
@@ -120,8 +121,19 @@ public final class GomokuAI {
 
     private List<int[]> topCandidates(GomokuBoard board, GomokuStone side, int width, MinimaxAI.Difficulty difficulty) {
         List<int[]> all = collectCandidates(board);
-        List<ScoredMove> scored = new ArrayList<>(all.size());
-        for (int[] m : all) {
+        List<int[]> tactical = collectTacticalMoves(board, side, all);
+        if (!tactical.isEmpty()) {
+            return rankTopMoves(board, side, tactical, width, difficulty);
+        }
+        return rankTopMoves(board, side, all, width, difficulty);
+    }
+
+    private List<int[]> rankTopMoves(GomokuBoard board, GomokuStone side, List<int[]> moves, int width, MinimaxAI.Difficulty difficulty) {
+        if (moves.isEmpty()) {
+            return moves;
+        }
+        List<ScoredMove> scored = new ArrayList<>(moves.size());
+        for (int[] m : moves) {
             long s = scoreMove(board, m[0], m[1], side, difficulty);
             scored.add(new ScoredMove(m[0], m[1], s));
         }
@@ -134,11 +146,56 @@ public final class GomokuAI {
         return top;
     }
 
+    private List<int[]> collectTacticalMoves(GomokuBoard board, GomokuStone side, List<int[]> candidates) {
+        List<int[]> wins = collectImmediateWinningMoves(board, side, candidates);
+        if (!wins.isEmpty()) {
+            return wins;
+        }
+        GomokuStone opp = side.opposite();
+        List<int[]> oppWins = collectImmediateWinningMoves(board, opp, candidates);
+        if (oppWins.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<int[]> forcedBlocks = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        for (int[] w : oppWins) {
+            int key = w[0] * GomokuBoard.SIZE + w[1];
+            if (!seen.add(key)) {
+                continue;
+            }
+            GomokuBoard copy = new GomokuBoard(board);
+            copy.setCurrentTurnForSearch(side);
+            GomokuPlaceResult pr = copy.place(w[0], w[1], true);
+            if (pr.isSuccess()) {
+                forcedBlocks.add(new int[] {w[0], w[1]});
+            }
+        }
+        if (forcedBlocks.size() <= 1) {
+            return forcedBlocks;
+        }
+
+        List<int[]> safeBlocks = new ArrayList<>();
+        for (int[] block : forcedBlocks) {
+            GomokuBoard after = new GomokuBoard(board);
+            after.setCurrentTurnForSearch(side);
+            GomokuPlaceResult pr = after.place(block[0], block[1], true);
+            if (!pr.isSuccess()) {
+                continue;
+            }
+            if (!hasImmediateWin(after, opp)) {
+                safeBlocks.add(block);
+            }
+        }
+        return safeBlocks.isEmpty() ? forcedBlocks : safeBlocks;
+    }
+
     private long staticEvaluate(GomokuBoard board, GomokuStone rootStone) {
         GomokuStone opp = rootStone.opposite();
         long me = bestOnePly(board, rootStone);
         long enemy = bestOnePly(board, opp);
-        long tension = hasImmediateWin(board, opp) ? 90_000_000L : 0L;
+        int oppImmediateWins = countImmediateWins(board, opp);
+        long tension = oppImmediateWins > 0 ? (280_000_000L + (oppImmediateWins - 1L) * 60_000_000L) : 0L;
         return me - enemy - tension;
     }
 
@@ -155,21 +212,23 @@ public final class GomokuAI {
     }
 
     private int[] findImmediateBlock(GomokuBoard board, GomokuStone aiStone, GomokuStone opp, List<int[]> candidates) {
-        for (int[] cand : candidates) {
-            GomokuBoard oppTry = new GomokuBoard(board);
-            oppTry.setCurrentTurnForSearch(opp);
-            GomokuPlaceResult oppRes = oppTry.place(cand[0], cand[1], true);
-            if (!(oppRes.isSuccess() && oppTry.getWinner() == opp)) {
-                continue;
-            }
-            GomokuBoard aiTry = new GomokuBoard(board);
-            aiTry.setCurrentTurnForSearch(aiStone);
-            GomokuPlaceResult aiRes = aiTry.place(cand[0], cand[1], true);
-            if (aiRes.isSuccess()) {
-                return cand;
+        List<int[]> blocks = collectTacticalMoves(board, aiStone, candidates);
+        if (blocks.isEmpty()) {
+            return null;
+        }
+        if (blocks.size() == 1) {
+            return blocks.get(0);
+        }
+        long bestScore = Long.MIN_VALUE / 4;
+        int[] best = null;
+        for (int[] move : blocks) {
+            long s = scoreMove(board, move[0], move[1], aiStone, MinimaxAI.Difficulty.HARD);
+            if (s > bestScore) {
+                bestScore = s;
+                best = move;
             }
         }
-        return null;
+        return best;
     }
 
     private long scoreMove(GomokuBoard board, int row, int col, GomokuStone aiStone, MinimaxAI.Difficulty difficulty) {
@@ -186,7 +245,8 @@ public final class GomokuAI {
 
         long own = localPatternScore(me, row, col, aiStone);
         long den = localPatternScore(me, row, col, opp);
-        long risk = hasImmediateWin(me, opp) ? 80_000_000L : 0L;
+        int oppWinCount = countImmediateWins(me, opp);
+        long risk = oppWinCount > 0 ? (LOSING_THREAT_PENALTY + (oppWinCount - 1L) * 50_000_000L) : 0L;
         long score = own * 5 + den * 3 - risk;
 
         if (difficulty == MinimaxAI.Difficulty.HARD) {
@@ -218,16 +278,29 @@ public final class GomokuAI {
     }
 
     private boolean hasImmediateWin(GomokuBoard board, GomokuStone side) {
-        List<int[]> candidates = collectCandidates(board);
+        return countImmediateWins(board, side) > 0;
+    }
+
+    private int countImmediateWins(GomokuBoard board, GomokuStone side) {
+        return collectImmediateWinningMoves(board, side, collectCandidates(board)).size();
+    }
+
+    private List<int[]> collectImmediateWinningMoves(GomokuBoard board, GomokuStone side, List<int[]> candidates) {
+        List<int[]> wins = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
         for (int[] c : candidates) {
+            int key = c[0] * GomokuBoard.SIZE + c[1];
+            if (!seen.add(key)) {
+                continue;
+            }
             GomokuBoard copy = new GomokuBoard(board);
             copy.setCurrentTurnForSearch(side);
             GomokuPlaceResult pr = copy.place(c[0], c[1], true);
             if (pr.isSuccess() && copy.getWinner() == side) {
-                return true;
+                wins.add(new int[] {c[0], c[1]});
             }
         }
-        return false;
+        return wins;
     }
 
     private long localPatternScore(GomokuBoard board, int row, int col, GomokuStone color) {

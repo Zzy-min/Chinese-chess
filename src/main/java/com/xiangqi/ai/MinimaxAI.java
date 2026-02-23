@@ -66,6 +66,7 @@ public class MinimaxAI {
     private static final int REPETITION_DRAW_PENALTY_WINNING = -65;
     private static final int REPETITION_DRAW_BONUS_LOSING = 45;
     private static final int REPETITION_EVAL_THRESHOLD = 120;
+    private static final int WINNING_ADVANTAGE_THRESHOLD = 1200;
     private static final double[] TIME_PRESSURE_EMA = new double[Difficulty.values().length];
     private static final double TIME_PRESSURE_ALPHA = 0.22;
     private static final long ZOBRIST_TURN_KEY = 0x9E3779B97F4A7C15L;
@@ -204,6 +205,11 @@ public class MinimaxAI {
 
         sortMovesByCaptureValue(validMoves, board);
 
+        Move immediateWinMove = findImmediateWinningMove(board, aiColor, validMoves);
+        if (immediateWinMove != null) {
+            return immediateWinMove;
+        }
+
         Move openingMove = OpeningBook.findOpeningMove(board, aiColor, validMoves);
         if (openingMove != null) {
             return openingMove;
@@ -214,24 +220,27 @@ public class MinimaxAI {
         boolean inLearnedSet = XqipuLearnedSet.contains(board);
         boolean inEventSet = EventLearnedSet.contains(board);
         int ply = board.getMoveCount();
+        int evalNow = evaluate(board, aiColor);
+        boolean winningAdvantage = evalNow >= WINNING_ADVANTAGE_THRESHOLD;
         EndgameCurve endgameCurve = inStudySet ? curveFor(studyTier, difficulty) : new EndgameCurve(0, 0, false);
 
-        Move rescueBookMove = tryRescueBookMove(board, aiColor, validMoves, ply, inLearnedSet, inEventSet);
+        Move rescueBookMove = winningAdvantage ? null : tryRescueBookMove(board, aiColor, validMoves, ply, inLearnedSet, inEventSet);
         if (rescueBookMove != null) {
             return rescueBookMove;
         }
 
-        Move fastEventMove = tryFastEventMove(board, aiColor, validMoves, inEventSet, ply);
+        Move fastEventMove = winningAdvantage ? null : tryFastEventMove(board, aiColor, validMoves, inEventSet, ply);
         if (fastEventMove != null) {
             return fastEventMove;
         }
 
-        Move ultraFastMove = tryUltraFastMove(board, aiColor, validMoves, ply);
+        Move ultraFastMove = winningAdvantage ? null : tryUltraFastMove(board, aiColor, validMoves, ply);
         if (ultraFastMove != null) {
             return ultraFastMove;
         }
 
-        if (ply >= MIDGAME_PLY_FAST_CAP && !endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
+        if (ply >= MIDGAME_PLY_FAST_CAP && !winningAdvantage
+            && !endgameCurve.forceDeterministic && !inStudySet && !inLearnedSet && !inEventSet
             && difficulty.getRandomPickChance() > 0 && ThreadLocalRandom.current().nextDouble() < difficulty.getRandomPickChance()) {
             int topN = Math.max(1, Math.min(4, validMoves.size()));
             return validMoves.get(ThreadLocalRandom.current().nextInt(topN));
@@ -337,6 +346,20 @@ public class MinimaxAI {
             cacheBestMove(cacheKey, bestMove);
         }
         return bestMove;
+    }
+
+    private Move findImmediateWinningMove(Board board, PieceColor aiColor, List<Move> validMoves) {
+        for (Move move : validMoves) {
+            Board next = new Board(board);
+            next.movePiece(move);
+            if (!next.isGameOver()) {
+                continue;
+            }
+            if (next.getWinner() == aiColor) {
+                return move;
+            }
+        }
+        return null;
     }
 
     private Move tryFastEventMove(Board board, PieceColor aiColor, List<Move> validMoves, boolean inEventSet, int ply) {

@@ -93,6 +93,80 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 - 动态静态搜索预算：快模式下自动收缩 Quiescence 深度与分支，优先保障“一步一响应”
 - 受控将军延伸：中等/困难在非快模式下对关键将军着法小幅加深，提高战术质量稳定性
 
+### 中国象棋外部引擎（Pikafish / UCI）接入
+
+项目已支持中国象棋 AI 运行时切换：
+
+- 默认：`内置AI`
+- 可选：`Pikafish`（UCI 通道）
+- 若外部引擎异常，会自动回退到内置 AI
+- 浏览器控制面板可切换：`内置AI / Pikafish / 自动`
+
+启动参数（二选一：JVM 参数或环境变量）：
+
+```powershell
+# 方式1：JVM 参数
+java -Dxq.xiangqi.engine=PIKAFISH `
+     -Dxq.xiangqi.pikafish.cmd="D:\tools\pikafish\pikafish.exe" `
+     -cp target/classes com.xiangqi.web.BrowserModeMain
+```
+
+```powershell
+# 方式2：环境变量
+$env:XQ_XIANGQI_ENGINE="PIKAFISH"
+$env:XQ_XIANGQI_PIKAFISH_CMD="D:\tools\pikafish\pikafish.exe"
+java -cp target/classes com.xiangqi.web.BrowserModeMain
+```
+
+可用值：
+
+- `XQ_XIANGQI_ENGINE=BUILTIN`：强制内置 AI
+- `XQ_XIANGQI_ENGINE=PIKAFISH`：使用 Pikafish
+- `XQ_XIANGQI_ENGINE=AUTO`：有 Pikafish 命令则用外部，否则内置
+
+命令路径变量：
+
+- `XQ_XIANGQI_PIKAFISH_CMD`：Pikafish 可执行文件路径
+- 兼容旧变量：`XQ_XIANGQI_UCI_CMD`
+
+### 五子棋外部引擎（Piskvork）接入
+
+项目已支持五子棋 AI 运行时切换：
+
+- 默认：`内置AI`
+- 可选：`Rapfi / AlphaGomoku`（均通过 Piskvork 协议）
+- 若外部引擎异常，会自动回退到内置 AI
+- 浏览器控制面板可直接切换：`内置AI / Rapfi / AlphaGomoku`
+
+启动参数（二选一：JVM 参数或环境变量）：
+
+```powershell
+# 方式1：JVM 参数（Rapfi）
+java -Dxq.gomoku.engine=RAPFI `
+     -Dxq.gomoku.rapfi.cmd="D:\tools\rapfi\rapfi.exe" `
+     -cp target/classes com.xiangqi.web.BrowserModeMain
+```
+
+```powershell
+# 方式2：环境变量（Rapfi）
+$env:XQ_GOMOKU_ENGINE="RAPFI"
+$env:XQ_GOMOKU_RAPFI_CMD="D:\tools\rapfi\rapfi.exe"
+java -cp target/classes com.xiangqi.web.BrowserModeMain
+```
+
+可用值：
+
+- `XQ_GOMOKU_ENGINE=BUILTIN`：强制内置 AI
+- `XQ_GOMOKU_ENGINE=RAPFI`：使用 Rapfi（需配置 `XQ_GOMOKU_RAPFI_CMD`）
+- `XQ_GOMOKU_ENGINE=ALPHAGOMOKU`：使用 AlphaGomoku（需配置 `XQ_GOMOKU_ALPHAGOMOKU_CMD`）
+- `XQ_GOMOKU_ENGINE=AUTO`：优先 Rapfi，再 AlphaGomoku，否则内置
+
+命令路径变量：
+
+- `XQ_GOMOKU_RAPFI_CMD`：Rapfi 可执行文件路径
+- `XQ_GOMOKU_ALPHAGOMOKU_CMD`：AlphaGomoku 可执行文件路径
+- 兼容旧变量：`XQ_GOMOKU_PISKVORK_CMD`（按 Rapfi 处理）
+
 ### 赛事学习数据更新（xqipu）
 
 新增脚本：`tools/update_event_fens.ps1`
@@ -151,6 +225,12 @@ run_game.bat
 
 :: 网页版（直接浏览器打开，不依赖桌面端）
 run_web.bat
+
+:: 网页版 + Pikafish 外部引擎（中国象棋）
+run_web_pikafish.bat "D:\tools\pikafish\pikafish.exe"
+
+:: 网页版 + Rapfi 外部引擎（五子棋）
+run_web_rapfi.bat "D:\tools\rapfi\rapfi.exe"
 
 :: 强制重编译后再启动网页版（可选）
 run_web.bat --rebuild
