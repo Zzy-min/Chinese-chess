@@ -1,29 +1,49 @@
 # 轻·象棋（XiangqiGame）
 
 一个基于 Java 的中国象棋项目，提供 **桌面版（Swing）** 与 **浏览器版（本地 Web）** 两套对局模式。  
-项目重点是：规则完整、对局流畅、AI 可分级、残局训练与术语提示。
+A Java-based Xiangqi project with both **desktop (Swing)** and **browser (local web)** play modes.  
+项目重点是：规则完整、对局流畅、AI 可分级、残局训练与术语提示。  
+It focuses on complete rules, smooth gameplay, adjustable AI difficulty, endgame training, and tactical prompts.
 
 GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 
-## 简介
+## 简介 | Overview
 
 轻·象棋，一款开箱即玩的中国象棋对弈程序。  
+XiangqiGame is a ready-to-play Chinese chess experience built for both quick local games and long-form practice.  
 支持双人同屏、人机三档难度、残局练习与棋局回顾。  
+It supports local PvP, three AI difficulty levels, endgame training, and move review.  
 你可自由选择先后手，执黑时棋盘自动翻转到底侧视角。  
+You can freely choose who moves first, and the board auto-flips when the player takes black.  
 桌面与浏览器双端可用，浏览器模式可独立运行不中断。  
+Both desktop and browser versions are available, and the browser mode runs independently.  
 每一步更清晰，每一局更流畅，专注纯粹对弈体验。  
-浏览器端现已升级为“御案”古风主舞台：主视图突出棋盘，顶部集中展示状态与计时，右侧以抽屉式“局阁”收纳开局设置、残局练习与棋局复盘；桌面与手机浏览器均可获得更清晰的层级与更稳的触控操作。  
+The goal is a cleaner move flow, smoother interaction, and a more focused board-game experience.  
+浏览器端现已升级为可扩展的前端界面体系：默认提供更轻的极简清新风格，同时保留国风与御案古风皮肤可选；主视图突出棋盘，开始前可直接看到棋种、模式、先后手与皮肤选择。  
+The browser UI has been upgraded into an extensible frontend system: a lighter minimal theme is now the default, while elegant oriental and imperial themes remain available; the board stays central, and new players can immediately see game type, mode, first-move choice, and theme options before starting.  
 页面资源也已从 Java 内联长字符串拆分为独立 `HTML / CSS / JS` 静态文件，后续维护与继续打磨前端样式会更直接。  
-浏览器端继续保留 GSAP 宫廷过场动效（开局/将军/绝杀）与 PixiJS 渲染链，棋子采用 bevel + shadow bloom + specular 分层材质，立体雕刻质感更强。  
-近期 AI 引擎已完成连续升级：重复局面控制、静态搜索延伸（Quiescence）、Null Move / LMR / Futility 裁剪、自适应 Aspiration Window 与 SEE（静态交换评估）接入，显著降低中后盘长考与战术漏算。
+The page has also been split from a giant Java inline string into standalone `HTML / CSS / JS` assets, making future maintenance and UI iteration much easier.  
+浏览器端继续保留 GSAP 过场动效与棋盘渲染增强，并针对移动端做了更克制的性能策略，提升手机上的交互流畅度。  
+The browser version still keeps cinematic GSAP transitions and enhanced board rendering, while using a more controlled performance strategy on mobile to improve responsiveness.  
+近期 AI 引擎已完成连续升级：重复局面控制、静态搜索延伸（Quiescence）、Null Move / LMR / Futility 裁剪、自适应 Aspiration Window 与 SEE（静态交换评估）接入，显著降低中后盘长考与战术漏算。  
+The AI engine has also been upgraded with repetition control, quiescence search, null-move / LMR / futility pruning, adaptive aspiration windows, and SEE, significantly reducing slow midgame searches and tactical misses.
 
-## 浏览器版界面更新（2026-03）
+## 浏览器版界面更新（2026-03） | Browser UI Refresh (2026-03)
 
-- 新布局：从“棋盘 + 固定右栏”调整为“棋盘主舞台 + 局阁抽屉侧栏”，主屏信息更聚焦
-- 新层级：状态、计时、主要操作常驻首屏；开局设置、残局、复盘按分区收纳
-- 新体验：桌面端保留沉浸式古风舞台，手机端强化触控与窄屏抽屉交互
-- 新结构：网页资源已拆分到 `src/main/resources/web`，后续继续做样式优化与功能扩展更方便
-- 更新记录：详见 `docs/web-ui-refresh-2026-03.md`
+- 新布局：从“棋盘 + 固定右栏”调整为“棋盘主舞台 + 设置抽屉侧栏”，主屏信息更聚焦  
+  New layout: the old “board + fixed sidebar” layout is replaced with a “board-centered stage + settings drawer” structure.
+- 新层级：状态、计时、主要操作常驻首屏；开局设置、残局、复盘按分区收纳  
+  Better hierarchy: status, clocks, and primary actions stay visible, while setup, endgames, and review are grouped more clearly.
+- 新体验：默认极简清新皮肤，同时保留其他可切换主题，降低厚重的“PPT 感”  
+  Cleaner feel: a lighter minimal theme is now the default, while alternative skins remain available to reduce the previous “presentation slide” feeling.
+- 新交互：开始前可直接看到棋种、模式、先后手与皮肤，降低新玩家上手门槛  
+  Better onboarding: before the game starts, players can directly see and switch game type, mode, first move, and theme.
+- 新性能：移动端保留视觉效果，但通过渲染降级和轮询调整提升交互流畅度  
+  Better mobile performance: visual effects are preserved, but rendering and polling are scaled more carefully for smoother interaction.
+- 新结构：网页资源已拆分到 `src/main/resources/web`，后续继续做样式优化与功能扩展更方便  
+  Better maintainability: web assets now live under `src/main/resources/web`, making future UI updates much easier.
+- 更新记录：详见 `docs/web-ui-refresh-2026-03.md`  
+  See `docs/web-ui-refresh-2026-03.md` for the detailed refresh notes.
 
 ## 最新版本特性
 
