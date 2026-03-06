@@ -17,6 +17,14 @@ GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
 浏览器端继续保留 GSAP 宫廷过场动效（开局/将军/绝杀）与 PixiJS 渲染链，棋子采用 bevel + shadow bloom + specular 分层材质，立体雕刻质感更强。  
 近期 AI 引擎已完成连续升级：重复局面控制、静态搜索延伸（Quiescence）、Null Move / LMR / Futility 裁剪、自适应 Aspiration Window 与 SEE（静态交换评估）接入，显著降低中后盘长考与战术漏算。
 
+## 浏览器版界面更新（2026-03）
+
+- 新布局：从“棋盘 + 固定右栏”调整为“棋盘主舞台 + 局阁抽屉侧栏”，主屏信息更聚焦
+- 新层级：状态、计时、主要操作常驻首屏；开局设置、残局、复盘按分区收纳
+- 新体验：桌面端保留沉浸式古风舞台，手机端强化触控与窄屏抽屉交互
+- 新结构：网页资源已拆分到 `src/main/resources/web`，后续继续做样式优化与功能扩展更方便
+- 更新记录：详见 `docs/web-ui-refresh-2026-03.md`
+
 ## 最新版本特性
 
 - 双人对战（PVP）与人机对战（PVC）
