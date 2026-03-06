@@ -45,7 +45,17 @@ The AI engine has also been upgraded with repetition control, quiescence search,
 - 更新记录：详见 `docs/web-ui-refresh-2026-03.md`  
   See `docs/web-ui-refresh-2026-03.md` for the detailed refresh notes.
 
-## 最新版本特性
+## 最新版本特性 | Latest Features
+
+下面列出当前版本的主要能力与近阶段重点更新。  
+Below is a quick summary of the current release highlights and the most important recent improvements.
+
+- 支持桌面与浏览器双端、双人对战与人机对战、残局练习与棋局回顾。  
+  Supports both desktop and browser play, local PvP and PvE, endgame practice, and move review.
+- 浏览器端已升级为更强调棋盘中心的前端界面，并支持多皮肤切换与更好的新手可发现性。  
+  The browser UI now focuses more clearly on the board, with theme switching and better discoverability for new players.
+- AI、渲染与交互链路持续优化，重点减少中后盘等待感、提升移动端流畅度。  
+  AI, rendering, and interaction pipelines have been continuously improved to reduce waiting time and improve mobile responsiveness.
 
 - 双人对战（PVP）与人机对战（PVC）
 - 人机难度三档：`简单 / 中等 / 困难`
@@ -87,7 +97,15 @@ The AI engine has also been upgraded with repetition control, quiescence search,
 - 宫廷过场动效：`开局 / 将军 / 绝杀` 三套独立 `GSAP timeline`，含金匾提示与舞台光效脉冲
 - 第五轮开源对标优化：新增超快应答通道（简单/中等）、动态 Quiescence 预算与受控将军延伸，并补充对标清单 `docs/open-source-benchmark-round5.md`
 
-## AI 与算法
+## AI 与算法 | AI & Search
+
+本项目的 AI 以经典博弈搜索为核心，并持续围绕“更稳的战术质量”和“更快的对局响应”做工程优化。  
+The AI stack is centered around classic game-tree search, with ongoing engineering work focused on stronger tactical stability and faster practical response time.
+
+- 搜索核心包含迭代加深、Alpha-Beta、置换表与多种走法排序优化。  
+  The core search stack includes iterative deepening, alpha-beta pruning, transposition tables, and multiple move-ordering optimizations.
+- 近阶段重点是降低中后盘长考、减少浅层战术漏算，并提升不同难度下的体感差异。  
+  Recent work focuses on reducing long midgame think times, avoiding shallow tactical misses, and making the difficulty levels feel meaningfully different.
 
 - 迭代加深搜索（Iterative Deepening）
 - Alpha-Beta 剪枝
@@ -223,7 +241,10 @@ pwsh -File tools/update_event_learnedset.ps1 -StartPage 0 -EndPage 10 -Compile -
 pwsh -File tools/update_xqipu_learnedset.ps1 -QipusStartPage 0 -QipusEndPage 49 -Compile -Publish
 ```
 
-## 规则与胜负
+## 规则与胜负 | Rules & Win Conditions
+
+完整实现中国象棋关键规则，并覆盖常见对局结束条件。  
+Core Xiangqi rules and common game-ending conditions are fully implemented.
 
 完整实现中国象棋基本与关键特殊规则，包括：
 
@@ -233,7 +254,10 @@ pwsh -File tools/update_xqipu_learnedset.ps1 -QipusStartPage 0 -QipusEndPage 49 
 - 认输判负
 - 计时超时判负（双人模式）
 
-## 主要模块
+## 主要模块 | Main Modules
+
+以下是项目的主要代码分层与核心入口。  
+Below is a quick map of the main code modules and entry points.
 
 - `src/main/java/com/xiangqi/model`：棋盘、棋子、走法、术语检测
 - `src/main/java/com/xiangqi/ai`：AI 搜索、开局库、残局学习集
@@ -242,14 +266,17 @@ pwsh -File tools/update_xqipu_learnedset.ps1 -QipusStartPage 0 -QipusEndPage 49 
 - `src/main/java/com/xiangqi/ui`：桌面端界面（Swing）
 - `src/main/java/com/xiangqi/web`：浏览器端服务与页面
 
-关键入口：
+关键入口 | Main entry points:
 
 - 桌面：`com.xiangqi.ui.XiangqiFrame`
 - 浏览器独立服务：`com.xiangqi.web.BrowserModeMain`（默认端口 `18388`）
 
-## 运行方式
+## 运行方式 | How to Run
 
-### 0) Windows 一键启动（推荐）
+可按你的环境选择批处理脚本、直接 `java` 启动，或使用 Maven。  
+You can launch the project with Windows scripts, direct `java` commands, or Maven depending on your environment.
+
+### 0) Windows 一键启动（推荐） | One-click Windows launch (Recommended)
 
 ```bat
 :: 桌面版
@@ -268,7 +295,7 @@ run_web_rapfi.bat "D:\tools\rapfi\rapfi.exe"
 run_web.bat --rebuild
 ```
 
-### 1) 使用 javac / java（推荐与你当前环境一致）
+### 1) 使用 javac / java（推荐与你当前环境一致） | Using javac / java
 
 ```powershell
 # 在项目根目录执行
@@ -293,6 +320,9 @@ Copy-Item -Path src/main/resources/* -Destination target/classes -Recurse -Force
 - `http://127.0.0.1:18388/`
 
 ### 2) Maven
+
+适合已有 Maven 环境的使用方式。  
+Recommended if you already use Maven locally.
 
 ```bash
 mvn clean compile
