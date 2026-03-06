@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>轻·象棋 - 浏览器模式 v20260306-御案</title>
+  <link rel="stylesheet" href="/assets/ui/app.css" />
+</head>
+<body>
+  <div id="appShell" class="shell">
+    <div id="drawerBackdrop" class="drawerBackdrop"></div>
+    <div class="wrap">
+      <header class="topMeta">
+        <div class="brandBlock">
+          <div class="brandEyebrow">奉天对弈 · 双棋同席</div>
+          <div class="brandTitle">轻·象棋</div>
+        </div>
+        <div class="metaCluster">
+          <div class="metaPill">故宫器物感 · 棋盘主舞台</div>
+          <div id="totalTop" class="metaPill">总时 红:--:-- 黑:--:--</div>
+          <div id="stepTop" class="metaPill">当前步时倒计时: --s</div>
+        </div>
+        <button id="sideToggle" class="menuBtn" type="button">局阁</button>
+      </header>
+      <div id="courtBanner" class="courtBanner" data-tone="gold"></div>
+      <div class="layout">
+        <main class="mainStage">
+          <section class="heroPanel">
+            <div class="heroCopy">
+              <div class="heroKicker">宫阙对局 · 古意新排</div>
+              <h1>一方棋局，满案云纹</h1>
+              <div id="info" class="log heroLog">等待数据...</div>
+            </div>
+            <div class="heroStatus">
+              <div id="statusTag" class="tag">状态: 加载中</div>
+              <div id="modeTag" class="tag">模式: -</div>
+              <div id="reviewTag" class="tag">回顾: 关闭</div>
+            </div>
+          </section>
+          <section class="boardShell">
+            <div class="boardCard">
+              <div class="palaceFrame">
+                <svg class="eave eaveTop" viewBox="0 0 1000 160" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="eaveG" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#e0b267"/>
+                      <stop offset="0.55" stop-color="#b26f33"/>
+                      <stop offset="1" stop-color="#6d3818"/>
+                    </linearGradient>
+                    <pattern id="tileP" width="80" height="18" patternUnits="userSpaceOnUse">
+                      <path d="M0 18 L20 0 L40 18 L60 0 L80 18" fill="none" stroke="rgba(255,230,190,.7)" stroke-width="3"/>
+                    </pattern>
+                  </defs>
+                  <path d="M0 40 L1000 40 L1000 88 C900 130 700 126 500 110 C300 126 100 130 0 88 Z" fill="url(#eaveG)"/>
+                  <rect x="0" y="42" width="1000" height="20" fill="url(#tileP)" opacity=".85"/>
+                  <path d="M20 64 L980 64" stroke="rgba(255,236,200,.7)" stroke-width="3"/>
+                  <path d="M0 88 C120 130 280 128 500 108 C720 128 880 130 1000 88" stroke="rgba(255,220,170,.6)" stroke-width="2" fill="none"/>
+                  <circle cx="500" cy="76" r="10" fill="rgba(255,220,170,.8)"/>
+                  <circle cx="500" cy="76" r="5" fill="#8a4c1f"/>
+                </svg>
+                <svg class="jasmine" viewBox="0 0 120 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                  <defs><radialGradient id="jCore" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff7d9"/><stop offset="1" stop-color="#d8b574"/></radialGradient></defs>
+                  <g fill="#fffdf8" stroke="rgba(215,206,187,.8)" stroke-width="1.4">
+                    <path d="M60 16 C71 26,73 42,60 50 C47 42,49 26,60 16"/>
+                    <path d="M104 60 C94 71,78 73,70 60 C78 47,94 49,104 60"/>
+                    <path d="M60 104 C49 94,47 78,60 70 C73 78,71 94,60 104"/>
+                    <path d="M16 60 C26 49,42 47,50 60 C42 73,26 71,16 60"/>
+                    <path d="M89 31 C94 42,89 56,76 58 C68 47,73 34,89 31"/>
+                    <path d="M89 89 C78 94,64 89,62 76 C73 68,86 73,89 89"/>
+                    <path d="M31 89 C26 78,31 64,44 62 C52 73,47 86,31 89"/>
+                    <path d="M31 31 C42 26,56 31,58 44 C47 52,34 47,31 31"/>
+                  </g>
+                  <circle cx="60" cy="60" r="8" fill="url(#jCore)"/>
+                  <circle cx="60" cy="60" r="3" fill="#c6a157"/>
+                </svg>
+                <svg class="eave eaveBottom" viewBox="0 0 1000 160" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="eaveG2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#e0b267"/>
+                      <stop offset="0.55" stop-color="#b26f33"/>
+                      <stop offset="1" stop-color="#6d3818"/>
+                    </linearGradient>
+                    <pattern id="tileP2" width="80" height="18" patternUnits="userSpaceOnUse">
+                      <path d="M0 18 L20 0 L40 18 L60 0 L80 18" fill="none" stroke="rgba(255,230,190,.7)" stroke-width="3"/>
+                    </pattern>
+                  </defs>
+                  <path d="M0 40 L1000 40 L1000 88 C900 130 700 126 500 110 C300 126 100 130 0 88 Z" fill="url(#eaveG2)"/>
+                  <rect x="0" y="42" width="1000" height="20" fill="url(#tileP2)" opacity=".85"/>
+                  <path d="M20 64 L980 64" stroke="rgba(255,236,200,.7)" stroke-width="3"/>
+                  <path d="M0 88 C120 130 280 128 500 108 C720 128 880 130 1000 88" stroke="rgba(255,220,170,.6)" stroke-width="2" fill="none"/>
+                  <circle cx="500" cy="76" r="10" fill="rgba(255,220,170,.8)"/>
+                  <circle cx="500" cy="76" r="5" fill="#8a4c1f"/>
+                </svg>
+                <svg class="filigree" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="goldLine" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0" stop-color="rgba(255,232,190,.85)"/>
+                      <stop offset="1" stop-color="rgba(163,103,48,.85)"/>
+                    </linearGradient>
+                  </defs>
+                  <rect x="34" y="34" width="932" height="932" fill="none" stroke="url(#goldLine)" stroke-width="2"/>
+                </svg>
+              </div>
+              <div id="boardStage" class="boardStage">
+                <div id="flipStage" class="flipStage">
+                  <div class="boardFace boardFaceFront"><canvas id="boardXQ" width="800" height="900"></canvas></div>
+                  <div class="boardFace boardFaceBack"><canvas id="boardGK" width="800" height="900"></canvas></div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section class="actionBar">
+            <button id="newGame" type="button">新开一局</button>
+            <button id="undo" type="button">悔棋</button>
+            <button id="surrender" type="button">认输</button>
+            <button id="drawBtn" type="button">和棋</button>
+            <button id="soundToggle" type="button">音效:开</button>
+          </section>
+          <section class="subInfoGrid">
+            <div id="endgameTag" class="tag">残局: 标准开局</div>
+            <div id="drawReasonTag" class="tag">和棋原因: -</div>
+          </section>
+        </main>
+        <aside class="side">
+          <div class="sideHead">
+            <div>
+              <div class="title">局阁</div>
+              <div class="sideHint">设置、残局与复盘集中收纳</div>
+            </div>
+            <button id="closeDrawer" class="menuBtn closeBtn" type="button">收起</button>
+          </div>
+          <div class="panelTabs">
+            <button class="panelTab is-active" data-panel-target="setup" type="button">开局</button>
+            <button id="endgameTab" class="panelTab" data-panel-target="endgame" type="button">残局</button>
+            <button class="panelTab" data-panel-target="review" type="button">复盘</button>
+          </div>
+          <section class="panelCard is-active" data-panel="setup">
+            <div class="title">开局设置</div>
+            <div class="row"><select id="gameType"><option value="XIANGQI" selected>中国象棋</option><option value="GOMOKU">五子棋</option></select></div>
+            <div class="row"><select id="xiangqiEngine"><option value="BUILTIN" selected>象棋引擎: 内置AI</option><option value="PIKAFISH">象棋引擎: Pikafish</option><option value="AUTO">象棋引擎: 自动</option></select></div>
+            <div class="row"><select id="mode"><option value="pvp">双人对战</option><option value="pvc">人机对战</option></select><select id="difficulty"><option value="EASY">简单</option><option value="MEDIUM" selected>中等</option><option value="HARD">困难</option></select></div>
+            <div class="row"><select id="gomokuEngine"><option value="BUILTIN" selected>五子棋引擎: 内置AI</option><option value="RAPFI">五子棋引擎: Rapfi</option><option value="ALPHAGOMOKU">五子棋引擎: AlphaGomoku</option></select></div>
+            <div class="row"><select id="firstHand" disabled><option value="true" selected>我先手（执红）</option><option value="false">我后手（执黑）</option></select></div>
+          </section>
+          <section id="endgameSection" class="panelCard" data-panel="endgame">
+            <div id="endgameTitle" class="title">残局练习</div>
+            <div id="endgameGrid" class="egGrid">
+              <button class="egBtn" data-name="七星聚会" type="button">七星聚会</button><button class="egBtn" data-name="蚯蚓降龙" type="button">蚯蚓降龙</button>
+              <button class="egBtn" data-name="千里独行" type="button">千里独行</button><button class="egBtn" data-name="野马操田" type="button">野马操田</button>
+              <button class="egBtn" data-name="梅花谱" type="button">梅花谱</button><button class="egBtn" data-name="百局象棋谱" type="button">百局象棋谱</button>
+              <button class="egBtn" data-name="适情雅趣" type="button">适情雅趣</button><button class="egBtn" data-name="烂柯神机" type="button">烂柯神机</button>
+              <button class="egBtn" data-name="梦入神机" type="button">梦入神机</button><button class="egBtn" data-name="韬略元机" type="button">韬略元机</button>
+            </div>
+          </section>
+          <section class="panelCard" data-panel="review">
+            <div class="title">棋局复盘</div>
+            <div class="row"><button id="reviewStart" type="button">开始回顾</button><button id="reviewExit" type="button">退出回顾</button></div>
+            <div class="row"><button id="reviewPrev" type="button">上一步</button><button id="reviewNext" type="button">下一步</button></div>
+            <div class="tag reviewNote">回顾模式下，棋盘与主操作会按当前规则联动禁用。</div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
+  <script src="/assets/ui/app.js"></script>
+</body>
+</html>
