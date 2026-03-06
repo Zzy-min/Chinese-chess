@@ -79,7 +79,7 @@ button,select{appearance:none;border:1px solid var(--button-border);border-radiu
 button:hover,select:hover{transform:translateY(-1px);border-color:color-mix(in srgb, var(--accent) 42%, white);} 
 button:disabled,select:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;}
 .shell{position:relative;min-height:100dvh;padding:18px;}
-.drawerBackdrop{position:fixed;inset:0;background:rgba(12,18,22,.2);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .22s ease;z-index:20;}
+.drawerBackdrop{position:fixed;inset:0;background:rgba(12,18,22,.14);backdrop-filter:none;-webkit-backdrop-filter:none;opacity:0;pointer-events:none;transition:opacity .22s ease;z-index:20;}
 .wrap{width:min(1380px,calc(100vw - 36px));margin:0 auto;padding:18px 18px 26px;border-radius:28px;background:var(--surface);border:1px solid var(--line);box-shadow:0 24px 60px rgba(12,18,22,.08);}
 .topMeta{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:14px 16px;border-radius:20px;background:var(--topbar);color:var(--topbar-text);border:1px solid color-mix(in srgb, var(--line) 68%, transparent);box-shadow:0 10px 24px rgba(14,24,28,.06);}
 .brandBlock{display:flex;flex-direction:column;gap:4px;min-width:150px;}
