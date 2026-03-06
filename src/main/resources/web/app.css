@@ -138,9 +138,9 @@ body:not([data-theme="imperial"]) .palaceFrame{display:none;}
 .actionBar button span{font-size:12px;color:var(--muted);}
 .actionBar button.primary{background:linear-gradient(180deg,var(--accent),var(--accent-strong));color:#fff;border-color:transparent;box-shadow:0 16px 28px color-mix(in srgb, var(--accent) 28%, transparent);}
 .actionBar button.primary span{color:rgba(255,255,255,.82);}
-.side{position:fixed;top:18px;right:18px;bottom:18px;width:min(380px,calc(100vw - 28px));padding:18px;border-radius:24px;background:var(--surface);border:1px solid var(--line);box-shadow:0 24px 46px rgba(12,18,22,.16);transform:translateX(calc(100% + 24px));opacity:0;visibility:hidden;pointer-events:none;transition:transform .24s ease,opacity .18s ease,visibility .18s ease;z-index:30;overflow:auto;}
+.side{position:fixed;top:18px;right:18px;bottom:18px;width:min(380px,calc(100vw - 28px));padding:18px;border-radius:24px;background:var(--surface-strong);border:1px solid var(--line);box-shadow:0 24px 46px rgba(12,18,22,.16);display:none;z-index:40;overflow:auto;}
 .shell.drawer-open .drawerBackdrop{opacity:1;pointer-events:auto;}
-.shell.drawer-open .side{transform:translateX(0);opacity:1;visibility:visible;pointer-events:auto;}
+.shell.drawer-open .side{display:block;}
 .sideHead{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
 .sideHint{font-size:12px;color:var(--muted);line-height:1.45;}
 .title{font-size:15px;font-weight:800;letter-spacing:.2px;color:var(--text);margin-bottom:8px;}
