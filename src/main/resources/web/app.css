@@ -161,6 +161,7 @@ button:disabled,select:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
   line-height:1.5;
 }
 .heroLog{color:#fff2d4;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+.log.is-error{color:#ffe2da;border-color:rgba(255,166,146,.36);background:rgba(120,32,22,.28);}
 .heroStatus{display:grid;gap:10px;align-content:start;}
 .tag{
   display:block;
@@ -173,6 +174,7 @@ button:disabled,select:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
   font-size:14px;
   line-height:1.4;
 }
+.tag.is-error{color:#7d1f16;background:linear-gradient(180deg,#fde8e1,#f3c2b6);border-color:#d28774;}
 .subInfoGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
 .boardShell{
   padding:18px;
