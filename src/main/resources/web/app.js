@@ -14,7 +14,7 @@ function playOpeningCeremony(){if(!window.gsap)return;flashBanner('开局','gold
 function playCheckCeremony(){}
 function playMateCeremony(){}
 function syncGamePanels(gameType){const g=gameType||((state&&state.gameType)||ui.gameType.value||GAME_XIANGQI);if(ui.gameType&&ui.gameType.value!==g)ui.gameType.value=g;const isG=g===GAME_GOMOKU;if(flipStage)flipStage.classList.toggle('gomokuFace',isG);const palace=document.querySelector('.palaceFrame');if(palace)palace.style.display=isG?'none':'';if(ui.endgameTitle)ui.endgameTitle.style.display=isG?'none':'';if(ui.endgameGrid)ui.endgameGrid.style.display=isG?'none':'grid';if(ui.firstHand){const v=ui.firstHand.value;ui.firstHand.innerHTML=isG?'<option value="true" selected>我先手（执黑）</option><option value="false">我后手（执白）</option>':'<option value="true" selected>我先手（执红）</option><option value="false">我后手（执黑）</option>';if(v==='false')ui.firstHand.value='false';}if(ui.gomokuEngine){ui.gomokuEngine.disabled=!isG;const row=ui.gomokuEngine.closest('.row');if(row)row.style.display=isG?'':'none';}if(ui.xiangqiEngine){ui.xiangqiEngine.disabled=isG;const row=ui.xiangqiEngine.closest('.row');if(row)row.style.display=isG?'none':'';}}
-function setupCanvas(){const viewportW=window.innerWidth||document.documentElement.clientWidth;const viewportH=window.innerHeight||document.documentElement.clientHeight;const maxW=Math.max(300,Math.min(boardCard.clientWidth-12,isTouchDevice?viewportW-24:viewportW-72));const maxH=Math.max(360,Math.min(viewportH*(isCompactScreen()?0.58:0.76),viewportH-(isTouchDevice?150:130)));const fitWByH=Math.floor(maxH*BASE_W/BASE_H);const cssW=Math.round(Math.max(280,Math.min(maxW,fitWByH)));const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;dpr=targetDpr();boardStage.style.width=cssW+'px';boardStage.style.height=cssH+'px';if(flipStage){flipStage.style.width=cssW+'px';flipStage.style.height=cssH+'px';}canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';gomokuCanvas.style.width=cssW+'px';gomokuCanvas.style.height=cssH+'px';canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);gomokuCanvas.width=Math.round(cssW*dpr);gomokuCanvas.height=Math.round(cssH*dpr);ctx.imageSmoothingEnabled=true;gctx.imageSmoothingEnabled=true;ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);gctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);if(pixiReady&&pixiApp){pixiApp.renderer.resolution=dpr;pixiApp.renderer.resize(BASE_W,BASE_H);}scheduleRender();}
+function setupCanvas(){const viewportW=window.innerWidth||document.documentElement.clientWidth;const viewportH=window.innerHeight||document.documentElement.clientHeight;const mobile=isTouchDevice&&viewportW<=900;const maxW=Math.max(mobile?280:300,Math.min(boardCard.clientWidth-12,isTouchDevice?viewportW-20:viewportW-72));const boardHeightRatio=mobile?(viewportW<=640?0.72:0.68):(isCompactScreen()?0.62:0.76);const bottomReserve=mobile?(viewportW<=640?96:112):(isTouchDevice?126:130);const minBoardH=mobile?320:360;const maxH=Math.max(minBoardH,Math.min(viewportH*boardHeightRatio,viewportH-bottomReserve));const fitWByH=Math.floor(maxH*BASE_W/BASE_H);const cssW=Math.round(Math.max(mobile?256:280,Math.min(maxW,fitWByH)));const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;dpr=targetDpr();boardStage.style.width=cssW+'px';boardStage.style.height=cssH+'px';if(flipStage){flipStage.style.width=cssW+'px';flipStage.style.height=cssH+'px';}canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';gomokuCanvas.style.width=cssW+'px';gomokuCanvas.style.height=cssH+'px';canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);gomokuCanvas.width=Math.round(cssW*dpr);gomokuCanvas.height=Math.round(cssH*dpr);ctx.imageSmoothingEnabled=true;gctx.imageSmoothingEnabled=true;ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);gctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);if(pixiReady&&pixiApp){pixiApp.renderer.resolution=dpr;pixiApp.renderer.resize(BASE_W,BASE_H);}scheduleRender();}
 window.addEventListener('resize', setupCanvas);window.addEventListener('orientationchange', setupCanvas);
 function syncSoundToggle(){const btn=document.getElementById('soundToggle');if(btn)btn.textContent='音效:'+(soundEnabled?'开':'关');}function toggleSound(){soundEnabled=!soundEnabled;localStorage.setItem('xq_sound_enabled',soundEnabled?'1':'0');syncSoundToggle();}function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;[moveAudio,mateAudio].forEach(a=>{const p=a.play();if(p&&p.catch){p.then(()=>{a.pause();a.currentTime=0;}).catch(()=>{});}else{a.pause();a.currentTime=0;}});}function playSound(a){if(!soundEnabled||!audioUnlocked)return;try{a.pause();a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(_e){}}
 const activeGameType=()=>{if(gameTypeIntent)return gameTypeIntent;if(state&&state.started)return state.gameType||GAME_XIANGQI;return (ui.gameType&&ui.gameType.value)||((state&&state.gameType)||GAME_XIANGQI);};const selectedGameType=()=>gameTypeIntent||((ui.gameType&&ui.gameType.value)||GAME_XIANGQI);const isGomoku=()=>activeGameType()===GAME_GOMOKU;const isFlipped=()=>{if(!state||state.reviewMode||isGomoku())return false;if(state.mode==='PVP')return state.currentTurn==='BLACK';return state.mode==='PVC'&&state.pvcHumanColor==='BLACK';};const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];const gPos=(r,c)=>[GK_MARGIN+c*GK_CELL,GK_MARGIN+r*GK_CELL];function pickGrid(x,y){if(isGomoku()){const c=Math.round((x-GK_MARGIN)/GK_CELL),r=Math.round((y-GK_MARGIN)/GK_CELL);if(r<0||r>=GK_SIZE||c<0||c>=GK_SIZE)return null;const px=GK_MARGIN+c*GK_CELL,py=GK_MARGIN+r*GK_CELL;const hitFactor=isTouchDevice?0.62:0.5;if(Math.hypot(x-px,y-py)>GK_CELL*hitFactor)return null;return {row:r,col:c};}const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);const baseHit=state&&state.mode==='PVC'?(state.difficulty==='EASY'?14:11):10;const hitExpand=isTouchDevice?baseHit+5:baseHit;const minX=MARGIN-R-hitExpand,maxX=MARGIN+8*CELL+R+hitExpand,minY=MARGIN-R-hitExpand,maxY=MARGIN+9*CELL+R+hitExpand;if(x<minX||x>maxX||y<minY||y>maxY)return null;const cc=Math.max(0,Math.min(8,vcol)),rr=Math.max(0,Math.min(9,vrow));return {row:br(rr),col:bc(cc)};}
@@ -144,7 +144,18 @@ const THEME_KEY='xq_ui_theme';
 const THEMES={minimal:'极简清新',ink:'简雅国风',imperial:'御案古风'};
 function currentTheme(){const raw=(localStorage.getItem(THEME_KEY)||body.dataset.theme||'minimal');return THEMES[raw]?raw:'minimal';}
 function selectedText(el){return el&&el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:'';}
-function updateSetupSummary(){const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';const mode=ui.mode&&ui.mode.value==='pvc'?'人机对战':'双人对战';const diff=selectedText(difficulty)||'中等';const theme=THEMES[currentTheme()]||'极简清新';if(summary)summary.textContent=[game,mode,diff,theme].join(' · ');const started=!!(window.state&&state&&state.started);if(shell)shell.classList.toggle('is-started',started);if(leadTitle)leadTitle.textContent=started?'对局进行中，可在右上角继续调整设置或复盘':'先选择棋种、模式与皮肤，再开始对局';if(startButton)startButton.innerHTML=started?'<strong>重新开局</strong><span>当前设置会重新开始本局</span>':'<strong>开始对局</strong><span>先选模式，再点这里</span>';if(themeNote)themeNote.textContent='当前皮肤：'+theme+' · 可随时切换';}
+function updateSetupSummary(){
+  const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';
+  const mode=ui.mode&&ui.mode.value==='pvc'?'人机对战':'双人对战';
+  const diff=selectedText(difficulty)||'中等';
+  const theme=THEMES[currentTheme()]||'极简清新';
+  if(summary)summary.textContent=[game,mode,diff,theme].join(' · ');
+  const started=!!(window.state&&state&&state.started);
+  if(shell)shell.classList.toggle('is-started',started);
+  if(leadTitle)leadTitle.textContent=started?'对局进行中，可在右上角继续调整设置或复盘':'先选择模式，再开始对局';
+  if(startButton)startButton.innerHTML=started?'<strong>重新开局</strong><span>当前设置会重新开始本局</span>':'<strong>开始对局</strong><span>确认设置后开局</span>';
+  if(themeNote)themeNote.textContent='当前皮肤：'+theme+' · 可在设置中切换';
+}
 function applyTheme(theme){const next=THEMES[theme]?theme:'minimal';body.dataset.theme=next;localStorage.setItem(THEME_KEY,next);themeButtons.forEach(btn=>btn.classList.toggle('is-active',btn.dataset.theme===next));updateSetupSummary();scheduleRender();}
 themeButtons.forEach(btn=>btn.addEventListener('click',()=>applyTheme(btn.dataset.theme)));
 [ui.gameType,ui.mode,ui.firstHand,difficulty].filter(Boolean).forEach(el=>el.addEventListener('change',updateSetupSummary));
@@ -154,4 +165,84 @@ const oldSyncGamePanels=syncGamePanels;
 syncGamePanels=function(gameType){oldSyncGamePanels(gameType);const g=gameType||((state&&state.gameType)||((ui.gameType&&ui.gameType.value)||GAME_XIANGQI));body.classList.toggle('is-gomoku',g===GAME_GOMOKU);updateSetupSummary();};
 applyTheme(currentTheme());
 updateSetupSummary();
+})();
+
+(function(){
+const shell=document.getElementById('appShell');
+const landingStatus=document.getElementById('landingStatus');
+const backToLanding=document.getElementById('backToLanding');
+const entryButtons=Array.from(document.querySelectorAll('[data-entry-game]'));
+let hasEntrySelection=false;
+
+function setView(view){
+  if(!shell)return;
+  shell.dataset.view=view;
+  if(view==='landing'){
+    shell.classList.remove('drawer-open');
+  }
+}
+
+function updateLandingStatus(){
+  if(!landingStatus)return;
+  if(!state){
+    landingStatus.textContent='系统状态：同步中...';
+    return;
+  }
+  if(state.started){
+    const gameText=state.gameType===GAME_GOMOKU?'五子棋':'中国象棋';
+    landingStatus.textContent='系统状态：存在进行中的'+gameText+'对局，点击对应棋种继续';
+    return;
+  }
+  landingStatus.textContent='系统状态：待开始，可直接进入棋种对局页';
+}
+
+function enterGameView(gameType){
+  if(ui.gameType){
+    ui.gameType.value=gameType;
+  }
+  gameTypeIntent=gameType;
+  hasEntrySelection=true;
+  syncGamePanels(gameType);
+  setView('game');
+  scheduleRender();
+}
+
+entryButtons.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const gameType=btn.dataset.entryGame===GAME_GOMOKU?GAME_GOMOKU:GAME_XIANGQI;
+    enterGameView(gameType);
+  });
+});
+
+if(backToLanding){
+  backToLanding.addEventListener('click',()=>{
+    hasEntrySelection=false;
+    setView('landing');
+    updateLandingStatus();
+  });
+}
+
+const baseApplyState=applyState;
+applyState=function(data){
+  baseApplyState(data);
+  const started=!!(state&&state.started);
+  if(started){
+    hasEntrySelection=true;
+    setView('game');
+  }else if(!hasEntrySelection){
+    setView('landing');
+  }
+  updateLandingStatus();
+};
+
+const baseNewGameBtn=document.getElementById('newGame');
+if(baseNewGameBtn){
+  baseNewGameBtn.addEventListener('click',()=>{
+    hasEntrySelection=true;
+    setView('game');
+  });
+}
+
+setView('landing');
+updateLandingStatus();
 })();
