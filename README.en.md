@@ -1,110 +1,78 @@
 # XiangqiGame
 
-A Java-based Xiangqi project that provides both a desktop edition (Swing) and a browser edition (local web).
+A Java-based Xiangqi project with two playable modes:
+- Desktop edition (Swing)
+- Browser edition (local web server)
 
-## Documentation
+## Live URL
 
-- Chinese documentation: [`README.zh-CN.md`](./README.zh-CN.md)
-- Repository landing page: [`README.md`](./README.md)
-
-## Quick Notes
-
-- The browser UI has been refreshed with a more board-centered layout, theme switching, and clearer onboarding.
-- The project supports PvP, PvE, endgame practice, move review, and external engine integration.
-- Use the language links above if you want the Chinese version of the documentation.
-
-## Overview
-
-This project aims to deliver a complete Xiangqi experience across local desktop and browser environments, while keeping room for deployment and engine-related extensions.
-
-Current highlights include:
-
-- Desktop gameplay interface
-- Local browser-based web interface
-- Human vs human and human vs AI modes
-- Endgame practice and move review
-- External engine integration
-
-## Browser Edition
-
-The browser edition focuses on the following improvements:
-
-- A more board-centered page structure
-- Clearer separation of controls and status areas
-- Theme switching
-- Easier onboarding for new players
-
-If you want the newer interface first, the browser edition is the recommended entry point.
+- Render: `https://xiangqi-web.onrender.com/`
 
 ## Features
 
-### Core Play
+- Core Xiangqi gameplay
+- Player vs Player (PVP)
+- Player vs Computer (PVC)
+- Endgame practice and review mode
+- External engine integration (when configured)
+- Theme switching and mobile-friendly browser UI
 
-- Standard Xiangqi rules
-- Local two-player gameplay
-- Common gameplay actions
+## Run Locally
 
-### AI and Extensions
+Requirements: Java 11+, Maven 3.9+
 
-- Human vs AI mode
-- External engine integration
-- Review and extended analysis capabilities
+### 1) Build
 
-### Practice Modes
+```bash
+mvn -DskipTests clean package
+```
 
-- Endgame practice
-- Match review
+### 2) Start Desktop Edition
 
-## Running Locally
+```bash
+java -jar target/XiangqiGame-1.0.0.jar
+```
 
-### Desktop Edition
+### 3) Start Browser Edition
 
-Install Java 11 or later, then run the desktop entry point according to the Java launch setup in the repository.
+```bash
+java -cp target/classes com.xiangqi.web.PublicWebMain
+```
 
-### Browser Edition
+Optional environment variables:
+- `PORT` (default: `18388`)
+- `BIND_HOST` (default: `0.0.0.0`)
 
-If the repository provides a local web entry, use the project scripts or instructions to start it. If it is exposed as a static page, you can also serve it locally with a static server.
+Example (PowerShell):
 
-## Deploying to Render
+```powershell
+$env:PORT = "18388"
+$env:BIND_HOST = "0.0.0.0"
+java -cp target/classes com.xiangqi.web.PublicWebMain
+```
 
-The repository already includes `render.yaml` and `Dockerfile` for Render deployment.
+## Run with Docker
 
-- The Blueprint uses `runtime: docker`
-- The container entry class is `com.xiangqi.web.PublicWebMain`
-- After deployment, use the public URL assigned by Render directly
+```bash
+docker build -t xiangqi-web .
+docker run --rm -p 18388:18388 -e PORT=18388 -e BIND_HOST=0.0.0.0 xiangqi-web
+```
 
-## Replacing Sound Effects
+## Deploy to Render
 
-Default sound files:
+This repository already includes `render.yaml` and `Dockerfile`:
+- Service type: `web`
+- Runtime: `docker`
+- Auto deploy: `autoDeploy: true`
+- Startup entry: `com.xiangqi.web.PublicWebMain`
 
-- `src/main/resources/audio/move.wav`
-- `src/main/resources/audio/mate.wav`
+Every push to `main` triggers a new Render deployment automatically.
 
-Recommended format:
+## Documentation
 
-- `WAV / PCM / 44.1kHz / 16-bit / mono`
-
-Recommended license/source record:
-
-- `docs/audio-license.md`
-
-## System Requirements
-
-- Java 11+
-- Windows, since the current scripts and examples are Windows-oriented
-
-## Documentation Strategy
-
-- `README.md` stays as a landing page only
-- `README.zh-CN.md` contains Chinese content only
-- `README.en.md` contains English content only
-
-This keeps language boundaries clear and easier to maintain.
+- Chinese docs: [`README.zh-CN.md`](./README.zh-CN.md)
+- Landing page: [`README.md`](./README.md)
 
 ## Repository
 
-- GitHub: `https://github.com/Zzy-min/turbo-octo-lamp`
-
-## License
-
-For learning and communication purposes only.
+- `https://github.com/Zzy-min/Chinese-chess`

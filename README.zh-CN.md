@@ -1,110 +1,78 @@
-# 中国象棋
+# 中国象棋（XiangqiGame）
 
-一个基于 Java 的中国象棋项目，提供桌面版（Swing）与浏览器版（本地 Web）两套对局方式。
+一个基于 Java 的中国象棋项目，提供两种使用方式：
+- 桌面版（Swing）
+- 浏览器版（本地 Web 服务）
+
+## 在线地址
+
+- Render：`https://xiangqi-web.onrender.com/`
+
+## 功能概览
+
+- 中国象棋基础规则与对弈
+- 双人对战（PVP）
+- 人机对战（PVC）
+- 残局练习与复盘
+- 外部引擎接入（按配置启用）
+- 浏览器版主题切换与移动端适配
+
+## 本地运行
+
+要求：Java 11+、Maven 3.9+
+
+### 1) 构建项目
+
+```bash
+mvn -DskipTests clean package
+```
+
+### 2) 启动桌面版
+
+```bash
+java -jar target/XiangqiGame-1.0.0.jar
+```
+
+### 3) 启动浏览器版
+
+```bash
+java -cp target/classes com.xiangqi.web.PublicWebMain
+```
+
+可选环境变量：
+- `PORT`（默认 `18388`）
+- `BIND_HOST`（默认 `0.0.0.0`）
+
+示例（PowerShell）：
+
+```powershell
+$env:PORT = "18388"
+$env:BIND_HOST = "0.0.0.0"
+java -cp target/classes com.xiangqi.web.PublicWebMain
+```
+
+## Docker 运行
+
+```bash
+docker build -t xiangqi-web .
+docker run --rm -p 18388:18388 -e PORT=18388 -e BIND_HOST=0.0.0.0 xiangqi-web
+```
+
+## Render 部署
+
+仓库已包含 `render.yaml` 与 `Dockerfile`：
+- 服务类型：`web`
+- 运行时：`docker`
+- 自动部署：`autoDeploy: true`
+- 启动入口：`com.xiangqi.web.PublicWebMain`
+
+将代码推送到 `main` 后，Render 会自动触发新部署。
 
 ## 文档导航
 
 - 英文文档：[`README.en.md`](./README.en.md)
-- 仓库主页：[`README.md`](./README.md)
-
-## 快速说明
-
-- 浏览器版界面已升级为更强调棋盘中心的布局，并支持主题切换与更清晰的新手引导。
-- 项目支持双人对战、人机对战、残局练习、复盘，以及外部引擎接入。
-- 如需查看完整英文说明，请使用上方文档入口切换。
-
-## 项目概览
-
-本项目围绕“中国象棋在本地桌面与浏览器中的完整体验”持续演进，兼顾传统规则实现、交互体验优化与后续部署扩展。
-
-当前主要包含：
-
-- 桌面版对弈界面
-- 本地浏览器版 Web 界面
-- 人机对战与双人对战
-- 残局练习与复盘能力
-- 外部引擎集成能力
-
-## 浏览器版
-
-浏览器版重点优化了以下体验：
-
-- 更聚焦棋盘本体的页面结构
-- 更清晰的操作区与状态信息展示
-- 支持主题切换
-- 更适合新手上手的引导体验
-
-如果你主要希望体验较新的界面，建议优先使用浏览器版。
-
-## 主要功能
-
-### 基础玩法
-
-- 标准中国象棋规则
-- 本地双人轮流对弈
-- 常见操作支持
-
-### AI 与扩展
-
-- 人机对战
-- 外部引擎接入
-- 局面复盘与扩展分析
-
-### 练习模式
-
-- 残局练习
-- 对局回顾
-
-## 本地运行
-
-### 桌面版
-
-确保本地已安装 Java 11 或更高版本，然后按仓库中的 Java 启动方式运行桌面入口。
-
-### 浏览器版
-
-如果仓库提供本地 Web 入口，可按项目脚本或说明启动；若只是静态页面，也可以通过本地静态服务器访问。
-
-## Render 部署
-
-仓库已包含 `render.yaml` 与 `Dockerfile`，可用于部署到 Render。
-
-- Blueprint 使用 `runtime: docker`
-- 容器入口类为 `com.xiangqi.web.PublicWebMain`
-- 部署完成后直接使用 Render 分配的公网地址访问
-
-## 音效替换
-
-默认音效文件位于：
-
-- `src/main/resources/audio/move.wav`
-- `src/main/resources/audio/mate.wav`
-
-推荐格式：
-
-- `WAV / PCM / 44.1kHz / 16-bit / mono`
-
-许可证与来源记录建议维护在：
-
-- `docs/audio-license.md`
-
-## 系统要求
-
-- Java 11+
-- Windows（当前脚本与示例更偏向 Windows 环境）
-
-## 文档策略
-
-- `README.md` 只保留入口，不混写双语正文
-- `README.zh-CN.md` 只保留中文
-- `README.en.md` 只保留英文
-
-这样可以保证语言隔离清晰，也更方便维护。
+- 仓库入口页：[`README.md`](./README.md)
 
 ## 仓库地址
 
-- GitHub：`https://github.com/Zzy-min/turbo-octo-lamp`
-
-## 许可证
-
-仅供学习与交流使用。
+- `https://github.com/Zzy-min/Chinese-chess`
