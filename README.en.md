@@ -17,6 +17,42 @@ A Java-based Xiangqi project with two playable modes:
 - External engine integration (when configured)
 - Theme switching and mobile-friendly browser UI
 
+## Website Functionality
+
+- Split game entry: select Xiangqi or Gomoku on the landing view, then enter a dedicated game view.
+- Full game controls: new game, undo, resign, draw, review, and endgame practice workflows.
+- Real-time state sync: the browser continuously pulls board state, turn, clocks, result, and review progress.
+- Configurable engines: built-in AI works out of the box, with optional external engines (Pikafish, Rapfi, AlphaGomoku).
+- Mobile-ready UX: touch targets, board visibility, and information density are tuned for phones.
+
+## Key Advantages
+
+- Unified architecture: Java server provides both APIs and web assets in one service.
+- Board-first UI: interaction hierarchy is centered on the board and move flow.
+- Multi-game consistency: Xiangqi and Gomoku share stable controls and state handling patterns.
+- Deployment-friendly: `render.yaml` + `Dockerfile` are included, and pushes to `main` can auto-deploy.
+
+## Algorithms
+
+### Xiangqi AI
+
+- Search core: Iterative Deepening + Negamax + Alpha-Beta pruning.
+- Speedups: Transposition Table, history heuristic, killer moves, and quiescence search.
+- Advanced pruning: Null Move pruning, LMR (Late Move Reductions), and Futility pruning.
+- Strategy layer: OpeningBook support and difficulty-based time/depth budgeting.
+
+### Gomoku AI
+
+- Candidate generation: builds move candidates from neighborhoods around existing stones.
+- Tactical first: checks immediate win and immediate block before deep search.
+- Search core: Alpha-Beta + Negamax, with depth/width tuned by difficulty.
+- Move ordering: uses quick ordering scores and deeper scoring for top candidates.
+
+### Gomoku Forbidden-Move Rules
+
+- Black forbidden move detection is built in: overline, double-four, and double-three.
+- Illegal black forbidden moves are rejected with explicit reason strings for UI feedback.
+
 ## Run Locally
 
 Requirements: Java 11+, Maven 3.9+
