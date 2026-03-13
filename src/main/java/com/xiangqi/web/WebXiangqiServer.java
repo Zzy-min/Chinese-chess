@@ -33,11 +33,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class WebXiangqiServer {
@@ -48,11 +51,12 @@ public class WebXiangqiServer {
     private static final String SID_COOKIE = "XQSID";
     private static final int HTTP_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 4);
     private static final int AI_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+    private static final int AI_QUEUE_CAPACITY = Math.max(32, AI_THREADS * 8);
     private static final long SESSION_TTL_MS = TimeUnit.HOURS.toMillis(6);
     private static final long SESSION_CLEAN_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1);
     private static final int SESSION_MAX_ENTRIES = 5000;
-    private static volatile ExecutorService HTTP_EXECUTOR = createExecutor(HTTP_THREADS, "xq-http-");
-    private static volatile ExecutorService AI_EXECUTOR = createExecutor(AI_THREADS, "xq-ai-");
+    private static volatile ExecutorService HTTP_EXECUTOR = createExecutor(HTTP_THREADS, "xq-http-", -1);
+    private static volatile ExecutorService AI_EXECUTOR = createExecutor(AI_THREADS, "xq-ai-", AI_QUEUE_CAPACITY);
     private static volatile boolean SHUTDOWN_HOOK_INSTALLED = false;
 
     private HttpServer server;
@@ -79,8 +83,8 @@ public class WebXiangqiServer {
         if (server != null) {
             return uri;
         }
-        HTTP_EXECUTOR = ensureExecutor(HTTP_EXECUTOR, HTTP_THREADS, "xq-http-");
-        AI_EXECUTOR = ensureExecutor(AI_EXECUTOR, AI_THREADS, "xq-ai-");
+        HTTP_EXECUTOR = ensureExecutor(HTTP_EXECUTOR, HTTP_THREADS, "xq-http-", -1);
+        AI_EXECUTOR = ensureExecutor(AI_EXECUTOR, AI_THREADS, "xq-ai-", AI_QUEUE_CAPACITY);
         installShutdownHookOnce();
 
         int bindPort = preferredPort > 0 ? preferredPort : 0;
@@ -417,13 +421,26 @@ public class WebXiangqiServer {
         };
     }
 
-    private static ExecutorService createExecutor(int threads, String prefix) {
-        return Executors.newFixedThreadPool(threads, namedFactory(prefix));
+    private static ExecutorService createExecutor(int threads, String prefix, int queueCapacity) {
+        if (queueCapacity <= 0) {
+            return Executors.newFixedThreadPool(threads, namedFactory(prefix));
+        }
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            threads,
+            threads,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(queueCapacity),
+            namedFactory(prefix),
+            new ThreadPoolExecutor.AbortPolicy()
+        );
+        executor.prestartAllCoreThreads();
+        return executor;
     }
 
-    private static ExecutorService ensureExecutor(ExecutorService executor, int threads, String prefix) {
+    private static ExecutorService ensureExecutor(ExecutorService executor, int threads, String prefix, int queueCapacity) {
         if (executor == null || executor.isShutdown() || executor.isTerminated()) {
-            return createExecutor(threads, prefix);
+            return createExecutor(threads, prefix, queueCapacity);
         }
         return executor;
     }
@@ -683,6 +700,7 @@ public class WebXiangqiServer {
         }
 
         void reset(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            cancelPendingAiTasks();
             this.gameType = GAME_XIANGQI;
             this.board = new Board();
             this.pvcMode = pvcMode;
@@ -699,10 +717,8 @@ public class WebXiangqiServer {
             this.aiPending = false;
             this.aiDueAt = 0L;
             this.aiEpoch++;
-            this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
-            this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
@@ -732,6 +748,7 @@ public class WebXiangqiServer {
         }
 
         private void resetGomoku(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            cancelPendingAiTasks();
             this.gomokuBoard = new GomokuBoard();
             this.pvcMode = pvcMode;
             this.difficulty = difficulty;
@@ -748,10 +765,8 @@ public class WebXiangqiServer {
             this.aiPending = false;
             this.aiDueAt = 0L;
             this.aiEpoch++;
-            this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
-            this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
@@ -794,6 +809,7 @@ public class WebXiangqiServer {
         }
 
         void loadEndgame(String endgameName, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            cancelPendingAiTasks();
             this.gameType = GAME_XIANGQI;
             this.board = new Board();
             EndgameLoader.loadEndgame(this.board, endgameName);
@@ -811,10 +827,8 @@ public class WebXiangqiServer {
             this.aiPending = false;
             this.aiDueAt = 0L;
             this.aiEpoch++;
-            this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
-            this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
@@ -987,10 +1001,9 @@ public class WebXiangqiServer {
                 selectedRow = -1;
                 selectedCol = -1;
                 aiEpoch++;
-                aiFuture = null;
+                cancelPendingAiTasks();
                 aiFutureEpoch = -1L;
                 aiFutureColor = null;
-                gomokuAiFuture = null;
                 gomokuAiFutureEpoch = -1L;
                 agreedDraw = false;
                 autoDraw = false;
@@ -1013,7 +1026,7 @@ public class WebXiangqiServer {
             selectedRow = -1;
             selectedCol = -1;
             aiEpoch++;
-            aiFuture = null;
+            cancelPendingAiTasks();
             aiFutureEpoch = -1L;
             aiFutureColor = null;
             agreedDraw = false;
@@ -1033,7 +1046,7 @@ public class WebXiangqiServer {
                 aiPending = false;
                 aiDueAt = 0L;
                 aiEpoch++;
-                gomokuAiFuture = null;
+                cancelPendingAiTasks();
                 gomokuAiFutureEpoch = -1L;
                 selectedRow = -1;
                 selectedCol = -1;
@@ -1043,7 +1056,7 @@ public class WebXiangqiServer {
             aiPending = false;
             aiDueAt = 0L;
             aiEpoch++;
-            aiFuture = null;
+            cancelPendingAiTasks();
             aiFutureEpoch = -1L;
             aiFutureColor = null;
             selectedRow = -1;
@@ -1059,7 +1072,7 @@ public class WebXiangqiServer {
             aiPending = false;
             aiDueAt = 0L;
             aiEpoch++;
-            aiFuture = null;
+            cancelPendingAiTasks();
             aiFutureEpoch = -1L;
             aiFutureColor = null;
             selectedRow = -1;
@@ -1242,8 +1255,15 @@ public class WebXiangqiServer {
             final long launchEpoch = aiEpoch;
             aiFutureEpoch = launchEpoch;
             aiFutureColor = aiColor;
-            aiFuture = CompletableFuture.supplyAsync(() ->
-                xiangqiAI.findBestMove(snapshot, aiColor, currentDifficulty), AI_EXECUTOR);
+            try {
+                aiFuture = CompletableFuture.supplyAsync(() ->
+                    xiangqiAI.findBestMove(snapshot, aiColor, currentDifficulty), AI_EXECUTOR);
+            } catch (RejectedExecutionException ignored) {
+                aiFuture = null;
+                aiFutureEpoch = -1L;
+                aiFutureColor = null;
+                aiDueAt = System.currentTimeMillis() + 200L;
+            }
         }
 
         private Move findBuiltinXiangqiMove() {
@@ -1326,8 +1346,14 @@ public class WebXiangqiServer {
             final GomokuStone aiStone = gomokuBoard.getCurrentTurn();
             final long launchEpoch = aiEpoch;
             gomokuAiFutureEpoch = launchEpoch;
-            gomokuAiFuture = CompletableFuture.supplyAsync(() ->
-                gomokuAI.findBestMove(snapshot, aiStone, currentDifficulty), AI_EXECUTOR);
+            try {
+                gomokuAiFuture = CompletableFuture.supplyAsync(() ->
+                    gomokuAI.findBestMove(snapshot, aiStone, currentDifficulty), AI_EXECUTOR);
+            } catch (RejectedExecutionException ignored) {
+                gomokuAiFuture = null;
+                gomokuAiFutureEpoch = -1L;
+                aiDueAt = System.currentTimeMillis() + 200L;
+            }
         }
 
         private int[] findBuiltinGomokuMove() {
@@ -1761,7 +1787,19 @@ public class WebXiangqiServer {
             return input.replace("\\", "\\\\").replace("\"", "\\\"");
         }
 
+        private void cancelPendingAiTasks() {
+            if (aiFuture != null) {
+                aiFuture.cancel(true);
+                aiFuture = null;
+            }
+            if (gomokuAiFuture != null) {
+                gomokuAiFuture.cancel(true);
+                gomokuAiFuture = null;
+            }
+        }
+
         void close() {
+            cancelPendingAiTasks();
             xiangqiAI.close();
             gomokuAI.close();
         }
