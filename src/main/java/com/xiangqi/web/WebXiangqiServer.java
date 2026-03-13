@@ -683,6 +683,7 @@ public class WebXiangqiServer {
         }
 
         void reset(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            cancelPendingAiTasks();
             this.gameType = GAME_XIANGQI;
             this.board = new Board();
             this.pvcMode = pvcMode;
@@ -699,10 +700,8 @@ public class WebXiangqiServer {
             this.aiPending = false;
             this.aiDueAt = 0L;
             this.aiEpoch++;
-            this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
-            this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
@@ -732,6 +731,7 @@ public class WebXiangqiServer {
         }
 
         private void resetGomoku(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            cancelPendingAiTasks();
             this.gomokuBoard = new GomokuBoard();
             this.pvcMode = pvcMode;
             this.difficulty = difficulty;
@@ -748,10 +748,8 @@ public class WebXiangqiServer {
             this.aiPending = false;
             this.aiDueAt = 0L;
             this.aiEpoch++;
-            this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
-            this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
@@ -794,6 +792,7 @@ public class WebXiangqiServer {
         }
 
         void loadEndgame(String endgameName, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            cancelPendingAiTasks();
             this.gameType = GAME_XIANGQI;
             this.board = new Board();
             EndgameLoader.loadEndgame(this.board, endgameName);
@@ -811,10 +810,8 @@ public class WebXiangqiServer {
             this.aiPending = false;
             this.aiDueAt = 0L;
             this.aiEpoch++;
-            this.aiFuture = null;
             this.aiFutureEpoch = -1L;
             this.aiFutureColor = null;
-            this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
@@ -987,10 +984,9 @@ public class WebXiangqiServer {
                 selectedRow = -1;
                 selectedCol = -1;
                 aiEpoch++;
-                aiFuture = null;
+                cancelPendingAiTasks();
                 aiFutureEpoch = -1L;
                 aiFutureColor = null;
-                gomokuAiFuture = null;
                 gomokuAiFutureEpoch = -1L;
                 agreedDraw = false;
                 autoDraw = false;
@@ -1013,7 +1009,7 @@ public class WebXiangqiServer {
             selectedRow = -1;
             selectedCol = -1;
             aiEpoch++;
-            aiFuture = null;
+            cancelPendingAiTasks();
             aiFutureEpoch = -1L;
             aiFutureColor = null;
             agreedDraw = false;
@@ -1033,7 +1029,7 @@ public class WebXiangqiServer {
                 aiPending = false;
                 aiDueAt = 0L;
                 aiEpoch++;
-                gomokuAiFuture = null;
+                cancelPendingAiTasks();
                 gomokuAiFutureEpoch = -1L;
                 selectedRow = -1;
                 selectedCol = -1;
@@ -1043,7 +1039,7 @@ public class WebXiangqiServer {
             aiPending = false;
             aiDueAt = 0L;
             aiEpoch++;
-            aiFuture = null;
+            cancelPendingAiTasks();
             aiFutureEpoch = -1L;
             aiFutureColor = null;
             selectedRow = -1;
@@ -1059,7 +1055,7 @@ public class WebXiangqiServer {
             aiPending = false;
             aiDueAt = 0L;
             aiEpoch++;
-            aiFuture = null;
+            cancelPendingAiTasks();
             aiFutureEpoch = -1L;
             aiFutureColor = null;
             selectedRow = -1;
@@ -1761,7 +1757,19 @@ public class WebXiangqiServer {
             return input.replace("\\", "\\\\").replace("\"", "\\\"");
         }
 
+        private void cancelPendingAiTasks() {
+            if (aiFuture != null) {
+                aiFuture.cancel(true);
+                aiFuture = null;
+            }
+            if (gomokuAiFuture != null) {
+                gomokuAiFuture.cancel(true);
+                gomokuAiFuture = null;
+            }
+        }
+
         void close() {
+            cancelPendingAiTasks();
             xiangqiAI.close();
             gomokuAI.close();
         }
@@ -1772,7 +1780,6 @@ public class WebXiangqiServer {
     }
 
 }
-
 
 
 
