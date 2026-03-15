@@ -1,114 +1,185 @@
-# XiangqiGame
+# Qing Qiju (Web Only)
 
-A Java-based Xiangqi project with two playable modes:
-- Desktop edition (Swing)
-- Browser edition (local web server)
+`Qing Qiju` is a web-only Java board-game project with three playable game types:
 
-## Live URL
+- Xiangqi
+- Gomoku
+- Go (19x19, Chinese rules, 7.5 komi)
 
-- Render: `https://xiangqi-web.onrender.com/`
+The Swing desktop client has been removed from this repository. Only the web server, browser UI, and web launch scripts remain.
 
-## Features
+## What is included
 
-- Core Xiangqi gameplay
-- Player vs Player (PVP)
-- Player vs Computer (PVC)
-- Endgame practice and review mode
-- External engine integration (when configured)
-- Theme switching and mobile-friendly browser UI
+### Xiangqi
 
-## Website Functionality
+- PvP / PvE
+- Endgame practice
+- Move review
+- Recent-move markers, tactical overlays, and audio cues
+- `AUTO` is now the default engine preference
+- `Pikafish` is supported and becomes the preferred engine when configured
 
-- Split game entry: select Xiangqi or Gomoku on the landing view, then enter a dedicated game view.
-- Full game controls: new game, undo, resign, draw, review, and endgame practice workflows.
-- Real-time state sync: the browser continuously pulls board state, turn, clocks, result, and review progress.
-- Configurable engines: built-in AI works out of the box, with optional external engines (Pikafish, Rapfi, AlphaGomoku).
-- Mobile-ready UX: touch targets, board visibility, and information density are tuned for phones.
+### Gomoku
 
-## Key Advantages
+- PvP / PvE
+- 15x15 board
+- Renju-style forbidden black moves
+- Undo and move review
+- Built-in AI plus `Rapfi / AlphaGomoku`
 
-- Unified architecture: Java server provides both APIs and web assets in one service.
-- Board-first UI: interaction hierarchy is centered on the board and move flow.
-- Multi-game consistency: Xiangqi and Gomoku share stable controls and state handling patterns.
-- Deployment-friendly: `render.yaml` + `Dockerfile` are included, and pushes to `main` can auto-deploy.
+### Go
 
-## Algorithms
+- 19x19 board
+- Real Go rules: captures, suicide prevention, ko / superko handling, pass, resign
+- Double-pass scoring with resume support
+- Puzzle / life-and-death scenarios from JSON
+- Undo and review
+- PvP always available
+- PvE enabled only when a remote `go-engine` service is configured
 
-### Xiangqi AI
+## UI changes
 
-- Search core: Iterative Deepening + Negamax + Alpha-Beta pruning.
-- Speedups: Transposition Table, history heuristic, killer moves, and quiescence search.
-- Advanced pruning: Null Move pruning, LMR (Late Move Reductions), and Futility pruning.
-- Strategy layer: OpeningBook support and difficulty-based time/depth budgeting.
+- The frontend is now driven by a three-game registry instead of a hard-coded Xiangqi/Gomoku split
+- Switching to Gomoku or Go clears the preview board immediately
+- Stale stones, recent-move markers, selected cells, and scenario labels no longer bleed across games
+- The action area is filtered by game type:
+  - Xiangqi shows endgames and Xiangqi engine controls
+  - Gomoku shows Gomoku engine controls
+  - Go shows engine availability, pass, scoring, and puzzle controls
+- If the Go engine is unavailable, the UI disables Go PvE automatically
 
-### Gomoku AI
+## Running locally
 
-- Candidate generation: builds move candidates from neighborhoods around existing stones.
-- Tactical first: checks immediate win and immediate block before deep search.
-- Search core: Alpha-Beta + Negamax, with depth/width tuned by difficulty.
-- Move ordering: uses quick ordering scores and deeper scoring for top candidates.
-
-### Gomoku Forbidden-Move Rules
-
-- Black forbidden move detection is built in: overline, double-four, and double-three.
-- Illegal black forbidden moves are rejected with explicit reason strings for UI feedback.
-
-## Run Locally
-
-Requirements: Java 11+, Maven 3.9+
-
-### 1) Build
-
-```bash
-mvn -DskipTests clean package
-```
-
-### 2) Start Desktop Edition
-
-```bash
-java -jar target/XiangqiGame-1.0.0.jar
-```
-
-### 3) Start Browser Edition
-
-```bash
-java -cp target/classes com.xiangqi.web.PublicWebMain
-```
-
-Optional environment variables:
-- `PORT` (default: `18388`)
-- `BIND_HOST` (default: `0.0.0.0`)
-
-Example (PowerShell):
+### Launch script
 
 ```powershell
-$env:PORT = "18388"
-$env:BIND_HOST = "0.0.0.0"
+run_web.bat
+```
+
+Alternative alias:
+
+```powershell
+运行游戏.bat
+```
+
+Go engine sidecar:
+
+```powershell
+run_go_engine.bat
+```
+
+For local Windows development, the launch scripts now assume:
+
+- the official KataGo binaries live under `%USERPROFILE%\tools\katago`
+- `run_go_engine.bat` tries the `cuda12.8` build first and falls back to `opencl` if CUDA runtime DLLs are missing
+- `run_web.bat` defaults `XQ_GO_ENGINE_URL` to `http://127.0.0.1:2718` when not explicitly set
+
+Default local URL:
+
+- `http://127.0.0.1:18388/`
+
+### Maven / Java
+
+```powershell
+mvn -q -DskipTests compile
 java -cp target/classes com.xiangqi.web.PublicWebMain
 ```
 
-## Run with Docker
+For loopback-only local development you can still use:
 
-```bash
-docker build -t xiangqi-web .
-docker run --rm -p 18388:18388 -e PORT=18388 -e BIND_HOST=0.0.0.0 xiangqi-web
+```powershell
+java -cp target/classes com.xiangqi.web.BrowserModeMain
 ```
 
-## Deploy to Render
+## Engine configuration
 
-This repository already includes `render.yaml` and `Dockerfile`:
-- Service type: `web`
-- Runtime: `docker`
-- Auto deploy: `autoDeploy: true`
-- Startup entry: `com.xiangqi.web.PublicWebMain`
+### Xiangqi
 
-Every push to `main` triggers a new Render deployment automatically.
+- `XQ_XIANGQI_ENGINE=BUILTIN|PIKAFISH|AUTO`
+- `XQ_XIANGQI_PIKAFISH_CMD=<path to pikafish>`
 
-## Documentation
+Example:
 
-- Chinese docs: [`README.zh-CN.md`](./README.zh-CN.md)
-- Landing page: [`README.md`](./README.md)
+```powershell
+$env:XQ_XIANGQI_ENGINE="AUTO"
+$env:XQ_XIANGQI_PIKAFISH_CMD="D:\tools\pikafish\pikafish.exe"
+run_web.bat
+```
 
-## Repository
+### Gomoku
 
-- `https://github.com/Zzy-min/Chinese-chess`
+- `XQ_GOMOKU_ENGINE=BUILTIN|RAPFI|ALPHAGOMOKU|AUTO`
+- `XQ_GOMOKU_RAPFI_CMD=<path to rapfi>`
+- `XQ_GOMOKU_ALPHAGOMOKU_CMD=<path to AlphaGomoku>`
+
+Example:
+
+```powershell
+$env:XQ_GOMOKU_ENGINE="RAPFI"
+$env:XQ_GOMOKU_RAPFI_CMD="D:\tools\rapfi\rapfi.exe"
+run_web.bat
+```
+
+### Go
+
+Go PvE is intentionally split into the in-repo `services/go-engine` HTTP sidecar instead of embedding KataGo into the main Java process.
+
+- `XQ_GO_ENGINE=AUTO|REMOTE|DISABLED`
+- `XQ_GO_ENGINE_URL=<go-engine base URL>`
+
+The local helper script auto-discovers:
+
+- `%USERPROFILE%\tools\katago\engines\...`
+- `%USERPROFILE%\tools\katago\models\*.bin.gz`
+
+Example:
+
+```powershell
+$env:XQ_GO_ENGINE="AUTO"
+$env:XQ_GO_ENGINE_URL="https://your-go-engine.onrender.com"
+run_web.bat
+```
+
+If `XQ_GO_ENGINE_URL` is missing or unavailable:
+
+- Go PvP still works
+- Go puzzles still work
+- Go PvE is disabled in the UI
+
+## go-engine HTTP contract
+
+The main web app calls:
+
+- `GET /health`
+- `POST /genmove`
+- `POST /score`
+
+See [docs/go-engine-api.md](docs/go-engine-api.md) for the expected request / response shape.
+
+## Deployment
+
+- Main service entry point: `com.xiangqi.web.PublicWebMain`
+- Docker entry point: `com.xiangqi.web.PublicWebMain`
+- Render blueprint: `render.yaml`
+- Go sidecar directory: `services/go-engine`
+
+To enable Go PvE in production, deploy the in-repo `go-engine` service from the same blueprint and set `XQ_GO_ENGINE_URL` on the main web service. You still need to supply the KataGo binary, model, and config paths.
+
+## Project layout
+
+- `src/main/java/com/xiangqi/ai`: Xiangqi / Gomoku AI and engine bridges
+- `src/main/java/com/xiangqi/model`: Xiangqi and Gomoku models
+- `src/main/java/com/xiangqi/model/go`: Go rules, scoring, scenarios, and remote engine client
+- `src/main/java/com/xiangqi/web`: web entry points and API server
+- `src/main/resources/web`: frontend assets
+- `src/main/resources/go-scenarios.json`: Go puzzles
+- `services/go-engine`: HTTP sidecar for KataGo-backed Go PvE
+
+## Verification
+
+```powershell
+mvn -q -DskipTests compile
+mvn -q test
+```
+
+Go-specific tests cover captures, suicide detection, ko / superko, double-pass scoring, scenario loading, and runtime serialization.

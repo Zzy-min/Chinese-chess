@@ -3,9 +3,12 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 set "URL=http://127.0.0.1:18388/"
-set "MAIN_CLASS=com.xiangqi.web.BrowserModeMain"
+set "MAIN_CLASS=com.xiangqi.web.PublicWebMain"
 set "LOG_DIR=logs"
 set "LOG_FILE=%LOG_DIR%\web_server.log"
+set "BIND_HOST=127.0.0.1"
+if "%XQ_GO_ENGINE%"=="" set "XQ_GO_ENGINE=AUTO"
+if "%XQ_GO_ENGINE_URL%"=="" set "XQ_GO_ENGINE_URL=http://127.0.0.1:2718"
 
 echo ========================================
 echo Xiangqi - Web Quick Start
@@ -25,7 +28,7 @@ if defined PORT_READY (
     goto :eof
 )
 
-if not exist "target\classes\com\xiangqi\web\BrowserModeMain.class" goto :compile
+if not exist "target\classes\com\xiangqi\web\PublicWebMain.class" goto :compile
 if not exist "target\classes\com\xiangqi\web\WebXiangqiServer.class" goto :compile
 if /i "%~1"=="--rebuild" goto :compile
 echo [1/3] Using existing classes. Use --rebuild to force compile.
@@ -41,8 +44,9 @@ if errorlevel 1 (
 
 :start_server
 echo [2/3] Starting web server...
+echo Go engine URL: %XQ_GO_ENGINE_URL%
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
-start "Xiangqi Web Server" cmd /c "cd /d ""%~dp0"" && java -Dfile.encoding=UTF-8 -Duser.language=zh -Duser.country=CN -cp target/classes %MAIN_CLASS% >> ""%LOG_FILE%"" 2>&1"
+start "Xiangqi Web Server" cmd /c "cd /d ""%~dp0"" && set PORT=18388 && set BIND_HOST=%BIND_HOST% && set XQ_GO_ENGINE=%XQ_GO_ENGINE% && set XQ_GO_ENGINE_URL=%XQ_GO_ENGINE_URL% && java -Dfile.encoding=UTF-8 -Duser.language=zh -Duser.country=CN -cp target/classes %MAIN_CLASS% >> ""%LOG_FILE%"" 2>&1"
 
 echo [3/3] Waiting for service...
 powershell -NoProfile -Command "$deadline=(Get-Date).AddSeconds(10); do { try { $r=Invoke-WebRequest -Uri '%URL%' -UseBasicParsing -TimeoutSec 1; if($r.StatusCode -ge 200){ exit 0 } } catch {}; Start-Sleep -Milliseconds 250 } while((Get-Date)-lt $deadline); exit 1"

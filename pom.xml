@@ -36,7 +36,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.xiangqi.ui.XiangqiFrame</mainClass>
+                            <mainClass>com.xiangqi.web.PublicWebMain</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

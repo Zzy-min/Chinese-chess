@@ -1,1 +1,1 @@
-Main-Class: com.xiangqi.ui.XiangqiFrame
+Main-Class: com.xiangqi.web.PublicWebMain

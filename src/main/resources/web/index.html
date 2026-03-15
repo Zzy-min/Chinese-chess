@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>轻·象棋 - 浏览器模式</title>
+<title>轻·棋局 - 浏览器模式</title>
   <link rel="stylesheet" href="/assets/ui/app.css" />
 </head>
 <body data-theme="minimal">
@@ -13,9 +13,9 @@
       <section id="landingView" class="landingView">
         <div class="landingFrame">
           <div class="landingHead">
-            <p class="landingEyebrow">轻棋局 · 专注落子</p>
+            <p class="landingEyebrow">轻棋局 · 三棋同席</p>
             <h1 class="landingTitle">选择棋种，进入纯粹对局</h1>
-            <p class="landingDesc">先选棋种，再进入各自界面。设置项保留在对局页，不再占据首屏注意力。</p>
+            <p class="landingDesc">中国象棋、五子棋、围棋共用一套更干净的 Web 流程。先选棋种，再进入各自的对局界面。</p>
           </div>
           <div class="entryGrid">
             <button class="entryCard" type="button" data-entry-game="XIANGQI">
@@ -28,6 +28,11 @@
               <strong>五子棋</strong>
               <span>落子即战 · 黑方禁手 · 人机对抗</span>
             </button>
+            <button class="entryCard" type="button" data-entry-game="GO">
+              <span class="entryMeta">Quiet Depth</span>
+              <strong>围棋</strong>
+              <span>19 路中国规则 · 双停计分 · 题库/人机</span>
+            </button>
           </div>
           <div id="landingStatus" class="landingStatus">系统状态：加载中</div>
         </div>
@@ -36,8 +41,8 @@
       <div id="gameView" class="gameView">
         <header class="topMeta">
           <div class="brandBlock">
-            <div class="brandEyebrow">局内视图</div>
-            <div class="brandTitle">轻·象棋</div>
+            <div class="brandEyebrow">局内视图 · 三棋切换</div>
+            <div class="brandTitle">轻·棋局</div>
           </div>
           <div class="metaCluster">
             <div id="statusTag" class="metaPill statePill">状态: 加载中</div>
@@ -61,8 +66,8 @@
         <section id="setupShowcase" class="setupShowcase">
           <article class="setupCard emphasis">
             <div class="cardTitle">棋种</div>
-            <div class="cardHint">入口可切换棋种；局内也可直接调整。</div>
-            <div class="row"><select id="gameType"><option value="XIANGQI" selected>中国象棋</option><option value="GOMOKU">五子棋</option></select></div>
+            <div class="cardHint">入口可切换棋种；切到五子棋或围棋时会立即清空预览棋盘。</div>
+            <div class="row"><select id="gameType"><option value="XIANGQI" selected>中国象棋</option><option value="GOMOKU">五子棋</option><option value="GO">围棋（19路）</option></select></div>
           </article>
           <article class="setupCard emphasis">
             <div class="cardTitle">对战模式</div>
@@ -138,9 +143,10 @@
                   </svg>
                 </div>
                 <div id="boardStage" class="boardStage">
-                  <div id="flipStage" class="flipStage">
-                    <div class="boardFace boardFaceFront"><canvas id="boardXQ" width="800" height="900"></canvas></div>
-                    <div class="boardFace boardFaceBack"><canvas id="boardGK" width="800" height="900"></canvas></div>
+                  <div id="flipStage" class="flipStage" data-game="XIANGQI">
+                    <div class="boardFace boardFaceFront" data-board-face="XIANGQI"><canvas id="boardXQ" width="800" height="900"></canvas></div>
+                    <div class="boardFace boardFaceBack" data-board-face="GOMOKU"><canvas id="boardGK" width="800" height="900"></canvas></div>
+                    <div class="boardFace boardFaceGo" data-board-face="GO"><canvas id="boardGO" width="800" height="900"></canvas></div>
                   </div>
                 </div>
               </div>
@@ -149,6 +155,7 @@
             <section class="actionBar">
               <button id="newGame" class="primary" type="button"><strong>开始对局</strong><span>先选模式，再点这里</span></button>
               <button id="undo" type="button"><strong>悔棋</strong><span>撤回一步</span></button>
+              <button id="goPass" type="button"><strong>停一手</strong><span>围棋专用</span></button>
               <button id="surrender" type="button"><strong>认输</strong><span>结束当前对局</span></button>
               <button id="drawBtn" type="button"><strong>和棋</strong><span>双方和局</span></button>
               <button id="soundToggle" type="button"><strong>音效</strong><span>开 / 关</span></button>
@@ -170,8 +177,9 @@
             </div>
             <section class="panelCard is-active" data-panel="setup">
               <div class="title">引擎与皮肤</div>
-              <div class="row"><select id="xiangqiEngine"><option value="BUILTIN" selected>象棋引擎: 内置AI</option><option value="PIKAFISH">象棋引擎: Pikafish</option><option value="AUTO">象棋引擎: 自动</option></select></div>
+              <div class="row"><select id="xiangqiEngine"><option value="AUTO" selected>象棋引擎: 自动</option><option value="PIKAFISH">象棋引擎: Pikafish</option><option value="BUILTIN">象棋引擎: 内置AI</option></select></div>
               <div class="row"><select id="gomokuEngine"><option value="BUILTIN" selected>五子棋引擎: 内置AI</option><option value="RAPFI">五子棋引擎: Rapfi</option><option value="ALPHAGOMOKU">五子棋引擎: AlphaGomoku</option></select></div>
+              <div id="goEngineRow" class="tag reviewNote">围棋人机需要配置 XQ_GO_ENGINE_URL；未配置时仅开放双人对局与题库。</div>
               <div class="cardTitle small">皮肤库</div>
               <div class="skinButtons compact">
                 <button class="skinBtn is-active" data-theme="minimal" type="button">极简清新</button>
@@ -188,13 +196,17 @@
               </div>
             </section>
             <section id="endgameSection" class="panelCard" data-panel="endgame">
-              <div id="endgameTitle" class="title">残局练习</div>
+              <div id="endgameTitle" class="title">残局 / 题库</div>
               <div id="endgameGrid" class="egGrid">
-                <button class="egBtn" data-name="七星聚会" type="button">七星聚会</button><button class="egBtn" data-name="蚯蚓降龙" type="button">蚯蚓降龙</button>
-                <button class="egBtn" data-name="千里独行" type="button">千里独行</button><button class="egBtn" data-name="野马操田" type="button">野马操田</button>
-                <button class="egBtn" data-name="梅花谱" type="button">梅花谱</button><button class="egBtn" data-name="百局象棋谱" type="button">百局象棋谱</button>
-                <button class="egBtn" data-name="适情雅趣" type="button">适情雅趣</button><button class="egBtn" data-name="烂柯神机" type="button">烂柯神机</button>
-                <button class="egBtn" data-name="梦入神机" type="button">梦入神机</button><button class="egBtn" data-name="韬略元机" type="button">韬略元机</button>
+                <button class="scenarioBtn" data-name="七星聚会" data-game="XIANGQI" type="button">七星聚会</button><button class="scenarioBtn" data-name="蚯蚓降龙" data-game="XIANGQI" type="button">蚯蚓降龙</button>
+                <button class="scenarioBtn" data-name="千里独行" data-game="XIANGQI" type="button">千里独行</button><button class="scenarioBtn" data-name="野马操田" data-game="XIANGQI" type="button">野马操田</button>
+                <button class="scenarioBtn" data-name="梅花谱" data-game="XIANGQI" type="button">梅花谱</button><button class="scenarioBtn" data-name="百局象棋谱" data-game="XIANGQI" type="button">百局象棋谱</button>
+                <button class="scenarioBtn" data-name="适情雅趣" data-game="XIANGQI" type="button">适情雅趣</button><button class="scenarioBtn" data-name="烂柯神机" data-game="XIANGQI" type="button">烂柯神机</button>
+                <button class="scenarioBtn" data-name="梦入神机" data-game="XIANGQI" type="button">梦入神机</button><button class="scenarioBtn" data-name="韬略元机" data-game="XIANGQI" type="button">韬略元机</button>
+              </div>
+              <div id="goScenarioGrid" class="egGrid" style="display:none">
+                <button class="scenarioBtn" data-name="角部提子" data-game="GO" type="button">角部提子</button>
+                <button class="scenarioBtn" data-name="边路手筋" data-game="GO" type="button">边路手筋</button>
               </div>
             </section>
             <section class="panelCard" data-panel="review">
