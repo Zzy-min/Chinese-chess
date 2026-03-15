@@ -95,11 +95,23 @@ def _extract_engine_archive(plan: InstallPlan) -> None:
         temp_path = Path(temp_dir)
         with zipfile.ZipFile(plan.archive_path) as archive:
             archive.extractall(temp_path)
-        extracted_root = temp_path / plan.archive_root
-        if not extracted_root.exists():
-            raise FileNotFoundError(f"missing extracted KataGo root: {plan.archive_root}")
+        extracted_root = _resolve_extracted_root(temp_path, plan)
         _copy_required_file(extracted_root / plan.binary_name, plan.binary_path)
         _copy_required_file(extracted_root / "default_gtp.cfg", plan.config_path)
+
+
+def _resolve_extracted_root(temp_path: Path, plan: InstallPlan) -> Path:
+    expected_root = temp_path / plan.archive_root
+    if expected_root.exists():
+        return expected_root
+    binary_matches = list(temp_path.rglob(plan.binary_name))
+    if not binary_matches:
+        raise FileNotFoundError(f"missing extracted KataGo root: {plan.archive_root}")
+    for binary_match in binary_matches:
+        candidate = binary_match.parent
+        if (candidate / "default_gtp.cfg").exists():
+            return candidate
+    raise FileNotFoundError(f"missing required KataGo config beside {plan.binary_name}")
 
 
 def _copy_required_file(source: Path, destination: Path) -> None:

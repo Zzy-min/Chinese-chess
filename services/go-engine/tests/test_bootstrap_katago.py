@@ -64,6 +64,21 @@ class EnsureAssetsTest(unittest.TestCase):
             self.assertTrue(plan.model_path.exists())
             self.assertEqual(b"model-data", plan.model_path.read_bytes())
 
+    def test_extracts_assets_even_without_archive_root_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base_dir = pathlib.Path(tmp)
+            plan = bootstrap_katago.default_install_plan(base_dir, system_name="Linux")
+            plan.install_dir.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(plan.archive_path, "w") as archive:
+                archive.writestr("katago", "#!/bin/sh\necho ok\n")
+                archive.writestr("default_gtp.cfg", "rules = chinese\n")
+            plan.model_path.write_bytes(b"model-data")
+
+            bootstrap_katago.ensure_assets(plan)
+
+            self.assertTrue(plan.binary_path.exists())
+            self.assertTrue(plan.config_path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
