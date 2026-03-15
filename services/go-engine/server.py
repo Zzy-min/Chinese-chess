@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from engine_service import EngineConfigError, EngineService
@@ -78,6 +79,7 @@ class GoEngineHandler(BaseHTTPRequestHandler):
 def main() -> None:
     global APP
     APP = EngineService()
+    threading.Thread(target=APP.warm_up, daemon=True).start()
     host = APP.config.bind_host
     port = APP.config.port
     server = ThreadingHTTPServer((host, port), GoEngineHandler)

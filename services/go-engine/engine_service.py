@@ -356,6 +356,19 @@ class KataGoSession:
     def stderr_tail(self) -> list[str]:
         return list(self._stderr_tail[-20:])
 
+    def quick_health(self) -> dict:
+        configured = bool(self.config.command)
+        running = self._proc is not None and self._proc.poll() is None
+        payload = {
+            "ok": configured,
+            "engine": self.engine_name,
+            "configured": configured,
+            "ready": running,
+        }
+        if not configured:
+            payload["error"] = "missing KATAGO_CMD or KATAGO_BIN"
+        return payload
+
     def stop(self) -> None:
         with self._lock:
             proc = self._proc
@@ -593,8 +606,14 @@ class EngineService:
         self.session = KataGoSession(self.config)
 
     def health(self) -> tuple[int, dict]:
-        report = self.session.health()
+        report = self.session.quick_health()
         return (200 if report.get("ok") else 503), report
+
+    def warm_up(self) -> None:
+        try:
+            self.session.health()
+        except Exception:
+            return
 
     def genmove(self, payload: dict) -> tuple[int, dict]:
         request = EngineRequest.from_payload(payload)

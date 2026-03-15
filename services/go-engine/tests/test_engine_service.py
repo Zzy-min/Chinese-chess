@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 import engine_service  # noqa: E402
 from engine_service import (  # noqa: E402
     EngineRequest,
+    EngineService,
     GtpCoordinateCodec,
     KataGoSession,
     LocalGoBoard,
@@ -194,6 +195,36 @@ class FinalScoreParserTest(unittest.TestCase):
         parsed = parse_final_score("0")
         self.assertEqual("", parsed.winner)
         self.assertAlmostEqual(0.0, parsed.final_score)
+
+
+class EngineServiceHealthTest(unittest.TestCase):
+    def test_health_is_fast_for_configured_engine(self):
+        service = EngineService(
+            ServiceConfig(
+                bind_host="127.0.0.1",
+                port=2718,
+                engine_name="KataGo",
+                rules="chinese",
+                startup_timeout_sec=60,
+                command_timeout_sec=20,
+                difficulty_visits={"EASY": 0, "MEDIUM": 0, "HARD": 0},
+                command=["katago"],
+            )
+        )
+        called = {"health": 0}
+
+        def fail_if_called():
+            called["health"] += 1
+            raise AssertionError("deep session health should not run during quick health checks")
+
+        service.session.health = fail_if_called
+        status, payload = service.health()
+
+        self.assertEqual(200, status)
+        self.assertEqual("KataGo", payload["engine"])
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["ready"])
+        self.assertEqual(0, called["health"])
 
 
 if __name__ == "__main__":
