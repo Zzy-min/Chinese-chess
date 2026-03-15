@@ -1,190 +1,483 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>轻·象棋 - 浏览器模式</title>
-  <link rel="stylesheet" href="/assets/ui/app.css" />
-</head>
-<body data-theme="minimal">
-  <div id="appShell" class="shell">
-    <div id="drawerBackdrop" class="drawerBackdrop"></div>
-    <div class="wrap">
-      <header class="topMeta">
-        <div class="brandBlock">
-          <div class="brandEyebrow">轻棋局 · 双棋同席</div>
-          <div class="brandTitle">轻·象棋</div>
-        </div>
-        <div class="metaCluster">
-          <div id="statusTag" class="metaPill statePill">状态: 加载中</div>
-          <div id="totalTop" class="metaPill">总时 红:--:-- 黑:--:--</div>
-          <div id="stepTop" class="metaPill">当前步时倒计时: --s</div>
-        </div>
-        <button id="sideToggle" class="menuBtn" type="button">设置 / 复盘</button>
-      </header>
-
-      <section class="pageLead">
-        <div>
-          <div class="leadEyebrow">新手引导</div>
-          <h1 id="leadTitle">先选择棋种、模式与皮肤，再开始对局</h1>
-          <div id="currentChoiceSummary" class="leadSummary">中国象棋 · 双人对战 · 中等 · 极简清新</div>
-        </div>
-        <div id="info" class="log infoBanner">等待数据...</div>
-      </section>
-
-      <section id="setupShowcase" class="setupShowcase">
-        <article class="setupCard emphasis">
-          <div class="cardTitle">棋种（可切换）</div>
-          <div class="cardHint">支持中国象棋与五子棋，开始前一眼就能选。</div>
-          <div class="row"><select id="gameType"><option value="XIANGQI" selected>中国象棋</option><option value="GOMOKU">五子棋</option></select></div>
-        </article>
-        <article class="setupCard emphasis">
-          <div class="cardTitle">对战模式（可切换）</div>
-          <div class="cardHint">可选双人对战或人机对战，并直接调整难度。</div>
-          <div class="row"><select id="mode"><option value="pvp">双人对战</option><option value="pvc">人机对战</option></select><select id="difficulty"><option value="EASY">简单</option><option value="MEDIUM" selected>中等</option><option value="HARD">困难</option></select></div>
-        </article>
-        <article class="setupCard">
-          <div class="cardTitle">先后手（可切换）</div>
-          <div class="cardHint">人机模式下可选择我先手或我后手。</div>
-          <div class="row"><select id="firstHand" disabled><option value="true" selected>我先手（执红）</option><option value="false">我后手（执黑）</option></select></div>
-        </article>
-        <article class="setupCard themeCard">
-          <div class="cardTitle">皮肤库</div>
-          <div class="cardHint">可随时切换风格，当前默认是更轻的极简清新。</div>
-          <div class="skinButtons">
-            <button class="skinBtn is-active" data-theme="minimal" type="button">极简清新</button>
-            <button class="skinBtn" data-theme="ink" type="button">简雅国风</button>
-            <button class="skinBtn" data-theme="imperial" type="button">御案古风</button>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>轻·棋局 - 浏览器模式</title>
+    <link rel="stylesheet" href="/assets/ui/app.css" />
+  </head>
+  <body data-theme="minimal">
+    <div id="appShell" class="shell">
+      <div id="drawerBackdrop" class="drawerBackdrop"></div>
+      <div class="wrap">
+        <header class="topMeta">
+          <div class="brandBlock">
+            <div class="brandEyebrow">轻棋局 · 三棋同席</div>
+            <div class="brandTitle">轻·棋局</div>
           </div>
-          <div id="themeNote" class="themeNote">当前皮肤：极简清新 · 可随时切换</div>
-        </article>
-      </section>
+          <div class="metaCluster">
+            <div id="statusTag" class="metaPill statePill">状态: 加载中</div>
+            <div id="totalTop" class="metaPill">总时 红:--:-- 黑:--:--</div>
+            <div id="stepTop" class="metaPill">当前步时倒计时: --s</div>
+          </div>
+          <button id="sideToggle" class="menuBtn" type="button">
+            设置 / 复盘
+          </button>
+        </header>
 
-      <div id="courtBanner" class="courtBanner" data-tone="gold"></div>
+        <section class="pageLead">
+          <div>
+            <div class="leadEyebrow">新手引导</div>
+            <h1 id="leadTitle">先选择棋种、模式与皮肤，再开始对局</h1>
+            <div id="currentChoiceSummary" class="leadSummary">
+              中国象棋 · 双人对战 · 中等 · 极简清新
+            </div>
+          </div>
+          <div id="info" class="log infoBanner">等待数据...</div>
+        </section>
 
-      <div class="layout">
-        <main class="mainStage">
-          <section class="statusStrip">
-            <div id="modeTag" class="tag">模式: -</div>
-            <div id="reviewTag" class="tag">回顾: 关闭</div>
-            <div id="endgameTag" class="tag">残局: 标准开局</div>
-            <div id="drawReasonTag" class="tag">和棋原因: -</div>
-          </section>
+        <section id="setupShowcase" class="setupShowcase">
+          <article class="setupCard emphasis">
+            <div class="cardTitle">棋种（可切换）</div>
+            <div class="cardHint">
+              支持中国象棋、五子棋与围棋，切换棋种时会即时清空预览棋盘。
+            </div>
+            <div class="row">
+              <select id="gameType">
+                <option value="XIANGQI" selected>中国象棋</option>
+                <option value="GOMOKU">五子棋</option>
+                <option value="GO">围棋（19路）</option>
+              </select>
+            </div>
+          </article>
+          <article class="setupCard emphasis">
+            <div class="cardTitle">对战模式（可切换）</div>
+            <div class="cardHint">可选双人对战或人机对战，并直接调整难度。</div>
+            <div class="row">
+              <select id="mode">
+                <option value="pvp">双人对战</option>
+                <option value="pvc">人机对战</option></select
+              ><select id="difficulty">
+                <option value="EASY">简单</option>
+                <option value="MEDIUM" selected>中等</option>
+                <option value="HARD">困难</option>
+              </select>
+            </div>
+          </article>
+          <article class="setupCard">
+            <div class="cardTitle">先后手（可切换）</div>
+            <div class="cardHint">人机模式下可选择我先手或我后手。</div>
+            <div class="row">
+              <select id="firstHand" disabled>
+                <option value="true" selected>我先手（执红）</option>
+                <option value="false">我后手（执黑）</option>
+              </select>
+            </div>
+          </article>
+          <article class="setupCard themeCard">
+            <div class="cardTitle">皮肤库</div>
+            <div class="cardHint">
+              可随时切换风格，当前默认是更轻的极简清新。
+            </div>
+            <div class="skinButtons">
+              <button
+                class="skinBtn is-active"
+                data-theme="minimal"
+                type="button"
+              >
+                极简清新
+              </button>
+              <button class="skinBtn" data-theme="ink" type="button">
+                简雅国风
+              </button>
+              <button class="skinBtn" data-theme="imperial" type="button">
+                御案古风
+              </button>
+            </div>
+            <div id="themeNote" class="themeNote">
+              当前皮肤：极简清新 · 可随时切换
+            </div>
+          </article>
+        </section>
 
-          <section class="boardShell">
-            <div class="boardCard">
-              <div class="palaceFrame">
-                <svg class="eave eaveTop" viewBox="0 0 1000 160" preserveAspectRatio="none" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="eaveG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0" stop-color="#e0b267"/>
-                      <stop offset="0.55" stop-color="#b26f33"/>
-                      <stop offset="1" stop-color="#6d3818"/>
-                    </linearGradient>
-                    <pattern id="tileP" width="80" height="18" patternUnits="userSpaceOnUse">
-                      <path d="M0 18 L20 0 L40 18 L60 0 L80 18" fill="none" stroke="rgba(255,230,190,.7)" stroke-width="3"/>
-                    </pattern>
-                  </defs>
-                  <path d="M0 40 L1000 40 L1000 88 C900 130 700 126 500 110 C300 126 100 130 0 88 Z" fill="url(#eaveG)"/>
-                  <rect x="0" y="42" width="1000" height="20" fill="url(#tileP)" opacity=".85"/>
-                  <path d="M20 64 L980 64" stroke="rgba(255,236,200,.7)" stroke-width="3"/>
-                  <path d="M0 88 C120 130 280 128 500 108 C720 128 880 130 1000 88" stroke="rgba(255,220,170,.6)" stroke-width="2" fill="none"/>
-                </svg>
-                <svg class="jasmine" viewBox="0 0 120 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                  <defs><radialGradient id="jCore" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff7d9"/><stop offset="1" stop-color="#d8b574"/></radialGradient></defs>
-                  <g fill="#fffdf8" stroke="rgba(215,206,187,.8)" stroke-width="1.4">
-                    <path d="M60 16 C71 26,73 42,60 50 C47 42,49 26,60 16"/>
-                    <path d="M104 60 C94 71,78 73,70 60 C78 47,94 49,104 60"/>
-                    <path d="M60 104 C49 94,47 78,60 70 C73 78,71 94,60 104"/>
-                    <path d="M16 60 C26 49,42 47,50 60 C42 73,26 71,16 60"/>
-                    <path d="M89 31 C94 42,89 56,76 58 C68 47,73 34,89 31"/>
-                    <path d="M89 89 C78 94,64 89,62 76 C73 68,86 73,89 89"/>
-                    <path d="M31 89 C26 78,31 64,44 62 C52 73,47 86,31 89"/>
-                    <path d="M31 31 C42 26,56 31,58 44 C47 52,34 47,31 31"/>
-                  </g>
-                  <circle cx="60" cy="60" r="8" fill="url(#jCore)"/>
-                </svg>
-                <svg class="eave eaveBottom" viewBox="0 0 1000 160" preserveAspectRatio="none" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="eaveG2" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0" stop-color="#e0b267"/>
-                      <stop offset="0.55" stop-color="#b26f33"/>
-                      <stop offset="1" stop-color="#6d3818"/>
-                    </linearGradient>
-                    <pattern id="tileP2" width="80" height="18" patternUnits="userSpaceOnUse">
-                      <path d="M0 18 L20 0 L40 18 L60 0 L80 18" fill="none" stroke="rgba(255,230,190,.7)" stroke-width="3"/>
-                    </pattern>
-                  </defs>
-                  <path d="M0 40 L1000 40 L1000 88 C900 130 700 126 500 110 C300 126 100 130 0 88 Z" fill="url(#eaveG2)"/>
-                  <rect x="0" y="42" width="1000" height="20" fill="url(#tileP2)" opacity=".85"/>
-                  <path d="M20 64 L980 64" stroke="rgba(255,236,200,.7)" stroke-width="3"/>
-                  <path d="M0 88 C120 130 280 128 500 108 C720 128 880 130 1000 88" stroke="rgba(255,220,170,.6)" stroke-width="2" fill="none"/>
-                </svg>
-              </div>
-              <div id="boardStage" class="boardStage">
-                <div id="flipStage" class="flipStage">
-                  <div class="boardFace boardFaceFront"><canvas id="boardXQ" width="800" height="900"></canvas></div>
-                  <div class="boardFace boardFaceBack"><canvas id="boardGK" width="800" height="900"></canvas></div>
+        <div id="courtBanner" class="courtBanner" data-tone="gold"></div>
+
+        <div class="layout">
+          <main class="mainStage">
+            <section class="statusStrip">
+              <div id="modeTag" class="tag">模式: -</div>
+              <div id="reviewTag" class="tag">回顾: 关闭</div>
+              <div id="endgameTag" class="tag">残局: 标准开局</div>
+              <div id="drawReasonTag" class="tag">和棋原因: -</div>
+            </section>
+
+            <section class="boardShell">
+              <div class="boardCard">
+                <div class="palaceFrame">
+                  <svg
+                    class="eave eaveTop"
+                    viewBox="0 0 1000 160"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <linearGradient id="eaveG" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#e0b267" />
+                        <stop offset="0.55" stop-color="#b26f33" />
+                        <stop offset="1" stop-color="#6d3818" />
+                      </linearGradient>
+                      <pattern
+                        id="tileP"
+                        width="80"
+                        height="18"
+                        patternUnits="userSpaceOnUse"
+                      >
+                        <path
+                          d="M0 18 L20 0 L40 18 L60 0 L80 18"
+                          fill="none"
+                          stroke="rgba(255,230,190,.7)"
+                          stroke-width="3"
+                        />
+                      </pattern>
+                    </defs>
+                    <path
+                      d="M0 40 L1000 40 L1000 88 C900 130 700 126 500 110 C300 126 100 130 0 88 Z"
+                      fill="url(#eaveG)"
+                    />
+                    <rect
+                      x="0"
+                      y="42"
+                      width="1000"
+                      height="20"
+                      fill="url(#tileP)"
+                      opacity=".85"
+                    />
+                    <path
+                      d="M20 64 L980 64"
+                      stroke="rgba(255,236,200,.7)"
+                      stroke-width="3"
+                    />
+                    <path
+                      d="M0 88 C120 130 280 128 500 108 C720 128 880 130 1000 88"
+                      stroke="rgba(255,220,170,.6)"
+                      stroke-width="2"
+                      fill="none"
+                    />
+                  </svg>
+                  <svg
+                    class="jasmine"
+                    viewBox="0 0 120 120"
+                    preserveAspectRatio="xMidYMid meet"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <radialGradient id="jCore" cx="50%" cy="50%" r="50%">
+                        <stop offset="0" stop-color="#fff7d9" />
+                        <stop offset="1" stop-color="#d8b574" />
+                      </radialGradient>
+                    </defs>
+                    <g
+                      fill="#fffdf8"
+                      stroke="rgba(215,206,187,.8)"
+                      stroke-width="1.4"
+                    >
+                      <path d="M60 16 C71 26,73 42,60 50 C47 42,49 26,60 16" />
+                      <path
+                        d="M104 60 C94 71,78 73,70 60 C78 47,94 49,104 60"
+                      />
+                      <path
+                        d="M60 104 C49 94,47 78,60 70 C73 78,71 94,60 104"
+                      />
+                      <path d="M16 60 C26 49,42 47,50 60 C42 73,26 71,16 60" />
+                      <path d="M89 31 C94 42,89 56,76 58 C68 47,73 34,89 31" />
+                      <path d="M89 89 C78 94,64 89,62 76 C73 68,86 73,89 89" />
+                      <path d="M31 89 C26 78,31 64,44 62 C52 73,47 86,31 89" />
+                      <path d="M31 31 C42 26,56 31,58 44 C47 52,34 47,31 31" />
+                    </g>
+                    <circle cx="60" cy="60" r="8" fill="url(#jCore)" />
+                  </svg>
+                  <svg
+                    class="eave eaveBottom"
+                    viewBox="0 0 1000 160"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <linearGradient id="eaveG2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#e0b267" />
+                        <stop offset="0.55" stop-color="#b26f33" />
+                        <stop offset="1" stop-color="#6d3818" />
+                      </linearGradient>
+                      <pattern
+                        id="tileP2"
+                        width="80"
+                        height="18"
+                        patternUnits="userSpaceOnUse"
+                      >
+                        <path
+                          d="M0 18 L20 0 L40 18 L60 0 L80 18"
+                          fill="none"
+                          stroke="rgba(255,230,190,.7)"
+                          stroke-width="3"
+                        />
+                      </pattern>
+                    </defs>
+                    <path
+                      d="M0 40 L1000 40 L1000 88 C900 130 700 126 500 110 C300 126 100 130 0 88 Z"
+                      fill="url(#eaveG2)"
+                    />
+                    <rect
+                      x="0"
+                      y="42"
+                      width="1000"
+                      height="20"
+                      fill="url(#tileP2)"
+                      opacity=".85"
+                    />
+                    <path
+                      d="M20 64 L980 64"
+                      stroke="rgba(255,236,200,.7)"
+                      stroke-width="3"
+                    />
+                    <path
+                      d="M0 88 C120 130 280 128 500 108 C720 128 880 130 1000 88"
+                      stroke="rgba(255,220,170,.6)"
+                      stroke-width="2"
+                      fill="none"
+                    />
+                  </svg>
+                </div>
+                <div id="boardStage" class="boardStage">
+                  <div id="flipStage" class="flipStage" data-game="XIANGQI">
+                    <div
+                      class="boardFace boardFaceFront"
+                      data-board-face="XIANGQI"
+                    >
+                      <canvas id="boardXQ" width="800" height="900"></canvas>
+                    </div>
+                    <div
+                      class="boardFace boardFaceBack"
+                      data-board-face="GOMOKU"
+                    >
+                      <canvas id="boardGK" width="800" height="900"></canvas>
+                    </div>
+                    <div class="boardFace boardFaceGo" data-board-face="GO">
+                      <canvas id="boardGO" width="800" height="900"></canvas>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section class="actionBar">
-            <button id="newGame" class="primary" type="button"><strong>开始对局</strong><span>先选模式，再点这里</span></button>
-            <button id="undo" type="button"><strong>悔棋</strong><span>撤回一步</span></button>
-            <button id="surrender" type="button"><strong>认输</strong><span>结束当前对局</span></button>
-            <button id="drawBtn" type="button"><strong>和棋</strong><span>双方和局</span></button>
-            <button id="soundToggle" type="button"><strong>音效</strong><span>开 / 关</span></button>
-          </section>
-        </main>
+            <section class="actionBar">
+              <button id="newGame" class="primary" type="button">
+                <strong>开始对局</strong><span>先选模式，再点这里</span>
+              </button>
+              <button id="undo" type="button">
+                <strong>悔棋</strong><span>撤回一步</span>
+              </button>
+              <button id="goPass" type="button">
+                <strong>停一手</strong><span>围棋专用</span>
+              </button>
+              <button id="surrender" type="button">
+                <strong>认输</strong><span>结束当前对局</span>
+              </button>
+              <button id="drawBtn" type="button">
+                <strong>和棋</strong><span>双方和局</span>
+              </button>
+              <button id="soundToggle" type="button">
+                <strong>音效</strong><span>开 / 关</span>
+              </button>
+            </section>
+          </main>
 
-        <aside class="side">
-          <div class="sideHead">
-            <div>
-              <div class="title">设置与复盘</div>
-              <div class="sideHint">开局前选模式；对局中在这里找残局、复盘和高级引擎。</div>
+          <aside class="side">
+            <div class="sideHead">
+              <div>
+                <div class="title">设置与复盘</div>
+                <div class="sideHint">
+                  开局前选模式；对局中在这里找残局、复盘和高级引擎。
+                </div>
+              </div>
+              <button id="closeDrawer" class="menuBtn closeBtn" type="button">
+                关闭
+              </button>
             </div>
-            <button id="closeDrawer" class="menuBtn closeBtn" type="button">关闭</button>
-          </div>
-          <div class="panelTabs">
-            <button class="panelTab is-active" data-panel-target="setup" type="button">高级设置</button>
-            <button id="endgameTab" class="panelTab" data-panel-target="endgame" type="button">残局</button>
-            <button class="panelTab" data-panel-target="review" type="button">复盘</button>
-          </div>
-          <section class="panelCard is-active" data-panel="setup">
-            <div class="title">引擎与皮肤</div>
-            <div class="row"><select id="xiangqiEngine"><option value="BUILTIN" selected>象棋引擎: 内置AI</option><option value="PIKAFISH">象棋引擎: Pikafish</option><option value="AUTO">象棋引擎: 自动</option></select></div>
-            <div class="row"><select id="gomokuEngine"><option value="BUILTIN" selected>五子棋引擎: 内置AI</option><option value="RAPFI">五子棋引擎: Rapfi</option><option value="ALPHAGOMOKU">五子棋引擎: AlphaGomoku</option></select></div>
-            <div class="cardTitle small">皮肤库</div>
-            <div class="skinButtons compact">
-              <button class="skinBtn is-active" data-theme="minimal" type="button">极简清新</button>
-              <button class="skinBtn" data-theme="ink" type="button">简雅国风</button>
-              <button class="skinBtn" data-theme="imperial" type="button">御案古风</button>
+            <div class="panelTabs">
+              <button
+                class="panelTab is-active"
+                data-panel-target="setup"
+                type="button"
+              >
+                高级设置
+              </button>
+              <button
+                id="endgameTab"
+                class="panelTab"
+                data-panel-target="endgame"
+                type="button"
+              >
+                残局
+              </button>
+              <button class="panelTab" data-panel-target="review" type="button">
+                复盘
+              </button>
             </div>
-          </section>
-          <section id="endgameSection" class="panelCard" data-panel="endgame">
-            <div id="endgameTitle" class="title">残局练习</div>
-            <div id="endgameGrid" class="egGrid">
-              <button class="egBtn" data-name="七星聚会" type="button">七星聚会</button><button class="egBtn" data-name="蚯蚓降龙" type="button">蚯蚓降龙</button>
-              <button class="egBtn" data-name="千里独行" type="button">千里独行</button><button class="egBtn" data-name="野马操田" type="button">野马操田</button>
-              <button class="egBtn" data-name="梅花谱" type="button">梅花谱</button><button class="egBtn" data-name="百局象棋谱" type="button">百局象棋谱</button>
-              <button class="egBtn" data-name="适情雅趣" type="button">适情雅趣</button><button class="egBtn" data-name="烂柯神机" type="button">烂柯神机</button>
-              <button class="egBtn" data-name="梦入神机" type="button">梦入神机</button><button class="egBtn" data-name="韬略元机" type="button">韬略元机</button>
-            </div>
-          </section>
-          <section class="panelCard" data-panel="review">
-            <div class="title">棋局复盘</div>
-            <div class="row"><button id="reviewStart" type="button">开始回顾</button><button id="reviewExit" type="button">退出回顾</button></div>
-            <div class="row"><button id="reviewPrev" type="button">上一步</button><button id="reviewNext" type="button">下一步</button></div>
-            <div class="tag reviewNote">回顾模式下，主操作会按规则自动禁用。</div>
-          </section>
-        </aside>
+            <section class="panelCard is-active" data-panel="setup">
+              <div class="title">引擎与皮肤</div>
+              <div class="row">
+                <select id="xiangqiEngine">
+                  <option value="AUTO" selected>象棋引擎: 自动</option>
+                  <option value="PIKAFISH">象棋引擎: Pikafish</option>
+                  <option value="BUILTIN">象棋引擎: 内置AI</option>
+                </select>
+              </div>
+              <div class="row">
+                <select id="gomokuEngine">
+                  <option value="BUILTIN" selected>五子棋引擎: 内置AI</option>
+                  <option value="RAPFI">五子棋引擎: Rapfi</option>
+                  <option value="ALPHAGOMOKU">五子棋引擎: AlphaGomoku</option>
+                </select>
+              </div>
+              <div id="goEngineRow" class="tag reviewNote">
+                围棋人机需要配置
+                <code>XQ_GO_ENGINE_URL</code>；未配置时仅开放双人对局与题库。
+              </div>
+              <div class="cardTitle small">皮肤库</div>
+              <div class="skinButtons compact">
+                <button
+                  class="skinBtn is-active"
+                  data-theme="minimal"
+                  type="button"
+                >
+                  极简清新
+                </button>
+                <button class="skinBtn" data-theme="ink" type="button">
+                  简雅国风
+                </button>
+                <button class="skinBtn" data-theme="imperial" type="button">
+                  御案古风
+                </button>
+              </div>
+            </section>
+            <section id="endgameSection" class="panelCard" data-panel="endgame">
+              <div id="endgameTitle" class="title">残局 / 题库</div>
+              <div id="endgameGrid" class="egGrid">
+                <button
+                  class="scenarioBtn"
+                  data-name="七星聚会"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  七星聚会</button
+                ><button
+                  class="scenarioBtn"
+                  data-name="蚯蚓降龙"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  蚯蚓降龙
+                </button>
+                <button
+                  class="scenarioBtn"
+                  data-name="千里独行"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  千里独行</button
+                ><button
+                  class="scenarioBtn"
+                  data-name="野马操田"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  野马操田
+                </button>
+                <button
+                  class="scenarioBtn"
+                  data-name="梅花谱"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  梅花谱</button
+                ><button
+                  class="scenarioBtn"
+                  data-name="百局象棋谱"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  百局象棋谱
+                </button>
+                <button
+                  class="scenarioBtn"
+                  data-name="适情雅趣"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  适情雅趣</button
+                ><button
+                  class="scenarioBtn"
+                  data-name="烂柯神机"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  烂柯神机
+                </button>
+                <button
+                  class="scenarioBtn"
+                  data-name="梦入神机"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  梦入神机</button
+                ><button
+                  class="scenarioBtn"
+                  data-name="韬略元机"
+                  data-game="XIANGQI"
+                  type="button"
+                >
+                  韬略元机
+                </button>
+              </div>
+              <div id="goScenarioGrid" class="egGrid" style="display: none">
+                <button
+                  class="scenarioBtn"
+                  data-name="角部提子"
+                  data-game="GO"
+                  type="button"
+                >
+                  角部提子
+                </button>
+                <button
+                  class="scenarioBtn"
+                  data-name="边路手筋"
+                  data-game="GO"
+                  type="button"
+                >
+                  边路手筋
+                </button>
+              </div>
+            </section>
+            <section class="panelCard" data-panel="review">
+              <div class="title">棋局复盘</div>
+              <div class="row">
+                <button id="reviewStart" type="button">开始回顾</button
+                ><button id="reviewExit" type="button">退出回顾</button>
+              </div>
+              <div class="row">
+                <button id="reviewPrev" type="button">上一步</button
+                ><button id="reviewNext" type="button">下一步</button>
+              </div>
+              <div class="tag reviewNote">
+                回顾模式下，主操作会按规则自动禁用。
+              </div>
+            </section>
+          </aside>
+        </div>
       </div>
     </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
-  <script src="/assets/ui/app.js"></script>
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
+    <script src="/assets/ui/app.js"></script>
+  </body>
 </html>

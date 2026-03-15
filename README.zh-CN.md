@@ -1,376 +1,197 @@
-# 轻·象棋（XiangqiGame）
+# 轻·棋局（Web Only）
 
-一个基于 Java 的中国象棋项目，提供 **桌面版（Swing）** 与 **浏览器版（本地 Web）** 两套对局模式。  
-A Java-based Xiangqi project with both **desktop (Swing)** and **browser (local web)** play modes.  
-项目重点是：规则完整、对局流畅、AI 可分级、残局训练与术语提示。  
-It focuses on complete rules, smooth gameplay, adjustable AI difficulty, endgame training, and tactical prompts.
+`轻·棋局` 是一个纯网页版三棋对局项目，当前支持：
 
-GitHub 项目地址：`https://github.com/Zzy-min/turbo-octo-lamp`
+- 中国象棋
+- 五子棋
+- 围棋（19 路，中国规则，贴目 7.5）
 
-## 简介 | Overview
+仓库已经移除 Swing 桌面端，只保留 Java Web 服务、前端静态资源与浏览器启动脚本。
 
-轻·象棋，一款开箱即玩的中国象棋对弈程序。  
-XiangqiGame is a ready-to-play Chinese chess experience built for both quick local games and long-form practice.  
-支持双人同屏、人机三档难度、残局练习与棋局回顾。  
-It supports local PvP, three AI difficulty levels, endgame training, and move review.  
-你可自由选择先后手，执黑时棋盘自动翻转到底侧视角。  
-You can freely choose who moves first, and the board auto-flips when the player takes black.  
-桌面与浏览器双端可用，浏览器模式可独立运行不中断。  
-Both desktop and browser versions are available, and the browser mode runs independently.  
-每一步更清晰，每一局更流畅，专注纯粹对弈体验。  
-The goal is a cleaner move flow, smoother interaction, and a more focused board-game experience.  
-浏览器端现已升级为可扩展的前端界面体系：默认提供更轻的极简清新风格，同时保留国风与御案古风皮肤可选；主视图突出棋盘，开始前可直接看到棋种、模式、先后手与皮肤选择。  
-The browser UI has been upgraded into an extensible frontend system: a lighter minimal theme is now the default, while elegant oriental and imperial themes remain available; the board stays central, and new players can immediately see game type, mode, first-move choice, and theme options before starting.  
-页面资源也已从 Java 内联长字符串拆分为独立 `HTML / CSS / JS` 静态文件，后续维护与继续打磨前端样式会更直接。  
-The page has also been split from a giant Java inline string into standalone `HTML / CSS / JS` assets, making future maintenance and UI iteration much easier.  
-浏览器端继续保留 GSAP 过场动效与棋盘渲染增强，并针对移动端做了更克制的性能策略，提升手机上的交互流畅度。  
-The browser version still keeps cinematic GSAP transitions and enhanced board rendering, while using a more controlled performance strategy on mobile to improve responsiveness.  
-近期 AI 引擎已完成连续升级：重复局面控制、静态搜索延伸（Quiescence）、Null Move / LMR / Futility 裁剪、自适应 Aspiration Window 与 SEE（静态交换评估）接入，显著降低中后盘长考与战术漏算。  
-The AI engine has also been upgraded with repetition control, quiescence search, null-move / LMR / futility pruning, adaptive aspiration windows, and SEE, significantly reducing slow midgame searches and tactical misses.
+## 当前能力
 
-## 浏览器版界面更新（2026-03） | Browser UI Refresh (2026-03)
+### 中国象棋
 
-- 新布局：从“棋盘 + 固定右栏”调整为“棋盘主舞台 + 设置抽屉侧栏”，主屏信息更聚焦  
-  New layout: the old “board + fixed sidebar” layout is replaced with a “board-centered stage + settings drawer” structure.
-- 新层级：状态、计时、主要操作常驻首屏；开局设置、残局、复盘按分区收纳  
-  Better hierarchy: status, clocks, and primary actions stay visible, while setup, endgames, and review are grouped more clearly.
-- 新体验：默认极简清新皮肤，同时保留其他可切换主题，降低厚重的“PPT 感”  
-  Cleaner feel: a lighter minimal theme is now the default, while alternative skins remain available to reduce the previous “presentation slide” feeling.
-- 新交互：开始前可直接看到棋种、模式、先后手与皮肤，降低新玩家上手门槛  
-  Better onboarding: before the game starts, players can directly see and switch game type, mode, first move, and theme.
-- 新性能：移动端保留视觉效果，但通过渲染降级和轮询调整提升交互流畅度  
-  Better mobile performance: visual effects are preserved, but rendering and polling are scaled more carefully for smoother interaction.
-- 新结构：网页资源已拆分到 `src/main/resources/web`，后续继续做样式优化与功能扩展更方便  
-  Better maintainability: web assets now live under `src/main/resources/web`, making future UI updates much easier.
-- 更新记录：详见 `docs/web-ui-refresh-2026-03.md`  
-  See `docs/web-ui-refresh-2026-03.md` for the detailed refresh notes.
+- PvP / PvE
+- 残局练习
+- 复盘
+- 最近两步标记、术语闪屏、音效
+- 默认引擎策略为 `AUTO`
+- 已支持 `Pikafish` 接入，配置后优先使用外部引擎，失败时回退内置 AI
 
-## 最新版本特性 | Latest Features
+### 五子棋
 
-下面列出当前版本的主要能力与近阶段重点更新。  
-Below is a quick summary of the current release highlights and the most important recent improvements.
+- PvP / PvE
+- 15x15 棋盘
+- 黑方禁手（三三 / 四四 / 长连）
+- 复盘与悔棋
+- 内置 AI + `Rapfi / AlphaGomoku`
 
-- 支持桌面与浏览器双端、双人对战与人机对战、残局练习与棋局回顾。  
-  Supports both desktop and browser play, local PvP and PvE, endgame practice, and move review.
-- 浏览器端已升级为更强调棋盘中心的前端界面，并支持多皮肤切换与更好的新手可发现性。  
-  The browser UI now focuses more clearly on the board, with theme switching and better discoverability for new players.
-- AI、渲染与交互链路持续优化，重点减少中后盘等待感、提升移动端流畅度。  
-  AI, rendering, and interaction pipelines have been continuously improved to reduce waiting time and improve mobile responsiveness.
+### 围棋
 
-- 双人对战（PVP）与人机对战（PVC）
-- 人机难度三档：`简单 / 中等 / 困难`
-- 难度标定（2026-02）：中等≈业余棋手对弈强度，困难为高压进攻型（面向业余上限）
-- 人机可选先后手：`我先手(红)` 或 `我后手(黑)`
-- 双人同屏模式：每步落子后自动换向，当前行棋方始终在下（桌面 + 浏览器）
-- 人机模式：玩家执黑时自动翻转为黑方在下（桌面 + 浏览器）
-- 双人对战计时：
-  - `10分钟`：步时 1 分钟（前三步 30 秒）
-  - `20分钟`：步时 1 分钟（前三步 30 秒）
-  - `无限`：不计时
-- 网页版双人对战默认 `无限时`（避免长局被计时中断）
-- 超时自动判负，结束后封盘（禁止继续落子）
-- 认输功能（桌面 + 浏览器）
-- 棋盘回顾模式（逐步前进/后退）
-- 最近两步落点标记（先后次序）
-- 杀将/杀招术语居中闪现（精确 0.5s），支持扩展术语判定
-- 落子音效与绝杀音效（`move.wav` / `mate.wav`，桌面 + 浏览器）
-- 浏览器模式性能优化：一步一刷新、移动动画、抗缓存请求
-- 浏览器模式独立进程启动：不受桌面程序关闭影响
-- 新增 `run_web.bat`：可直接启动网页服务并自动打开浏览器（无需先打开桌面端）
-- 多终端会话隔离：每个终端/标签页独立对局，互不影响
-- 手机浏览器适配：小屏布局优化 + 触控操作增强
-- 浏览器端 UI 结构重做：改为“棋盘主舞台 + 局阁抽屉侧栏”，主操作与局势信息更聚焦
-- 前端资源拆分：网页界面改由 `src/main/resources/web` 下的独立 `index.html / app.css / app.js` 承载，便于持续迭代
-- 点击与落子链路提速：`pointerdown` 即时反馈、动作队列防丢点击、低重绘轮询
-- 静态棋盘缓存分层 + 棋子精灵缓存复用，显著降低每帧绘制开销
-- 服务端状态 `seq` 防乱序：多请求并发时自动丢弃过期响应，减少“点了没反应”错觉
-- 新增性能观测接口：`/api/perf`、`/api/perf/reset`、`/api/perf/event`（会话级 p50/p95/p99）
-- 浏览器模式可信地址：`http://127.0.0.1:18388/`
-- AI 全局响应速度升级：SEE 缓存化 + 快速模式降阶 + 轻量吃子者收集，显著降低中后盘等待感
-- 最近两步信号美化：起终点描边、方向箭头、先后顺序徽标（桌面 + 浏览器）
-- 选中棋子标记增强：改为双层高亮描边，减少遮挡并提升可读性（浏览器）
-- 人机一步一响应强化：简单/中等难度最短步间隔下调，网页轮询与落子链路进一步提速
-- 交互灵敏度提升：桌面端扩大落点命中范围，快捷模式下点击反馈更快
-- 棋子立体雕刻感增强：新增高光/暗角/倒角光带（桌面）与棋子凹凸阴影（浏览器）
-- 浏览器端视觉引擎升级：接入 `PixiJS` 作为主渲染链，保留 Canvas 兜底回退
-- 3D 深雕棋子材质：`bevel + shadow bloom + specular` 分层叠加，棋子厚度与金属反光更明显
-- 宫廷过场动效：`开局 / 将军 / 绝杀` 三套独立 `GSAP timeline`，含金匾提示与舞台光效脉冲
-- 第五轮开源对标优化：新增超快应答通道（简单/中等）、动态 Quiescence 预算与受控将军延伸，并补充对标清单 `docs/open-source-benchmark-round5.md`
+- 19x19 棋盘
+- 真围棋规则：提子、自杀判定、打劫 / 超劫、停一手、认输
+- 双停自动计分，支持恢复继续下
+- 题库 / 死活题（JSON 场景）
+- 复盘与悔棋
+- PvP 始终可用
+- PvE 依赖外部 `go-engine` 服务；未配置时前端会自动禁用围棋人机模式
 
-## AI 与算法 | AI & Search
+## Web 交互更新
 
-本项目的 AI 以经典博弈搜索为核心，并持续围绕“更稳的战术质量”和“更快的对局响应”做工程优化。  
-The AI stack is centered around classic game-tree search, with ongoing engineering work focused on stronger tactical stability and faster practical response time.
+- 前端改成三棋种统一注册表驱动，不再只围绕“象棋 / 五子棋”二分支
+- 切换到五子棋或围棋时，棋盘会立即清空，不再残留上一个棋种的棋子、最近两步、选中态或残局标签
+- 对局页控件按棋种收口：
+  - 象棋显示残局与象棋引擎
+  - 五子棋显示五子棋引擎
+  - 围棋显示围棋引擎状态、停一手、题库 / 死活题与计分信息
+- 围棋引擎不可用时，UI 会自动把 `PvE` 切回 `PvP`
 
-- 搜索核心包含迭代加深、Alpha-Beta、置换表与多种走法排序优化。  
-  The core search stack includes iterative deepening, alpha-beta pruning, transposition tables, and multiple move-ordering optimizations.
-- 近阶段重点是降低中后盘长考、减少浅层战术漏算，并提升不同难度下的体感差异。  
-  Recent work focuses on reducing long midgame think times, avoiding shallow tactical misses, and making the difficulty levels feel meaningfully different.
+## 运行方式
 
-- 迭代加深搜索（Iterative Deepening）
-- Alpha-Beta 剪枝
-- 置换表（Transposition Table）
-- Killer Moves + History Heuristic 走法排序
-- SEE（Static Exchange Evaluation）接入吃子排序与静态搜索筛选，减少“贪吃亏子”
-- SEE 加速策略：哈希缓存 + 深度自适应（拥塞时自动降阶）
-- 将军局面延伸，降低浅层漏算
-- Quiescence Search（静态搜索延伸）+ Delta Pruning，降低地平线效应
-- Null Move Pruning + LMR（Late Move Reduction）+ Futility Pruning，提升中后盘搜索效率
-- 自适应 Aspiration Window（逐级扩窗 + 趋势调窗），减少反复全窗重搜
-- 重复局面感知搜索：路径重复计数 + 优劣势和棋倾向评分，减少无效循环
-- 难度分层调优：简单/中等优先响应速度，困难难度提高深度与复杂局面质量预算
-- 开局库（OpeningBook）
-- 开局库增强（棋谱候选 + 快速安全校验 + 近优解加权选择），减少“前几步固定死线”
-- 残局学习集成：
-  - `EndgameStudySet`：174 个残局局面，按 `初/中/高` 三档权重
-  - `XqipuLearnedSet`：来自 xqipu 的学习局面集合
-- 赛事学习集成：
-  - `EventLearnedSet`：来自 `xqipu.com/eventlist` 的实战局面学习集（当前采样 2384 局面）
-- 残局专用难度曲线：
-  - 初级更快应手
-  - 中级速度与稳定平衡
-  - 高级偏稳求解（更深/更久）
-- 赛事局面搜索增强：
-  - 命中赛事学习局面后提高搜索预算（中高难度更明显）
-- 赛事局面快速通道：
-  - 第 10 步后命中赛事局面时，按“安全优先 + 向前压进”快速选点（尤其减少中盘长考）
-- 前十步开局质量优化：
-  - 前十步禁用随机走子（避免中等/简单难度开局漂移）
-  - 后手（黑方）前十步预算增强 + 开局原则评分（发展/控中/安全）
-  - 命中学习局面（`XqipuLearnedSet/EventLearnedSet`）时，前十步额外深搜并优先稳健主线
-- AI 结果缓存质量门槛：仅在搜索深度达标时写入缓存，降低浅层误缓存
-- 动态搜索预算 2.0：结合局面分支、设备核数与近期“时间压力”自适应调节深度/时限
-- 动态静态搜索预算：快模式下自动收缩 Quiescence 深度与分支，优先保障“一步一响应”
-- 受控将军延伸：中等/困难在非快模式下对关键将军着法小幅加深，提高战术质量稳定性
-
-### 中国象棋外部引擎（Pikafish / UCI）接入
-
-项目已支持中国象棋 AI 运行时切换：
-
-- 默认：`内置AI`
-- 可选：`Pikafish`（UCI 通道）
-- 若外部引擎异常，会自动回退到内置 AI
-- 浏览器控制面板可切换：`内置AI / Pikafish / 自动`
-
-启动参数（二选一：JVM 参数或环境变量）：
+### 1. 本地脚本
 
 ```powershell
-# 方式1：JVM 参数
-java -Dxq.xiangqi.engine=PIKAFISH `
-     -Dxq.xiangqi.pikafish.cmd="D:\tools\pikafish\pikafish.exe" `
-     -cp target/classes com.xiangqi.web.BrowserModeMain
+run_web.bat
 ```
 
+或：
+
 ```powershell
-# 方式2：环境变量
-$env:XQ_XIANGQI_ENGINE="PIKAFISH"
-$env:XQ_XIANGQI_PIKAFISH_CMD="D:\tools\pikafish\pikafish.exe"
+运行游戏.bat
+```
+
+围棋引擎子服务：
+
+```powershell
+run_go_engine.bat
+```
+
+Windows 本地开发默认约定：
+
+- 官方 KataGo 安装在 `%USERPROFILE%\tools\katago`
+- `run_go_engine.bat` 会优先尝试 `cuda12.8` 版，缺少 CUDA / cuDNN 运行库时自动回退 `opencl`
+- `run_web.bat` 若未显式设置 `XQ_GO_ENGINE_URL`，会默认使用 `http://127.0.0.1:2718`
+
+默认会在本地启动 Web 服务并打开浏览器：
+
+- `http://127.0.0.1:18388/`
+
+### 2. Maven / Java
+
+```powershell
+mvn -q -DskipTests compile
+java -cp target/classes com.xiangqi.web.PublicWebMain
+```
+
+本地开发时也可继续使用：
+
+```powershell
 java -cp target/classes com.xiangqi.web.BrowserModeMain
 ```
 
-可用值：
+## 环境变量与引擎
 
-- `XQ_XIANGQI_ENGINE=BUILTIN`：强制内置 AI
-- `XQ_XIANGQI_ENGINE=PIKAFISH`：使用 Pikafish
-- `XQ_XIANGQI_ENGINE=AUTO`：有 Pikafish 命令则用外部，否则内置
+### 中国象棋引擎
 
-命令路径变量：
-
-- `XQ_XIANGQI_PIKAFISH_CMD`：Pikafish 可执行文件路径
-- 兼容旧变量：`XQ_XIANGQI_UCI_CMD`
-
-### 五子棋外部引擎（Piskvork）接入
-
-项目已支持五子棋 AI 运行时切换：
-
-- 默认：`内置AI`
-- 可选：`Rapfi / AlphaGomoku`（均通过 Piskvork 协议）
-- 若外部引擎异常，会自动回退到内置 AI
-- 浏览器控制面板可直接切换：`内置AI / Rapfi / AlphaGomoku`
-
-启动参数（二选一：JVM 参数或环境变量）：
-
-```powershell
-# 方式1：JVM 参数（Rapfi）
-java -Dxq.gomoku.engine=RAPFI `
-     -Dxq.gomoku.rapfi.cmd="D:\tools\rapfi\rapfi.exe" `
-     -cp target/classes com.xiangqi.web.BrowserModeMain
-```
-
-```powershell
-# 方式2：环境变量（Rapfi）
-$env:XQ_GOMOKU_ENGINE="RAPFI"
-$env:XQ_GOMOKU_RAPFI_CMD="D:\tools\rapfi\rapfi.exe"
-java -cp target/classes com.xiangqi.web.BrowserModeMain
-```
-
-可用值：
-
-- `XQ_GOMOKU_ENGINE=BUILTIN`：强制内置 AI
-- `XQ_GOMOKU_ENGINE=RAPFI`：使用 Rapfi（需配置 `XQ_GOMOKU_RAPFI_CMD`）
-- `XQ_GOMOKU_ENGINE=ALPHAGOMOKU`：使用 AlphaGomoku（需配置 `XQ_GOMOKU_ALPHAGOMOKU_CMD`）
-- `XQ_GOMOKU_ENGINE=AUTO`：优先 Rapfi，再 AlphaGomoku，否则内置
-
-命令路径变量：
-
-- `XQ_GOMOKU_RAPFI_CMD`：Rapfi 可执行文件路径
-- `XQ_GOMOKU_ALPHAGOMOKU_CMD`：AlphaGomoku 可执行文件路径
-- 兼容旧变量：`XQ_GOMOKU_PISKVORK_CMD`（按 Rapfi 处理）
-
-### 赛事学习数据更新（xqipu）
-
-新增脚本：`tools/update_event_fens.ps1`
-
-用途：批量抓取 `eventlist -> eventqipu` 页面中的 `data-fen`，生成去重 FEN 清单，供赛事学习集扩展使用。
+- `XQ_XIANGQI_ENGINE=BUILTIN|PIKAFISH|AUTO`
+- `XQ_XIANGQI_PIKAFISH_CMD=<pikafish 可执行文件>`
 
 示例：
 
 ```powershell
-pwsh -File tools/update_event_fens.ps1 -StartPage 0 -EndPage 10 -OutFile data/event_fens.txt
-```
-
-一键生成并发布赛事学习库（抓取 -> 生成 `EventLearnedSet.java` -> 编译 -> push）：
-
-```powershell
-pwsh -File tools/update_event_learnedset.ps1 -StartPage 0 -EndPage 10 -Compile -Publish
-```
-
-一键生成并发布综合学习库（`qipus` + `canjugupu`）：
-
-```powershell
-pwsh -File tools/update_xqipu_learnedset.ps1 -QipusStartPage 0 -QipusEndPage 49 -Compile -Publish
-```
-
-## 规则与胜负 | Rules & Win Conditions
-
-完整实现中国象棋关键规则，并覆盖常见对局结束条件。
-
-完整实现中国象棋基本与关键特殊规则，包括：
-
-- 将/帅、士/仕、象/相、马、车、炮、兵/卒全部走法
-- 将帅照面限制
-- 将军、将死、困毙判定
-- 认输判负
-- 计时超时判负（双人模式）
-
-## 主要模块 | Main Modules
-
-以下是项目的主要代码分层与核心入口。
-
-- `src/main/java/com/xiangqi/model`：棋盘、棋子、走法、术语检测
-- `src/main/java/com/xiangqi/ai`：AI 搜索、开局库、残局学习集
-- `src/main/java/com/xiangqi/ai/EventLearnedSet.java`：赛事局面学习库
-- `src/main/java/com/xiangqi/controller`：对局流程与计时控制
-- `src/main/java/com/xiangqi/ui`：桌面端界面（Swing）
-- `src/main/java/com/xiangqi/web`：浏览器端服务与页面
-
-关键入口 | Main entry points:
-
-- 桌面：`com.xiangqi.ui.XiangqiFrame`
-- 浏览器独立服务：`com.xiangqi.web.BrowserModeMain`（默认端口 `18388`）
-
-## 运行方式 | How to Run
-
-可按你的环境选择批处理脚本、直接 `java` 启动，或使用 Maven。
-
-### 0) Windows 一键启动（推荐） | One-click Windows launch (Recommended)
-
-```bat
-:: 桌面版
-run_game.bat
-
-:: 网页版（直接浏览器打开，不依赖桌面端）
+$env:XQ_XIANGQI_ENGINE="AUTO"
+$env:XQ_XIANGQI_PIKAFISH_CMD="D:\tools\pikafish\pikafish.exe"
 run_web.bat
-
-:: 网页版 + Pikafish 外部引擎（中国象棋）
-run_web_pikafish.bat "D:\tools\pikafish\pikafish.exe"
-
-:: 网页版 + Rapfi 外部引擎（五子棋）
-run_web_rapfi.bat "D:\tools\rapfi\rapfi.exe"
-
-:: 强制重编译后再启动网页版（可选）
-run_web.bat --rebuild
 ```
 
-### 1) 使用 javac / java（推荐与你当前环境一致） | Using javac / java
+### 五子棋引擎
+
+- `XQ_GOMOKU_ENGINE=BUILTIN|RAPFI|ALPHAGOMOKU|AUTO`
+- `XQ_GOMOKU_RAPFI_CMD=<rapfi 可执行文件>`
+- `XQ_GOMOKU_ALPHAGOMOKU_CMD=<AlphaGomoku 可执行文件>`
+
+示例：
 
 ```powershell
-# 在项目根目录执行
-$files = Get-ChildItem -Path src/main/java -Recurse -Filter *.java | ForEach-Object { $_.FullName }
-javac -encoding UTF-8 -d target/classes $files
-
-# 启动桌面版
-java -cp target/classes com.xiangqi.ui.XiangqiFrame
-
-# 启动浏览器独立版（可选）
-java -cp target/classes com.xiangqi.web.BrowserModeMain
+$env:XQ_GOMOKU_ENGINE="RAPFI"
+$env:XQ_GOMOKU_RAPFI_CMD="D:\tools\rapfi\rapfi.exe"
+run_web.bat
 ```
 
-若使用 `javac` 方式，请额外复制资源文件（音效等）：
+### 围棋引擎
+
+围棋不在主进程内直接跑 KataGo，而是通过仓库内置的独立 HTTP 服务 `services/go-engine` 接入。
+
+- `XQ_GO_ENGINE=AUTO|REMOTE|DISABLED`
+- `XQ_GO_ENGINE_URL=<go-engine 服务地址>`
+
+本地脚本默认读取：
+
+- `%USERPROFILE%\tools\katago\engines\...`
+- `%USERPROFILE%\tools\katago\models\*.bin.gz`
+
+示例：
 
 ```powershell
-Copy-Item -Path src/main/resources/* -Destination target/classes -Recurse -Force
+$env:XQ_GO_ENGINE="AUTO"
+$env:XQ_GO_ENGINE_URL="https://your-go-engine.onrender.com"
+run_web.bat
 ```
 
-浏览器独立版启动后访问：
+当 `XQ_GO_ENGINE_URL` 未配置或服务不可达时：
 
-- `http://127.0.0.1:18388/`
+- 围棋 PvP 可正常使用
+- 围棋题库可正常使用
+- 围棋 PvE 会在前端自动置灰
 
-### 2) Maven
+## go-engine HTTP 协议
 
-适合已有 Maven 环境的使用方式。
+主站默认调用以下接口：
 
-```bash
-mvn clean compile
-mvn exec:java -Dexec.mainClass="com.xiangqi.ui.XiangqiFrame"
+- `GET /health`
+- `POST /genmove`
+- `POST /score`
+
+详细字段约定见 [docs/go-engine-api.md](docs/go-engine-api.md)。
+
+## 部署
+
+### 主站
+
+- Docker 入口：`com.xiangqi.web.PublicWebMain`
+- Render 蓝图：`render.yaml`
+- 围棋子服务目录：`services/go-engine`
+
+如果部署到 Render：
+
+- 主站默认可直接运行
+- 若要启用围棋 PvE，请在主站服务中配置 `XQ_GO_ENGINE_URL`
+- `go-engine` 已包含在同一个 `render.yaml` 里，可直接作为第二个 Web Service 部署
+- `go-engine` 仍需你提供 KataGo 可执行文件、模型与配置路径
+
+## 目录结构
+
+- `src/main/java/com/xiangqi/ai`：象棋 / 五子棋 AI 与引擎桥接
+- `src/main/java/com/xiangqi/model`：中国象棋与五子棋模型
+- `src/main/java/com/xiangqi/model/go`：围棋模型、规则、计分、场景与远程引擎客户端
+- `src/main/java/com/xiangqi/web`：Web 服务入口与 API
+- `src/main/resources/web`：前端 `index.html / app.css / app.js`
+- `src/main/resources/go-scenarios.json`：围棋题库
+- `services/go-engine`：围棋 HTTP 引擎服务
+
+## 测试
+
+```powershell
+mvn -q -DskipTests compile
+mvn -q test
 ```
 
-## 浏览器模式说明
+围棋新增测试覆盖：
 
-- 可直接运行 `run_web.bat` 独立启动网页版（推荐，响应更快）
-- 若 `18388` 端口已有服务，`run_web.bat` 会直接打开浏览器，不重复启动
-- 也可从桌面菜单“在浏览器打开”进入网页版
-- 关闭桌面窗口后，浏览器对局仍可继续
-
-注意：
-- `http://127.0.0.1:18388/` 属于本机地址，必须先有本机服务进程在运行
-- 若希望“点开网址即可玩（不依赖本地启动）”，需要部署到公网服务器
-
-### 公网部署（直开网址）
-
-- 新增入口类：`com.xiangqi.web.PublicWebMain`
-- 默认绑定：`0.0.0.0`，读取 `PORT` 环境变量（未提供时用 `18388`）
-- 启动命令（示例）：
-
-```bash
-mvn -DskipTests clean package
-java -cp target/classes com.xiangqi.web.PublicWebMain
-```
-
-### Render 一键部署（Blueprint）
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Zzy-min/turbo-octo-lamp)
-
-- 仓库根目录已提供 `render.yaml` + `Dockerfile`
-- Blueprint 使用 `runtime: docker`（已适配 Render 当前校验规则）
-- 容器启动入口：`com.xiangqi.web.PublicWebMain`
-- 部署成功后，直接使用 Render 分配的公网 URL 访问即可
-
-## 音效替换说明
-
-- 默认音效文件：
-  - `src/main/resources/audio/move.wav`
-  - `src/main/resources/audio/mate.wav`
-- 默认音效来源：Kenney Interface Sounds（`CC0 1.0`）
-- 你可直接替换同名文件，无需改代码
-- 建议格式：`WAV / PCM / 44.1kHz / 16-bit / mono`
-- 许可与来源记录：`docs/audio-license.md`
-
-## 系统要求
-
-- Java 11+
-- Windows（当前脚本与路径示例基于 Windows）
-
-## 许可证
-
-仅供学习与交流使用。
+- 提子
+- 自杀判定
+- 打劫 / 超劫
+- 双停计分
+- 题库加载
+- 运行时状态序列化

@@ -25,7 +25,7 @@ public final class ConfigurableXiangqiEngine implements XiangqiEngine {
         this.pikafishCmdText = readSetting("xq.xiangqi.pikafish.cmd", "XQ_XIANGQI_PIKAFISH_CMD",
             readSetting("xq.xiangqi.uci.cmd", "XQ_XIANGQI_UCI_CMD", "")).trim();
         this.pikafishCmd = splitCommand(pikafishCmdText);
-        this.preferredEngine = normalizePreference(readSetting("xq.xiangqi.engine", "XQ_XIANGQI_ENGINE", PREF_BUILTIN));
+        this.preferredEngine = normalizePreference(readSetting("xq.xiangqi.engine", "XQ_XIANGQI_ENGINE", PREF_AUTO));
         selectEngineForPreference(preferredEngine);
     }
 

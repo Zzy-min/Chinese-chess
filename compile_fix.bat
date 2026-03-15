@@ -1,46 +1,22 @@
 @echo off
 chcp 65001 >nul
-echo 中国象棋 - UTF-8编码编译脚本
+echo 轻·棋局 - Web 编译脚本
 echo ========================================
 echo.
 
 echo [1] 清理旧的编译文件...
 if exist "target" rmdir /s /q "target"
 if exist "bin" rmdir /s /q "bin"
-mkdir target\classes
 
-echo [2] 使用UTF-8编码编译Java文件...
-javac -encoding UTF-8 -d target/classes ^
-    -sourcepath src/main/java ^
-    -cp ".;target/classes" ^
-    src/main/java/com/xiangqi/model/*.java
-
-javac -encoding UTF-8 -d target/classes ^
-    -sourcepath src/main/java ^
-    -cp ".;target/classes" ^
-    src/main/java/com/xiangqi/ai/*.java
-
-javac -encoding UTF-8 -d target/classes ^
-    -sourcepath src/main/java ^
-    -cp ".;target/classes" ^
-    src/main/java/com/xiangqi/controller/*.java
-
-javac -encoding UTF-8 -d target/classes ^
-    -sourcepath src/main/java ^
-    -cp ".;target/classes" ^
-    src/main/java/com/xiangqi/ui/*.java
-
-javac -encoding UTF-8 -d target/classes ^
-    -sourcepath src/main/java ^
-    -cp ".;target/classes" ^
-    src/main/java/com/xiangqi/web/*.java
-
-if exist "src\main\resources" (
-    xcopy /s /y /i "src\main\resources\*" "target\classes\" >nul
+echo [2] 使用 Maven 编译 Web 版本...
+call mvn -q -DskipTests compile
+if errorlevel 1 (
+    echo.
+    echo 编译失败！请确认 Java / Maven 环境正常。
+    exit /b 1
 )
 
 echo.
 echo [3] 编译完成！
 echo.
-echo 运行游戏请执行: run_game.bat
-pause
+echo 启动网页版请执行: run_web.bat

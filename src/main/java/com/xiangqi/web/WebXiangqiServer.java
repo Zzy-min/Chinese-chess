@@ -11,6 +11,14 @@ import com.xiangqi.model.Move;
 import com.xiangqi.model.Piece;
 import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.TacticDetector;
+import com.xiangqi.model.go.ConfigurableGoEngine;
+import com.xiangqi.model.go.GoBoard;
+import com.xiangqi.model.go.GoEngineMove;
+import com.xiangqi.model.go.GoMoveResult;
+import com.xiangqi.model.go.GoScenario;
+import com.xiangqi.model.go.GoScenarioLoader;
+import com.xiangqi.model.go.GoScoreSummary;
+import com.xiangqi.model.go.GoStone;
 import com.xiangqi.model.gomoku.BuiltinGomokuEngine;
 import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
 import com.xiangqi.model.gomoku.GomokuBoard;
@@ -44,6 +52,7 @@ public class WebXiangqiServer {
     private static final long MIN_MOVE_INTERVAL_MS = 120L;
     private static final String GAME_XIANGQI = "XIANGQI";
     private static final String GAME_GOMOKU = "GOMOKU";
+    private static final String GAME_GO = "GO";
     private static final WebXiangqiServer INSTANCE = new WebXiangqiServer();
     private static final String SID_COOKIE = "XQSID";
     private static final int HTTP_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 4);
@@ -90,7 +99,9 @@ public class WebXiangqiServer {
         server.createContext("/api/state", this::handleState);
         server.createContext("/api/new", this::handleNewGame);
         server.createContext("/api/endgame", this::handleEndgame);
+        server.createContext("/api/scenario", this::handleScenario);
         server.createContext("/api/click", this::handleClick);
+        server.createContext("/api/go/pass", this::handleGoPass);
         server.createContext("/api/undo", this::handleUndo);
         server.createContext("/api/surrender", this::handleSurrender);
         server.createContext("/api/draw", this::handleDraw);
@@ -175,18 +186,51 @@ public class WebXiangqiServer {
             session.setGomokuEnginePreference(gomokuEngine);
             if (GAME_GOMOKU.equals(gameType)) {
                 session.resetByGame(GAME_GOMOKU, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            } else if (GAME_GO.equals(gameType)) {
+                session.loadScenario(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             } else {
                 session.loadEndgame(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
             }
             return session.toJson();
         });
     }
+
+    private void handleScenario(HttpExchange exchange) throws IOException {
+        Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
+        String name = query.getOrDefault("name", "七星聚会");
+        String mode = query.getOrDefault("mode", "pvp");
+        String difficulty = query.getOrDefault("difficulty", "MEDIUM");
+        String gameType = parseGameType(query.getOrDefault("gameType", GAME_XIANGQI));
+        String xiangqiEngine = query.getOrDefault("xiangqiEngine", "");
+        String gomokuEngine = query.getOrDefault("gomokuEngine", "");
+        boolean humanFirst = !"false".equalsIgnoreCase(query.getOrDefault("humanFirst", "true"));
+        withSession(exchange, "scenario", session -> {
+            session.setXiangqiEnginePreference(xiangqiEngine);
+            session.setGomokuEnginePreference(gomokuEngine);
+            if (GAME_GO.equals(gameType)) {
+                session.loadScenario(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            } else if (GAME_GOMOKU.equals(gameType)) {
+                session.resetByGame(GAME_GOMOKU, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            } else {
+                session.loadEndgame(name, "pvc".equalsIgnoreCase(mode), parseDifficulty(difficulty), humanFirst);
+            }
+            return session.toJson();
+        });
+    }
+
     private void handleClick(HttpExchange exchange) throws IOException {
         Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
         int row = parseInt(query.get("row"), -1);
         int col = parseInt(query.get("col"), -1);
         withSession(exchange, "click", session -> {
             session.click(row, col);
+            return session.toJson();
+        });
+    }
+
+    private void handleGoPass(HttpExchange exchange) throws IOException {
+        withSession(exchange, "go_pass", session -> {
+            session.goPass();
             return session.toJson();
         });
     }
@@ -386,7 +430,13 @@ public class WebXiangqiServer {
         if (raw == null) {
             return GAME_XIANGQI;
         }
-        return GAME_GOMOKU.equalsIgnoreCase(raw) ? GAME_GOMOKU : GAME_XIANGQI;
+        if (GAME_GOMOKU.equalsIgnoreCase(raw)) {
+            return GAME_GOMOKU;
+        }
+        if (GAME_GO.equalsIgnoreCase(raw)) {
+            return GAME_GO;
+        }
+        return GAME_XIANGQI;
     }
 
     private int parseInt(String raw, int defaultValue) {
@@ -614,6 +664,8 @@ public class WebXiangqiServer {
         private final ConfigurableXiangqiEngine xiangqiAI = new ConfigurableXiangqiEngine();
         private GomokuBoard gomokuBoard = new GomokuBoard();
         private final ConfigurableGomokuEngine gomokuAI = new ConfigurableGomokuEngine();
+        private GoBoard goBoard = new GoBoard(19, 7.5d);
+        private final ConfigurableGoEngine goAI = new ConfigurableGoEngine();
         private boolean pvcMode;
         private MinimaxAI.Difficulty difficulty = MinimaxAI.Difficulty.MEDIUM;
         private int selectedRow = -1;
@@ -622,20 +674,25 @@ public class WebXiangqiServer {
         private int reviewMoveIndex;
         private String tacticText = "";
         private String currentEndgame = "标准开局";
+        private String currentScenario = "标准开局";
         private long tacticUntil = 0L;
         private String gomokuForbiddenReason = "";
         private GomokuStone gomokuSurrenderedStone = GomokuStone.EMPTY;
+        private GoStone goSurrenderedStone = GoStone.EMPTY;
         private long lastMoveAt = 0L;
         private boolean aiPending = false;
         private long aiDueAt = 0L;
         private long aiEpoch = 0L;
         private CompletableFuture<Move> aiFuture = null;
         private CompletableFuture<int[]> gomokuAiFuture = null;
+        private CompletableFuture<GoEngineMove> goAiFuture = null;
         private long aiFutureEpoch = -1L;
         private PieceColor aiFutureColor = null;
         private long gomokuAiFutureEpoch = -1L;
+        private long goAiFutureEpoch = -1L;
         private PieceColor surrenderedColor = null;
         private GomokuStone gomokuHumanStone = GomokuStone.BLACK;
+        private GoStone goHumanStone = GoStone.BLACK;
         private PieceColor trackedTurn = null;
         private long turnStartedAt = System.currentTimeMillis();
         private int redCompletedMoves = 0;
@@ -674,10 +731,14 @@ public class WebXiangqiServer {
         }
 
         void resetByGame(String gameType, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
-            this.gameType = GAME_GOMOKU.equalsIgnoreCase(gameType) ? GAME_GOMOKU : GAME_XIANGQI;
-            if (isGomoku()) {
+            if (GAME_GOMOKU.equalsIgnoreCase(gameType)) {
+                this.gameType = GAME_GOMOKU;
                 resetGomoku(pvcMode, difficulty, humanFirst);
+            } else if (GAME_GO.equalsIgnoreCase(gameType)) {
+                this.gameType = GAME_GO;
+                resetGo(pvcMode, difficulty, humanFirst);
             } else {
+                this.gameType = GAME_XIANGQI;
                 reset(pvcMode, difficulty, humanFirst);
             }
         }
@@ -695,6 +756,7 @@ public class WebXiangqiServer {
             this.tacticText = "";
             this.tacticUntil = 0L;
             this.currentEndgame = "标准开局";
+            this.currentScenario = "标准开局";
             this.lastMoveAt = 0L;
             this.aiPending = false;
             this.aiDueAt = 0L;
@@ -704,9 +766,14 @@ public class WebXiangqiServer {
             this.aiFutureColor = null;
             this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
+            this.goAiFuture = null;
+            this.goAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.goSurrenderedStone = GoStone.EMPTY;
             this.gomokuForbiddenReason = "";
+            this.goBoard = new GoBoard(19, 7.5d);
+            this.goHumanStone = GoStone.BLACK;
             this.trackedTurn = board.getCurrentTurn();
             this.turnStartedAt = System.currentTimeMillis();
             this.redCompletedMoves = 0;
@@ -743,6 +810,7 @@ public class WebXiangqiServer {
             this.tacticText = "";
             this.tacticUntil = 0L;
             this.currentEndgame = "标准开局";
+            this.currentScenario = "标准开局";
             this.gomokuForbiddenReason = "";
             this.lastMoveAt = 0L;
             this.aiPending = false;
@@ -753,8 +821,13 @@ public class WebXiangqiServer {
             this.aiFutureColor = null;
             this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
+            this.goAiFuture = null;
+            this.goAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.goSurrenderedStone = GoStone.EMPTY;
+            this.goBoard = new GoBoard(19, 7.5d);
+            this.goHumanStone = GoStone.BLACK;
             this.trackedTurn = null;
             this.turnStartedAt = System.currentTimeMillis();
             this.redCompletedMoves = 0;
@@ -774,6 +847,63 @@ public class WebXiangqiServer {
             this.tacticSeq++;
 
             if (pvcMode && gomokuBoard.getCurrentTurn() != gomokuHumanStone && !gomokuBoard.isGameOver()) {
+                aiPending = true;
+                aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
+            }
+        }
+
+        private void resetGo(boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            this.goBoard = new GoBoard(19, 7.5d);
+            this.pvcMode = pvcMode && goAI.isAvailable();
+            this.difficulty = difficulty;
+            this.goHumanStone = humanFirst ? GoStone.BLACK : GoStone.WHITE;
+            this.selectedRow = -1;
+            this.selectedCol = -1;
+            this.reviewMode = false;
+            this.reviewMoveIndex = 0;
+            this.currentEndgame = "标准开局";
+            this.currentScenario = "标准开局";
+            this.gomokuForbiddenReason = "";
+            this.goSurrenderedStone = GoStone.EMPTY;
+            this.lastMoveAt = 0L;
+            this.aiPending = false;
+            this.aiDueAt = 0L;
+            this.aiEpoch++;
+            this.aiFuture = null;
+            this.aiFutureEpoch = -1L;
+            this.aiFutureColor = null;
+            this.gomokuAiFuture = null;
+            this.gomokuAiFutureEpoch = -1L;
+            this.goAiFuture = null;
+            this.goAiFutureEpoch = -1L;
+            this.surrenderedColor = null;
+            this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.trackedTurn = null;
+            this.turnStartedAt = System.currentTimeMillis();
+            this.redCompletedMoves = 0;
+            this.blackCompletedMoves = 0;
+            this.started = true;
+            this.timeoutLoser = null;
+            this.timeoutType = null;
+            this.redTotalRemainingMs = -1L;
+            this.blackTotalRemainingMs = -1L;
+            this.lastTickAt = System.currentTimeMillis();
+            this.pvpClockEnabled = false;
+            this.agreedDraw = false;
+            this.autoDraw = false;
+            this.drawReason = "";
+            this.noCaptureHalfMoves = 0;
+            this.positionCount.clear();
+            if (pvcMode && !this.pvcMode) {
+                this.tacticText = "围棋引擎未就绪，已切换为双人";
+                this.tacticUntil = System.currentTimeMillis() + 900L;
+                this.tacticSeq++;
+            } else {
+                this.tacticText = "";
+                this.tacticUntil = 0L;
+            }
+
+            if (this.pvcMode && goBoard.getCurrentTurn() != goHumanStone) {
                 aiPending = true;
                 aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
             }
@@ -807,6 +937,7 @@ public class WebXiangqiServer {
             this.tacticText = "";
             this.tacticUntil = 0L;
             this.currentEndgame = endgameName;
+            this.currentScenario = "标准开局";
             this.lastMoveAt = 0L;
             this.aiPending = false;
             this.aiDueAt = 0L;
@@ -816,8 +947,13 @@ public class WebXiangqiServer {
             this.aiFutureColor = null;
             this.gomokuAiFuture = null;
             this.gomokuAiFutureEpoch = -1L;
+            this.goAiFuture = null;
+            this.goAiFutureEpoch = -1L;
             this.surrenderedColor = null;
             this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.goSurrenderedStone = GoStone.EMPTY;
+            this.goBoard = new GoBoard(19, 7.5d);
+            this.goHumanStone = GoStone.BLACK;
             this.trackedTurn = board.getCurrentTurn();
             this.turnStartedAt = System.currentTimeMillis();
             this.redCompletedMoves = 0;
@@ -842,15 +978,83 @@ public class WebXiangqiServer {
             }
         }
 
+        void loadScenario(String scenarioName, boolean pvcMode, MinimaxAI.Difficulty difficulty, boolean humanFirst) {
+            this.gameType = GAME_GO;
+            this.goBoard = new GoBoard(19, 7.5d);
+            GoScenario scenario = GoScenarioLoader.findByName(scenarioName);
+            if (scenario != null) {
+                this.goBoard.loadPosition(scenario.getRows(), scenario.getTurn());
+                this.currentScenario = scenario.getName();
+            } else {
+                this.currentScenario = "标准开局";
+            }
+            this.pvcMode = pvcMode && goAI.isAvailable();
+            this.difficulty = difficulty;
+            this.goHumanStone = humanFirst ? GoStone.BLACK : GoStone.WHITE;
+            this.selectedRow = -1;
+            this.selectedCol = -1;
+            this.reviewMode = false;
+            this.reviewMoveIndex = 0;
+            this.tacticText = "";
+            this.tacticUntil = 0L;
+            this.currentEndgame = "标准开局";
+            this.lastMoveAt = 0L;
+            this.aiPending = false;
+            this.aiDueAt = 0L;
+            this.aiEpoch++;
+            this.aiFuture = null;
+            this.aiFutureEpoch = -1L;
+            this.aiFutureColor = null;
+            this.gomokuAiFuture = null;
+            this.gomokuAiFutureEpoch = -1L;
+            this.goAiFuture = null;
+            this.goAiFutureEpoch = -1L;
+            this.surrenderedColor = null;
+            this.gomokuSurrenderedStone = GomokuStone.EMPTY;
+            this.goSurrenderedStone = GoStone.EMPTY;
+            this.gomokuForbiddenReason = "";
+            this.trackedTurn = null;
+            this.turnStartedAt = System.currentTimeMillis();
+            this.redCompletedMoves = 0;
+            this.blackCompletedMoves = 0;
+            this.started = true;
+            this.timeoutLoser = null;
+            this.timeoutType = null;
+            this.redTotalRemainingMs = -1L;
+            this.blackTotalRemainingMs = -1L;
+            this.lastTickAt = System.currentTimeMillis();
+            this.pvpClockEnabled = false;
+            this.agreedDraw = false;
+            this.autoDraw = false;
+            this.drawReason = "";
+            this.noCaptureHalfMoves = 0;
+            this.positionCount.clear();
+
+            if (pvcMode && !this.pvcMode) {
+                this.tacticText = "围棋引擎未就绪，已切换为双人";
+                this.tacticUntil = System.currentTimeMillis() + 900L;
+                this.tacticSeq++;
+            }
+
+            if (this.pvcMode && goBoard.getCurrentTurn() != goHumanStone) {
+                aiPending = true;
+                aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
+            }
+        }
+
         private boolean isGomoku() {
             return GAME_GOMOKU.equals(gameType);
+        }
+
+        private boolean isGo() {
+            return GAME_GO.equals(gameType);
         }
 
         void startReview() {
             if (!started) {
                 return;
             }
-            boolean can = isGomoku() ? gomokuBoard.canUndo() : board.canUndo();
+            boolean can = isGomoku() ? gomokuBoard.canUndo() : (isGo() ? goBoard.canUndo() : board.canUndo());
             if (can) {
                 reviewMode = true;
                 reviewMoveIndex = 0;
@@ -873,7 +1077,7 @@ public class WebXiangqiServer {
         }
 
         void reviewNext() {
-            int maxMove = isGomoku() ? gomokuBoard.getMoveCount() : board.getMoveCount();
+            int maxMove = isGomoku() ? gomokuBoard.getMoveCount() : (isGo() ? goBoard.getMoveCount() : board.getMoveCount());
             if (reviewMode && reviewMoveIndex < maxMove) {
                 reviewMoveIndex++;
             }
@@ -886,6 +1090,10 @@ public class WebXiangqiServer {
             tick();
             if (isGomoku()) {
                 clickGomoku(row, col);
+                return;
+            }
+            if (isGo()) {
+                clickGo(row, col);
                 return;
             }
             if (row < 0 || row >= Board.ROWS || col < 0 || col >= Board.COLS || isGameOver()) {
@@ -968,6 +1176,55 @@ public class WebXiangqiServer {
             }
         }
 
+        private void clickGo(int row, int col) {
+            if (row < 0 || row >= goBoard.getSize() || col < 0 || col >= goBoard.getSize() || isGameOver()) {
+                return;
+            }
+            if (pvcMode && goBoard.getCurrentTurn() != goHumanStone) {
+                return;
+            }
+            GoMoveResult result = goBoard.place(row, col);
+            if (!result.isSuccess()) {
+                tacticText = result.getReason();
+                tacticUntil = System.currentTimeMillis() + 700L;
+                tacticSeq++;
+                return;
+            }
+            markMove();
+            aiEpoch++;
+            tacticText = result.getCapturedStones() > 0 ? "提子" : "";
+            if (!tacticText.isEmpty()) {
+                tacticUntil = System.currentTimeMillis() + 500L;
+                tacticSeq++;
+            }
+            if (pvcMode && !isGameOver() && goBoard.getCurrentTurn() != goHumanStone) {
+                aiPending = true;
+                aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
+            }
+        }
+
+        void goPass() {
+            if (!started || reviewMode || !isGo() || isGameOver()) {
+                return;
+            }
+            if (pvcMode && goBoard.getCurrentTurn() != goHumanStone) {
+                return;
+            }
+            GoMoveResult result = goBoard.pass();
+            if (!result.isSuccess()) {
+                return;
+            }
+            markMove();
+            aiEpoch++;
+            tacticText = goBoard.getConsecutivePasses() >= 2 ? "双方停一手，已计分" : "停一手";
+            tacticUntil = System.currentTimeMillis() + 700L;
+            tacticSeq++;
+            if (pvcMode && goBoard.getCurrentTurn() != goHumanStone) {
+                aiPending = true;
+                aiDueAt = System.currentTimeMillis() + getAiMoveIntervalMs();
+            }
+        }
+
         void undo() {
             if (!started || reviewMode || isGameOver()) {
                 return;
@@ -997,6 +1254,34 @@ public class WebXiangqiServer {
                 drawReason = "";
                 tacticText = "";
                 gomokuForbiddenReason = "";
+                return;
+            }
+            if (isGo()) {
+                if (!goBoard.canUndo()) {
+                    return;
+                }
+                if (pvcMode) {
+                    goBoard.undoMove();
+                    if (goBoard.canUndo()) {
+                        goBoard.undoMove();
+                    }
+                } else {
+                    goBoard.undoMove();
+                }
+                selectedRow = -1;
+                selectedCol = -1;
+                aiEpoch++;
+                aiFuture = null;
+                aiFutureEpoch = -1L;
+                aiFutureColor = null;
+                gomokuAiFuture = null;
+                gomokuAiFutureEpoch = -1L;
+                goAiFuture = null;
+                goAiFutureEpoch = -1L;
+                agreedDraw = false;
+                autoDraw = false;
+                drawReason = "";
+                tacticText = "";
                 return;
             }
             if (!board.canUndo()) {
@@ -1039,6 +1324,17 @@ public class WebXiangqiServer {
                 selectedCol = -1;
                 return;
             }
+            if (isGo()) {
+                goSurrenderedStone = goBoard.getCurrentTurn();
+                aiPending = false;
+                aiDueAt = 0L;
+                aiEpoch++;
+                goAiFuture = null;
+                goAiFutureEpoch = -1L;
+                selectedRow = -1;
+                selectedCol = -1;
+                return;
+            }
             surrenderedColor = board.getCurrentTurn();
             aiPending = false;
             aiDueAt = 0L;
@@ -1070,6 +1366,9 @@ public class WebXiangqiServer {
             if (isGomoku()) {
                 return timeoutLoser != null || gomokuSurrenderedStone != GomokuStone.EMPTY || agreedDraw || autoDraw || gomokuBoard.isGameOver();
             }
+            if (isGo()) {
+                return goSurrenderedStone != GoStone.EMPTY || agreedDraw;
+            }
             return timeoutLoser != null || surrenderedColor != null || agreedDraw || autoDraw || board.isGameOver();
         }
 
@@ -1089,6 +1388,22 @@ public class WebXiangqiServer {
                 }
                 String result = gomokuBoard.getGameResult();
                 return result == null ? "" : result;
+            }
+            if (isGo()) {
+                if (goSurrenderedStone == GoStone.BLACK) {
+                    return "黑方认输！白方获胜";
+                }
+                if (goSurrenderedStone == GoStone.WHITE) {
+                    return "白方认输！黑方获胜";
+                }
+                if (agreedDraw) {
+                    return (drawReason == null || drawReason.isEmpty()) ? "和棋" : drawReason;
+                }
+                GoScoreSummary summary = goBoard.getScoreSummary();
+                if (summary != null) {
+                    return summary.getResultText() + "（双停后计分，可继续落子）";
+                }
+                return "";
             }
             if (timeoutLoser == PieceColor.RED) {
                 return "TOTAL".equals(timeoutType) ? "红方总时超时！黑方获胜" : "红方步时超限！黑方获胜";
@@ -1137,7 +1452,7 @@ public class WebXiangqiServer {
             if (!started || reviewMode || isGameOver()) {
                 return -1;
             }
-            if (isGomoku()) {
+            if (isGomoku() || isGo()) {
                 return -1;
             }
             if (!pvcMode && !pvpClockEnabled) {
@@ -1156,6 +1471,10 @@ public class WebXiangqiServer {
             }
             if (isGomoku()) {
                 tickGomoku();
+                return;
+            }
+            if (isGo()) {
+                tickGo();
                 return;
             }
             long now = System.currentTimeMillis();
@@ -1330,6 +1649,58 @@ public class WebXiangqiServer {
                 gomokuAI.findBestMove(snapshot, aiStone, currentDifficulty), AI_EXECUTOR);
         }
 
+        private void tickGo() {
+            if (!aiPending || reviewMode || isGameOver() || !pvcMode) {
+                return;
+            }
+            if (System.currentTimeMillis() < aiDueAt) {
+                return;
+            }
+            if (goBoard.getCurrentTurn() == goHumanStone) {
+                aiPending = false;
+                return;
+            }
+            if (goAiFuture != null) {
+                if (!goAiFuture.isDone()) {
+                    return;
+                }
+                GoEngineMove aiMove;
+                try {
+                    aiMove = goAiFuture.getNow(null);
+                } catch (Exception ignored) {
+                    aiMove = null;
+                }
+                if (aiMove == null || !isLegalGoMove(aiMove)) {
+                    aiMove = findFirstLegalGoMove();
+                }
+                if (goAiFutureEpoch == aiEpoch && aiMove != null) {
+                    GoMoveResult placed = aiMove.isPass()
+                        ? goBoard.pass()
+                        : goBoard.place(aiMove.getRow(), aiMove.getCol());
+                    if (placed != null && placed.isSuccess()) {
+                        markMove();
+                        if (aiMove.isPass()) {
+                            tacticText = goBoard.getConsecutivePasses() >= 2 ? "双方停一手，已计分" : "停一手";
+                            tacticUntil = System.currentTimeMillis() + 700L;
+                            tacticSeq++;
+                        }
+                        aiEpoch++;
+                    }
+                }
+                goAiFuture = null;
+                goAiFutureEpoch = -1L;
+                aiPending = false;
+                return;
+            }
+            final GoBoard snapshot = snapshotGoBoard();
+            final MinimaxAI.Difficulty currentDifficulty = this.difficulty;
+            final GoStone aiStone = goBoard.getCurrentTurn();
+            final long launchEpoch = aiEpoch;
+            goAiFutureEpoch = launchEpoch;
+            goAiFuture = CompletableFuture.supplyAsync(() ->
+                goAI.genMove(snapshot, aiStone, currentDifficulty), AI_EXECUTOR);
+        }
+
         private int[] findBuiltinGomokuMove() {
             try {
                 GomokuBoard snapshot = new GomokuBoard(gomokuBoard);
@@ -1368,6 +1739,35 @@ public class WebXiangqiServer {
             return null;
         }
 
+        private boolean isLegalGoMove(GoEngineMove move) {
+            if (move == null) {
+                return false;
+            }
+            if (move.isPass()) {
+                return true;
+            }
+            GoBoard test = snapshotGoBoard();
+            GoMoveResult result = test.place(move.getRow(), move.getCol());
+            return result.isSuccess();
+        }
+
+        private GoEngineMove findFirstLegalGoMove() {
+            for (int row = 0; row < goBoard.getSize(); row++) {
+                for (int col = 0; col < goBoard.getSize(); col++) {
+                    GoBoard test = snapshotGoBoard();
+                    GoMoveResult result = test.place(row, col);
+                    if (result.isSuccess()) {
+                        return new GoEngineMove(row, col, false);
+                    }
+                }
+            }
+            return GoEngineMove.pass();
+        }
+
+        private GoBoard snapshotGoBoard() {
+            return new GoBoard(goBoard);
+        }
+
         private boolean canMoveNow() {
             // 双人同屏不做人为最短步间隔，提升手感
             if (!pvcMode) {
@@ -1379,6 +1779,15 @@ public class WebXiangqiServer {
         private long getAiMoveIntervalMs() {
             if (!pvcMode) {
                 return 0L;
+            }
+            if (isGo()) {
+                if (difficulty == MinimaxAI.Difficulty.EASY) {
+                    return 20L;
+                }
+                if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
+                    return 35L;
+                }
+                return 45L;
             }
             if (isGomoku()) {
                 if (difficulty == MinimaxAI.Difficulty.EASY) {
@@ -1476,6 +1885,9 @@ public class WebXiangqiServer {
             if (isGomoku()) {
                 return toJsonGomoku();
             }
+            if (isGo()) {
+                return toJsonGo();
+            }
             Board boardToDraw = reviewMode ? board.getBoardAtMove(reviewMoveIndex) : board;
             if (boardToDraw == null) {
                 boardToDraw = board;
@@ -1493,6 +1905,7 @@ public class WebXiangqiServer {
             sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
             sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
             sb.append("\"difficultyText\":\"").append(difficulty.getDisplayName()).append("\",");
+            sb.append("\"goEngineAvailable\":").append(goAI.isAvailable()).append(',');
             sb.append("\"xiangqiAiEngine\":\"").append(escape(xiangqiAI.getEngineId())).append("\",");
             sb.append("\"xiangqiAiEngineText\":\"").append(escape(xiangqiAI.getEngineText())).append("\",");
             sb.append("\"xiangqiAiSelected\":\"").append(escape(xiangqiAI.getPreferredEngine())).append("\",");
@@ -1547,6 +1960,96 @@ public class WebXiangqiServer {
             return sb.toString();
         }
 
+        private String toJsonGo() {
+            GoStone[][] boardToDraw = reviewMode ? goBoard.getBoardAtMove(reviewMoveIndex) : goBoard.getBoardAtMove(goBoard.getMoveCount());
+            if (boardToDraw == null) {
+                boardToDraw = goBoard.getBoardAtMove(goBoard.getMoveCount());
+            }
+
+            StringBuilder sb = new StringBuilder(8192);
+            sb.append('{');
+            sb.append("\"seq\":").append(++responseSeq).append(',');
+            sb.append("\"gameType\":\"").append(GAME_GO).append("\",");
+            sb.append("\"boardSize\":").append(goBoard.getSize()).append(',');
+            sb.append("\"boardRows\":").append(goBoard.getSize()).append(',');
+            sb.append("\"boardCols\":").append(goBoard.getSize()).append(',');
+            sb.append("\"ruleset\":\"go_cn_area_komi_7_5\",");
+            sb.append("\"started\":").append(started).append(',');
+            sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
+            sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
+            sb.append("\"difficultyText\":\"").append(difficulty.getDisplayName()).append("\",");
+            sb.append("\"goEngineAvailable\":").append(goAI.isAvailable()).append(',');
+            sb.append("\"goAiEngine\":\"").append(escape(goAI.getEngineName())).append("\",");
+            sb.append("\"goAiEngineText\":\"").append(escape(goAI.getEngineName())).append("\",");
+            sb.append("\"pvcHumanColor\":\"").append(goHumanStone.name()).append("\",");
+            sb.append("\"endgame\":\"").append(escape(currentScenario)).append("\",");
+            sb.append("\"currentTurn\":\"").append(goBoard.getCurrentTurn().name()).append("\",");
+            sb.append("\"gameOver\":").append(isGameOver()).append(',');
+            sb.append("\"canDraw\":").append(started && !reviewMode && !isGameOver() && !pvcMode).append(',');
+            sb.append("\"result\":\"").append(escape(getGameResult())).append("\",");
+            sb.append("\"drawReason\":\"").append(escape(agreedDraw ? drawReason : "")).append("\",");
+            sb.append("\"selectedRow\":-1,");
+            sb.append("\"selectedCol\":-1,");
+            sb.append("\"canReview\":").append(goBoard.canUndo()).append(',');
+            sb.append("\"reviewMode\":").append(reviewMode).append(',');
+            sb.append("\"reviewMoveIndex\":").append(reviewMoveIndex).append(',');
+            sb.append("\"reviewMaxMove\":").append(goBoard.getMoveCount()).append(',');
+            sb.append("\"stepRemainSec\":-1,");
+            sb.append("\"redTotalSec\":-1,");
+            sb.append("\"blackTotalSec\":-1,");
+            sb.append("\"tacticText\":\"").append(escape(tacticText)).append("\",");
+            sb.append("\"tacticSeq\":").append(tacticSeq).append(',');
+            appendRecentMovesGo(sb, reviewMode ? reviewMoveIndex : goBoard.getMoveCount());
+            sb.append(',');
+            sb.append("\"go\":{");
+            sb.append("\"komi\":").append(goBoard.getKomi()).append(',');
+            sb.append("\"engineAvailable\":").append(goAI.isAvailable()).append(',');
+            sb.append("\"scenarioName\":\"").append(escape(currentScenario)).append("\",");
+            sb.append("\"consecutivePasses\":").append(goBoard.getConsecutivePasses()).append(',');
+            sb.append("\"captures\":{\"black\":").append(goBoard.getBlackCaptures()).append(",\"white\":").append(goBoard.getWhiteCaptures()).append("},");
+            sb.append("\"score\":");
+            GoScoreSummary summary = goBoard.getScoreSummary();
+            if (summary == null) {
+                sb.append("null");
+            } else {
+                sb.append('{');
+                sb.append("\"blackArea\":").append(summary.getBlackArea()).append(',');
+                sb.append("\"whiteArea\":").append(summary.getWhiteArea()).append(',');
+                sb.append("\"komi\":").append(summary.getKomi()).append(',');
+                sb.append("\"finalScore\":").append(summary.getFinalScore()).append(',');
+                sb.append("\"winner\":\"").append(escape(summary.getWinner())).append("\",");
+                sb.append("\"resultText\":\"").append(escape(summary.getResultText())).append("\"");
+                sb.append('}');
+            }
+            sb.append("},");
+            sb.append("\"board\":[");
+            for (int row = 0; row < goBoard.getSize(); row++) {
+                if (row > 0) {
+                    sb.append(',');
+                }
+                sb.append('[');
+                for (int col = 0; col < goBoard.getSize(); col++) {
+                    if (col > 0) {
+                        sb.append(',');
+                    }
+                    GoStone stone = boardToDraw[row][col];
+                    if (stone == GoStone.EMPTY) {
+                        sb.append("null");
+                    } else {
+                        sb.append("{\"name\":\"")
+                            .append(stone.getDisplayText())
+                            .append("\",\"color\":\"")
+                            .append(stone.name())
+                            .append("\"}");
+                    }
+                }
+                sb.append(']');
+            }
+            sb.append(']');
+            sb.append('}');
+            return sb.toString();
+        }
+
         private String toJsonGomoku() {
             GomokuStone[][] boardToDraw = reviewMode ? gomokuBoard.getBoardAtMove(reviewMoveIndex) : gomokuBoard.getBoardAtMove(gomokuBoard.getMoveCount());
             if (boardToDraw == null) {
@@ -1565,6 +2068,7 @@ public class WebXiangqiServer {
             sb.append("\"mode\":\"").append(pvcMode ? "PVC" : "PVP").append("\",");
             sb.append("\"difficulty\":\"").append(difficulty.name()).append("\",");
             sb.append("\"difficultyText\":\"").append(difficulty.getDisplayName()).append("\",");
+            sb.append("\"goEngineAvailable\":").append(goAI.isAvailable()).append(',');
             sb.append("\"gomokuAiEngine\":\"").append(escape(gomokuAI.getEngineId())).append("\",");
             sb.append("\"gomokuAiEngineText\":\"").append(escape(gomokuAI.getEngineText())).append("\",");
             sb.append("\"gomokuAiSelected\":\"").append(escape(gomokuAI.getPreferredEngine())).append("\",");
@@ -1754,6 +2258,29 @@ public class WebXiangqiServer {
             sb.append(']');
         }
 
+        private void appendRecentMovesGo(StringBuilder sb, int moveIndex) {
+            List<GoBoard.GoHistoryEntry> history = goBoard.getMoveHistory();
+            sb.append("\"recentMoves\":[");
+            int total = Math.min(moveIndex, history.size());
+            int show = Math.min(2, total);
+            for (int i = 0; i < show; i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                GoBoard.GoHistoryEntry move = history.get(total - 1 - i);
+                sb.append('{');
+                sb.append("\"order\":").append(i + 1).append(',');
+                sb.append("\"color\":\"").append(move.getStone().name()).append("\",");
+                sb.append("\"fromRow\":").append(move.isPass() ? -1 : move.getRow()).append(',');
+                sb.append("\"fromCol\":").append(move.isPass() ? -1 : move.getCol()).append(',');
+                sb.append("\"toRow\":").append(move.isPass() ? -1 : move.getRow()).append(',');
+                sb.append("\"toCol\":").append(move.isPass() ? -1 : move.getCol()).append(',');
+                sb.append("\"pass\":").append(move.isPass());
+                sb.append('}');
+            }
+            sb.append(']');
+        }
+
         private String escape(String input) {
             if (input == null) {
                 return "";
@@ -1764,6 +2291,7 @@ public class WebXiangqiServer {
         void close() {
             xiangqiAI.close();
             gomokuAI.close();
+            goAI.close();
         }
     }
 
