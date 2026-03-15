@@ -381,6 +381,10 @@ class KataGoSession:
             except Exception:
                 proc.kill()
 
+    def ensure_started(self) -> None:
+        with self._lock:
+            self._query_name_locked()
+
     def health(self) -> dict:
         try:
             with self._lock:
@@ -611,8 +615,9 @@ class EngineService:
 
     def warm_up(self) -> None:
         try:
-            self.session.health()
-        except Exception:
+            self.session.ensure_started()
+        except Exception as exc:
+            print(f"go-engine warm up skipped: {exc}", flush=True)
             return
 
     def genmove(self, payload: dict) -> tuple[int, dict]:

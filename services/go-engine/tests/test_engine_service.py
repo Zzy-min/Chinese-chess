@@ -226,6 +226,36 @@ class EngineServiceHealthTest(unittest.TestCase):
         self.assertFalse(payload["ready"])
         self.assertEqual(0, called["health"])
 
+    def test_warm_up_uses_lightweight_start(self):
+        service = EngineService(
+            ServiceConfig(
+                bind_host="127.0.0.1",
+                port=2718,
+                engine_name="KataGo",
+                rules="chinese",
+                startup_timeout_sec=60,
+                command_timeout_sec=20,
+                difficulty_visits={"EASY": 0, "MEDIUM": 0, "HARD": 0},
+                command=["katago"],
+            )
+        )
+        called = {"ensure_started": 0, "health": 0}
+
+        def fake_ensure_started():
+            called["ensure_started"] += 1
+
+        def fail_if_called():
+            called["health"] += 1
+            raise AssertionError("warm up should not run deep health checks")
+
+        service.session.ensure_started = fake_ensure_started
+        service.session.health = fail_if_called
+
+        service.warm_up()
+
+        self.assertEqual(1, called["ensure_started"])
+        self.assertEqual(0, called["health"])
+
 
 if __name__ == "__main__":
     unittest.main()
