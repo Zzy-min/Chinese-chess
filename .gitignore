@@ -17,3 +17,4 @@ Thumbs.db
 *.log
 __pycache__/
 *.pyc
+services/go-engine/.katago/

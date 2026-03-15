@@ -54,6 +54,27 @@ python server.py
 - `GO_ENGINE_VISITS_MEDIUM`
 - `GO_ENGINE_VISITS_HARD`
 
+## Render 部署
+
+仓库根目录的 `render.yaml` 现在会在 `go-engine` 构建阶段自动执行：
+
+```text
+python bootstrap_katago.py
+```
+
+默认会下载：
+
+- 官方 `KataGo v1.16.4 eigen linux x64`
+- 默认模型 `kata1-b18c384nbt-s9996604416-d4316597426.bin.gz`
+
+并写入当前服务目录下的 `.katago/`，随后用以下默认变量启动：
+
+- `KATAGO_BIN=.katago/katago`
+- `KATAGO_CONFIG=.katago/default_gtp.cfg`
+- `KATAGO_MODEL=.katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz`
+
+如果你想切换到别的引擎包或模型，仍可以在 Render 控制台覆盖 `KATAGO_CMD`、`KATAGO_BIN`、`KATAGO_CONFIG`、`KATAGO_MODEL` 或 `KATAGO_ARGS`。
+
 ## 说明
 
 - 服务会把请求中的初始 `rows` 与后续 `moves` 一起重放到 KataGo

@@ -11,14 +11,17 @@ services:
       - key: JAVA_TOOL_OPTIONS
         value: -Xms128m -Xmx512m
       - key: XQ_GO_ENGINE_URL
-        sync: false
+        fromService:
+          name: go-engine
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
   - type: web
     name: go-engine
     runtime: python
     rootDir: services/go-engine
     plan: free
     autoDeploy: true
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python bootstrap_katago.py
     startCommand: python server.py
     healthCheckPath: /health
     envVars:
@@ -26,11 +29,13 @@ services:
         value: KataGo
       - key: GO_ENGINE_RULES
         value: chinese
+      - key: KATAGO_BIN
+        value: .katago/katago
+      - key: KATAGO_CONFIG
+        value: .katago/default_gtp.cfg
+      - key: KATAGO_MODEL
+        value: .katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz
       - key: KATAGO_CMD
         sync: false
-      - key: KATAGO_BIN
-        sync: false
-      - key: KATAGO_CONFIG
-        sync: false
-      - key: KATAGO_MODEL
+      - key: KATAGO_ARGS
         sync: false
