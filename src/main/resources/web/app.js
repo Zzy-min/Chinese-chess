@@ -368,7 +368,7 @@ function syncGamePanels(gameType) {
       : "围棋人机需要配置 XQ_GO_ENGINE_URL；当前仅开放双人对局与题库。";
   }
   if (ui.goPass) {
-    ui.goPass.style.display = isGoGame ? "" : "none";
+    ui.goPass.style.display = isGoGame ? "flex" : "none";
   }
   if (ui.drawBtn) {
     ui.drawBtn.style.display = isGoGame ? "none" : "";
