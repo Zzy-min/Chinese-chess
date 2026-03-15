@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from io import BytesIO
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -32,6 +33,34 @@ class InstallPlanTest(unittest.TestCase):
             base_dir / ".katago" / "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
             plan.model_path,
         )
+
+
+class DownloadFileTest(unittest.TestCase):
+    def test_download_file_sends_user_agent(self):
+        seen = {}
+
+        class FakeResponse(BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                self.close()
+
+        def fake_urlopen(request):
+            seen["user_agent"] = request.headers.get("User-agent")
+            return FakeResponse(b"ok")
+
+        original = bootstrap_katago.urllib.request.urlopen
+        try:
+            bootstrap_katago.urllib.request.urlopen = fake_urlopen
+            with tempfile.TemporaryDirectory() as tmp:
+                target = pathlib.Path(tmp) / "download.bin"
+                bootstrap_katago.download_file("https://example.com/test.bin", target)
+                self.assertEqual(b"ok", target.read_bytes())
+        finally:
+            bootstrap_katago.urllib.request.urlopen = original
+
+        self.assertTrue(seen.get("user_agent"))
 
 
 class EnsureAssetsTest(unittest.TestCase):

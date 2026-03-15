@@ -69,7 +69,14 @@ def default_install_plan(base_dir: Path, system_name: str | None = None) -> Inst
 
 def download_file(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url) as response, destination.open("wb") as output:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; XiangqiGoEngineBootstrap/1.0)",
+            "Accept": "*/*",
+        },
+    )
+    with urllib.request.urlopen(request) as response, destination.open("wb") as output:
         shutil.copyfileobj(response, output)
 
 
