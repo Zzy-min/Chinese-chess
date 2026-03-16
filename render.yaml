@@ -44,7 +44,7 @@ services:
       - key: KATAGO_CONFIG
         value: .katago/default_gtp.cfg
       - key: KATAGO_MODEL
-        value: .katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz
+        value: .katago/kata1-b6c96-s175395328-d26788732.txt.gz
       - key: KATAGO_CMD
         sync: false
       - key: KATAGO_ARGS
