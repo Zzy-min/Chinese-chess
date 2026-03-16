@@ -153,8 +153,9 @@ public final class ConfigurableGoEngine implements GoEngine {
                 .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() / 100 == 2) {
-                updateEngineName(response.body());
-                return true;
+                String body = response.body();
+                updateEngineName(body);
+                return readBoolean(body, "ready", true).booleanValue();
             }
         } catch (Exception ignored) {
             // ignore
