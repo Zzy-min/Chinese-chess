@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterable, Optional
 
 
@@ -329,7 +330,11 @@ def build_engine_command() -> list[str]:
         return []
     command = [binary, "gtp"]
     config_path = os.getenv("KATAGO_CONFIG", "").strip()
-    model_path = os.getenv("KATAGO_MODEL", "").strip()
+    model_path = resolve_model_path(
+        os.getenv("KATAGO_MODEL", "").strip(),
+        binary,
+        config_path,
+    )
     extra_args = os.getenv("KATAGO_ARGS", "").strip()
     if config_path:
         command.extend(["-config", config_path])
@@ -338,6 +343,27 @@ def build_engine_command() -> list[str]:
     if extra_args:
         command.extend(shlex.split(extra_args, posix=os.name != "nt"))
     return command
+
+
+def resolve_model_path(model_path: str, binary_path: str, config_path: str) -> str:
+    candidate = (model_path or "").strip()
+    if candidate and Path(candidate).exists():
+        return candidate
+    search_roots = []
+    for raw in [candidate, binary_path, config_path]:
+        raw = (raw or "").strip()
+        if not raw:
+            continue
+        parent = Path(raw).expanduser().resolve().parent
+        if parent not in search_roots:
+            search_roots.append(parent)
+    patterns = ["kata*.txt.gz", "kata*.bin.gz", "kata*.bin"]
+    for root in search_roots:
+        for pattern in patterns:
+            matches = sorted(root.glob(pattern))
+            if matches:
+                return str(matches[0])
+    return candidate
 
 
 class KataGoSession:

@@ -1,7 +1,9 @@
 import pathlib
 import sys
 import io
+import os
 import unittest
+from tempfile import TemporaryDirectory
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -284,6 +286,35 @@ class EngineServiceHealthTest(unittest.TestCase):
         self.assertEqual(137, payload["exitCode"])
         self.assertEqual(["load model failed", "out of memory"], payload["stderrTail"])
         self.assertFalse(payload["ready"])
+
+
+class BuildEngineCommandTest(unittest.TestCase):
+    def test_falls_back_to_existing_model_file_when_configured_path_is_missing(self):
+        with TemporaryDirectory() as temp_dir:
+            katago_dir = pathlib.Path(temp_dir) / ".katago"
+            katago_dir.mkdir(parents=True, exist_ok=True)
+            binary_path = katago_dir / "katago"
+            config_path = katago_dir / "default_gtp.cfg"
+            fallback_model = katago_dir / "kata1-b6c96-s175395328-d26788732.txt.gz"
+            binary_path.write_text("", encoding="utf-8")
+            config_path.write_text("", encoding="utf-8")
+            fallback_model.write_text("", encoding="utf-8")
+            original_env = {key: os.environ.get(key) for key in ["KATAGO_CMD", "KATAGO_BIN", "KATAGO_CONFIG", "KATAGO_MODEL", "KATAGO_ARGS"]}
+            os.environ.pop("KATAGO_CMD", None)
+            os.environ["KATAGO_BIN"] = str(binary_path)
+            os.environ["KATAGO_CONFIG"] = str(config_path)
+            os.environ["KATAGO_MODEL"] = str(katago_dir / "missing-model.bin.gz")
+            os.environ.pop("KATAGO_ARGS", None)
+            try:
+                command = engine_service.build_engine_command()
+            finally:
+                for key, value in original_env.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+
+        self.assertIn(str(fallback_model), command)
 
 
 class KataGoSessionWarmupTest(unittest.TestCase):
