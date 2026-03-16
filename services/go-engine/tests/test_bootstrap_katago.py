@@ -24,13 +24,13 @@ class InstallPlanTest(unittest.TestCase):
             plan.engine_url,
         )
         self.assertEqual(
-            "https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-b10c128-s1141046784-d204142634.bin.gz",
+            "https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
             plan.model_url,
         )
         self.assertEqual(base_dir / ".katago" / "katago", plan.binary_path)
         self.assertEqual(base_dir / ".katago" / "default_gtp.cfg", plan.config_path)
         self.assertEqual(
-            base_dir / ".katago" / "kata1-b10c128-s1141046784-d204142634.bin.gz",
+            base_dir / ".katago" / "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
             plan.model_path,
         )
 
