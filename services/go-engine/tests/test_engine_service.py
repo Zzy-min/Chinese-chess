@@ -257,5 +257,40 @@ class EngineServiceHealthTest(unittest.TestCase):
         self.assertEqual(0, called["health"])
 
 
+class KataGoSessionWarmupTest(unittest.TestCase):
+    def test_ensure_started_only_spawns_engine_process(self):
+        session = KataGoSession(
+            ServiceConfig(
+                bind_host="127.0.0.1",
+                port=2718,
+                engine_name="KataGo",
+                rules="chinese",
+                startup_timeout_sec=60,
+                command_timeout_sec=20,
+                difficulty_visits={"EASY": 0, "MEDIUM": 0, "HARD": 0},
+                command=["katago"],
+            )
+        )
+        called = {"start": 0, "query_name": 0}
+        original_start = session._start_locked
+        original_query_name = session._query_name_locked
+        try:
+            session._start_locked = lambda: called.__setitem__("start", called["start"] + 1)
+
+            def fail_if_called():
+                called["query_name"] += 1
+                raise AssertionError("warm up should not wait for a GTP name response")
+
+            session._query_name_locked = fail_if_called
+
+            session.ensure_started()
+        finally:
+            session._start_locked = original_start
+            session._query_name_locked = original_query_name
+
+        self.assertEqual(1, called["start"])
+        self.assertEqual(0, called["query_name"])
+
+
 if __name__ == "__main__":
     unittest.main()

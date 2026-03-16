@@ -383,7 +383,7 @@ class KataGoSession:
 
     def ensure_started(self) -> None:
         with self._lock:
-            self._query_name_locked()
+            self._start_locked()
 
     def health(self) -> dict:
         try:
