@@ -358,7 +358,10 @@ class KataGoSession:
 
     def quick_health(self) -> dict:
         configured = bool(self.config.command)
-        running = self._proc is not None and self._proc.poll() is None
+        exit_code = None
+        if self._proc is not None:
+            exit_code = self._proc.poll()
+        running = self._proc is not None and exit_code is None
         payload = {
             "ok": configured,
             "engine": self.engine_name,
@@ -367,6 +370,11 @@ class KataGoSession:
         }
         if not configured:
             payload["error"] = "missing KATAGO_CMD or KATAGO_BIN"
+        if exit_code is not None:
+            payload["exitCode"] = exit_code
+        stderr_tail = self.stderr_tail()
+        if stderr_tail:
+            payload["stderrTail"] = stderr_tail
         return payload
 
     def stop(self) -> None:

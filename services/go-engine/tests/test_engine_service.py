@@ -256,6 +256,34 @@ class EngineServiceHealthTest(unittest.TestCase):
         self.assertEqual(1, called["ensure_started"])
         self.assertEqual(0, called["health"])
 
+    def test_health_reports_stderr_tail_and_exit_code_for_crashed_engine(self):
+        service = EngineService(
+            ServiceConfig(
+                bind_host="127.0.0.1",
+                port=2718,
+                engine_name="KataGo",
+                rules="chinese",
+                startup_timeout_sec=60,
+                command_timeout_sec=20,
+                difficulty_visits={"EASY": 0, "MEDIUM": 0, "HARD": 0},
+                command=["katago"],
+            )
+        )
+        service.session._stderr_tail = ["load model failed", "out of memory"]
+
+        class ExitedProc:
+            def poll(self):
+                return 137
+
+        service.session._proc = ExitedProc()
+
+        status, payload = service.health()
+
+        self.assertEqual(200, status)
+        self.assertEqual(137, payload["exitCode"])
+        self.assertEqual(["load model failed", "out of memory"], payload["stderrTail"])
+        self.assertFalse(payload["ready"])
+
 
 class KataGoSessionWarmupTest(unittest.TestCase):
     def test_ensure_started_only_spawns_engine_process(self):
