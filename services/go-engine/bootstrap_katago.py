@@ -13,7 +13,7 @@ from pathlib import Path
 
 KATAGO_VERSION = "v1.16.4"
 KATAGO_RELEASE_BASE = f"https://github.com/lightvector/KataGo/releases/download/{KATAGO_VERSION}"
-MODEL_FILENAME = "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz"
+MODEL_FILENAME = "kata1-b10c128-s1141046784-d204142634.bin.gz"
 MODEL_URL = (
     "https://media.katagotraining.org/uploaded/networks/models/kata1/"
     + MODEL_FILENAME
