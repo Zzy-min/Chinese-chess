@@ -523,6 +523,8 @@ class KataGoSession:
         self._stdout_queue = queue.Queue()
         self._stderr_tail = []
         try:
+            child_env = os.environ.copy()
+            child_env.setdefault("APPIMAGE_EXTRACT_AND_RUN", "1")
             self._proc = subprocess.Popen(
                 self.config.command,
                 stdin=subprocess.PIPE,
@@ -531,6 +533,7 @@ class KataGoSession:
                 text=True,
                 encoding="utf-8",
                 bufsize=1,
+                env=child_env,
             )
         except FileNotFoundError as exc:
             raise EngineConfigError(f"failed to start engine: {exc}") from exc

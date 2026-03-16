@@ -1,5 +1,6 @@
 import pathlib
 import sys
+import io
 import unittest
 
 
@@ -318,6 +319,60 @@ class KataGoSessionWarmupTest(unittest.TestCase):
 
         self.assertEqual(1, called["start"])
         self.assertEqual(0, called["query_name"])
+
+    def test_start_runs_appimage_without_fuse(self):
+        session = KataGoSession(
+            ServiceConfig(
+                bind_host="127.0.0.1",
+                port=2718,
+                engine_name="KataGo",
+                rules="chinese",
+                startup_timeout_sec=60,
+                command_timeout_sec=20,
+                difficulty_visits={"EASY": 0, "MEDIUM": 0, "HARD": 0},
+                command=["katago"],
+            )
+        )
+        captured = {}
+        original_popen = engine_service.subprocess.Popen
+
+        class FakeStdin:
+            def write(self, text):
+                return len(text)
+
+            def flush(self):
+                return None
+
+        class FakeProc:
+            def __init__(self):
+                self.stdin = FakeStdin()
+                self.stdout = io.StringIO("")
+                self.stderr = io.StringIO("")
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                return None
+
+            def wait(self, timeout=None):
+                return 0
+
+            def kill(self):
+                return None
+
+        def fake_popen(*args, **kwargs):
+            captured["env"] = kwargs.get("env")
+            return FakeProc()
+
+        try:
+            engine_service.subprocess.Popen = fake_popen
+            session._start_locked()
+        finally:
+            engine_service.subprocess.Popen = original_popen
+            session.stop()
+
+        self.assertEqual("1", captured["env"]["APPIMAGE_EXTRACT_AND_RUN"])
 
 
 if __name__ == "__main__":
