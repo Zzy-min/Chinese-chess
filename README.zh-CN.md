@@ -1,8 +1,9 @@
-# 中国象棋（XiangqiGame）
+# 轻棋局 Online（XiangqiGame）
 
-一个基于 Java 的中国象棋项目，提供两种使用方式：
+一个基于 Java 的三棋项目，当前提供三条主要使用路径：
 - 桌面版（Swing）
-- 浏览器版（本地 Web 服务）
+- 本地浏览器版（旧单页模式）
+- 公共在线站点（房间邀请制在线对战）
 
 ## 在线地址
 
@@ -10,27 +11,27 @@
 
 ## 功能概览
 
-- 中国象棋基础规则与对弈
-- 双人对战（PVP）
+- 中国象棋 / 五子棋 / 围棋统一站点结构
+- 在线双人对战（房间邀请制）
+- 基础注册登录
 - 人机对战（PVC）
 - 残局练习与复盘
 - 外部引擎接入（按配置启用）
-- 浏览器版主题切换与移动端适配
+- 新公共站点首页 / 大厅 / 房间 / 对局 / 分析页
 
 ## 网站功能介绍
 
-- 棋种入口分离：首屏先选择中国象棋或五子棋，再进入对应对局界面。
-- 对局控制完整：支持开局、悔棋、认输、和棋、复盘、残局练习等常用流程。
-- 实时状态同步：页面会持续获取当前局面、回合、步时/总时、结果与复盘进度。
-- 引擎可配置：内置 AI 可直接使用，也支持接入外部引擎（如 Pikafish、Rapfi、AlphaGomoku）。
-- 移动端可用：针对手机做了按钮触达、棋盘可视面积和信息密度优化。
+- 新公共站点：`PublicWebMain` 现在启动在线站点，支持注册、建房、邀请码加入、在线对局与局后分析。
+- 旧本地浏览器模式：`BrowserModeMain` 仍保留原有本地单页对局能力，适合本机体验和 AI/残局能力。
+- 首页与大厅拆分：首页负责分发，大厅负责建房/加房，对局页只负责棋局本身。
+- 首版在线链路：当前已打通中国象棋与五子棋的房间邀请制结构，围棋在站点结构中保留入口并显式标记未开放。
 
 ## 网站优势
 
-- 前后端一体化：Java 服务直接提供 API 与静态页面，部署路径简单，维护成本低。
-- 棋盘优先设计：界面层级以“棋盘与落子”为中心，减少非必要干扰信息。
-- 多玩法统一：同一站点内同时支持象棋与五子棋，且规则与操作一致性高。
-- 线上部署稳定：仓库内置 `render.yaml` + `Dockerfile`，推送主分支即可自动部署。
+- 前后端一体化：Java 服务直接提供站点壳、API 与 WebSocket。
+- 多棋统一：三棋共用一套站点导航和产品结构。
+- 在线优先：双人对战不再局限于同一终端。
+- 部署链路完整：仓库已内置数据库蓝图、Dockerfile 与运行依赖复制流程。
 
 ## 核心算法
 
@@ -69,22 +70,29 @@ mvn -DskipTests clean package
 java -jar target/XiangqiGame-1.0.0.jar
 ```
 
-### 3) 启动浏览器版
+### 3) 启动公共在线站点
 
 ```bash
-java -cp target/classes com.xiangqi.web.PublicWebMain
+java -cp "target/classes;target/dependency/*" com.xiangqi.web.PublicWebMain
 ```
 
 可选环境变量：
 - `PORT`（默认 `18388`）
 - `BIND_HOST`（默认 `0.0.0.0`）
+- `XQ_DATABASE_URL`（未设置时，本地默认回退到 H2 文件数据库）
 
 示例（PowerShell）：
 
 ```powershell
 $env:PORT = "18388"
 $env:BIND_HOST = "0.0.0.0"
-java -cp target/classes com.xiangqi.web.PublicWebMain
+java -cp "target/classes;target/dependency/*" com.xiangqi.web.PublicWebMain
+```
+
+如果要启动旧的本地浏览器模式：
+
+```powershell
+java -cp "target/classes;target/dependency/*" com.xiangqi.web.BrowserModeMain
 ```
 
 ## Docker 运行
@@ -102,7 +110,7 @@ docker run --rm -p 18388:18388 -e PORT=18388 -e BIND_HOST=0.0.0.0 xiangqi-web
 - 自动部署：`autoDeploy: true`
 - 启动入口：`com.xiangqi.web.PublicWebMain`
 
-将代码推送到 `main` 后，Render 会自动触发新部署。
+将代码推送到 `main` 后，Render 会自动触发新部署，并同时挂接 `xiangqi-db` 数据库。
 
 ## 文档导航
 

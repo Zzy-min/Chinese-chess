@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>轻·象棋 - 浏览器模式</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232f7f6f'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='34' fill='white' font-family='Arial'%3E%E6%A3%8B%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/assets/ui/app.css" />
 </head>
 <body data-theme="minimal">
@@ -14,19 +15,31 @@
         <div class="landingFrame">
           <div class="landingHead">
             <p class="landingEyebrow">轻棋局 · 专注落子</p>
-            <h1 class="landingTitle">选择棋种，进入纯粹对局</h1>
-            <p class="landingDesc">先选棋种，再进入各自界面。设置项保留在对局页，不再占据首屏注意力。</p>
+            <h1 class="landingTitle">首页直接进入 AI 对局，在线对战单独进入大厅</h1>
+            <p class="landingDesc">中国象棋与五子棋都可以在首页直接开始人机对局；双人在线对战统一进入 Online 大厅。</p>
+            <div class="landingActions">
+              <div id="authSummary" class="landingStatus">账号状态：检查中...</div>
+              <div class="landingButtons">
+                <button id="authToggle" class="menuBtn" type="button">登录 / 注册</button>
+                <a class="menuBtn ghostBtn" href="/online">在线对战</a>
+              </div>
+            </div>
+            <div id="authPanel" class="authPanel" hidden>
+              <div class="row authRow"><input id="authUsername" placeholder="用户名" /><input id="authPassword" type="password" placeholder="密码（至少 8 位）" /></div>
+              <div class="row authActions"><button id="authSubmit" type="button">登录</button><button id="authSwitch" type="button">切换到注册</button><button id="authLogout" type="button">退出登录</button></div>
+              <div id="authMessage" class="themeNote">登录后即可开始 AI 对局。</div>
+            </div>
           </div>
           <div class="entryGrid">
             <button class="entryCard" type="button" data-entry-game="XIANGQI">
-              <span class="entryMeta">Classic Strategy</span>
+              <span class="entryMeta">Homepage AI</span>
               <strong>中国象棋</strong>
-              <span>九宫楚河 · 双人/人机 · 残局复盘</span>
+              <span>旧棋盘直开人机对局 · 支持复盘</span>
             </button>
             <button class="entryCard" type="button" data-entry-game="GOMOKU">
-              <span class="entryMeta">Fast Duel</span>
+              <span class="entryMeta">Homepage AI</span>
               <strong>五子棋</strong>
-              <span>落子即战 · 黑方禁手 · 人机对抗</span>
+              <span>首页直接开局 · 黑方禁手 · 人机对抗</span>
             </button>
           </div>
           <div id="landingStatus" class="landingStatus">系统状态：加载中</div>
@@ -45,6 +58,7 @@
             <div id="stepTop" class="metaPill">当前步时倒计时: --s</div>
           </div>
           <div class="topActions">
+            <a class="menuBtn ghostBtn" href="/online">在线对战</a>
             <button id="backToLanding" class="menuBtn ghostBtn" type="button">棋种入口</button>
             <button id="sideToggle" class="menuBtn" type="button">设置 / 复盘</button>
           </div>
@@ -52,8 +66,8 @@
 
         <section class="pageLead">
           <div>
-            <h1 id="leadTitle">先选择模式，再开始对局</h1>
-            <div id="currentChoiceSummary" class="leadSummary">中国象棋 · 双人对战 · 中等 · 极简清新</div>
+            <h1 id="leadTitle">登录后即可开始首页 AI 对局</h1>
+            <div id="currentChoiceSummary" class="leadSummary">中国象棋 · AI 对局 · 中等 · 极简清新</div>
           </div>
           <div id="info" class="log infoBanner">等待数据...</div>
         </section>
@@ -65,13 +79,13 @@
             <div class="row"><select id="gameType"><option value="XIANGQI" selected>中国象棋</option><option value="GOMOKU">五子棋</option></select></div>
           </article>
           <article class="setupCard emphasis">
-            <div class="cardTitle">对战模式</div>
-            <div class="cardHint">支持双人对战与人机对战，可直接改难度。</div>
-            <div class="row"><select id="mode"><option value="pvp">双人对战</option><option value="pvc">人机对战</option></select><select id="difficulty"><option value="EASY">简单</option><option value="MEDIUM" selected>中等</option><option value="HARD">困难</option></select></div>
+            <div class="cardTitle">AI 对局</div>
+            <div class="cardHint">首页只负责人机开局；双人对战请进入 Online 大厅。</div>
+            <div class="row"><select id="mode"><option value="pvc" selected>AI 对局</option></select><select id="difficulty"><option value="EASY">简单</option><option value="MEDIUM" selected>中等</option><option value="HARD">困难</option></select></div>
           </article>
           <article class="setupCard">
             <div class="cardTitle">先后手</div>
-            <div class="cardHint">人机模式下可切换玩家执棋。</div>
+            <div class="cardHint">登录后即可直接开局，并选择自己执棋颜色。</div>
             <div class="row"><select id="firstHand" disabled><option value="true" selected>我先手（执红）</option><option value="false">我后手（执黑）</option></select></div>
           </article>
         </section>
@@ -147,10 +161,10 @@
             </section>
 
             <section class="actionBar">
-              <button id="newGame" class="primary" type="button"><strong>开始对局</strong><span>先选模式，再点这里</span></button>
-              <button id="undo" type="button"><strong>悔棋</strong><span>撤回一步</span></button>
+              <button id="newGame" class="primary" type="button"><strong>开始 AI 对局</strong><span>登录后即可开局</span></button>
+              <button id="undo" type="button" hidden><strong>悔棋</strong><span>撤回一步</span></button>
               <button id="surrender" type="button"><strong>认输</strong><span>结束当前对局</span></button>
-              <button id="drawBtn" type="button"><strong>和棋</strong><span>双方和局</span></button>
+              <button id="drawBtn" type="button" hidden><strong>和棋</strong><span>双方和局</span></button>
               <button id="soundToggle" type="button"><strong>音效</strong><span>开 / 关</span></button>
             </section>
           </main>
@@ -159,13 +173,12 @@
             <div class="sideHead">
               <div>
                 <div class="title">设置与复盘</div>
-                <div class="sideHint">皮肤、残局、复盘都在这里，主界面只保留对局动作。</div>
+                <div class="sideHint">首页保留旧棋盘与复盘入口；双人在线对战请使用 Online 大厅。</div>
               </div>
               <button id="closeDrawer" class="menuBtn closeBtn" type="button">关闭</button>
             </div>
             <div class="panelTabs">
               <button class="panelTab is-active" data-panel-target="setup" type="button">高级设置</button>
-              <button id="endgameTab" class="panelTab" data-panel-target="endgame" type="button">残局</button>
               <button class="panelTab" data-panel-target="review" type="button">复盘</button>
             </div>
             <section class="panelCard is-active" data-panel="setup">
@@ -179,15 +192,12 @@
                 <button class="skinBtn" data-theme="imperial" type="button">御案古风</button>
               </div>
               <div id="themeNote" class="themeNote">当前皮肤：极简清新 · 可随时切换</div>
-            </section>
-            <section id="endgameSection" class="panelCard" data-panel="endgame">
-              <div id="endgameTitle" class="title">残局练习</div>
-              <div id="endgameGrid" class="egGrid">
-                <button class="egBtn" data-name="七星聚会" type="button">七星聚会</button><button class="egBtn" data-name="蚯蚓降龙" type="button">蚯蚓降龙</button>
-                <button class="egBtn" data-name="千里独行" type="button">千里独行</button><button class="egBtn" data-name="野马操田" type="button">野马操田</button>
-                <button class="egBtn" data-name="梅花谱" type="button">梅花谱</button><button class="egBtn" data-name="百局象棋谱" type="button">百局象棋谱</button>
-                <button class="egBtn" data-name="适情雅趣" type="button">适情雅趣</button><button class="egBtn" data-name="烂柯神机" type="button">烂柯神机</button>
-                <button class="egBtn" data-name="梦入神机" type="button">梦入神机</button><button class="egBtn" data-name="韬略元机" type="button">韬略元机</button>
+              <div class="drawerStatusCard">
+                <div class="cardTitle small">局内状态</div>
+                <div id="drawerModeTag" class="tag compact">模式: -</div>
+                <div id="drawerReviewTag" class="tag compact">回顾: 关闭</div>
+                <div id="drawerEndgameTag" class="tag compact">残局: 标准开局</div>
+                <div id="drawerDrawReasonTag" class="tag compact">和棋原因: -</div>
               </div>
             </section>
             <section class="panelCard" data-panel="review">

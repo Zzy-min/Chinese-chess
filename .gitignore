@@ -15,3 +15,7 @@ Thumbs.db
 
 # Local scripts/logs
 *.log
+
+# Local online-site database fallback
+data/*.mv.db
+data/*.lock.db

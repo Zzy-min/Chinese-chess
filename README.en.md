@@ -1,8 +1,9 @@
-# XiangqiGame
+# Qing Qiju Online
 
-A Java-based Xiangqi project with two playable modes:
+A Java-based multi-board-game project with three main runtime paths:
 - Desktop edition (Swing)
-- Browser edition (local web server)
+- Legacy local browser mode
+- Public online site with invite-room multiplayer
 
 ## Live URL
 
@@ -10,12 +11,13 @@ A Java-based Xiangqi project with two playable modes:
 
 ## Features
 
-- Core Xiangqi gameplay
-- Player vs Player (PVP)
+- Unified site structure for Xiangqi, Gomoku, and Go
+- Online PvP via invite rooms
+- Basic sign-up and sign-in
 - Player vs Computer (PVC)
 - Endgame practice and review mode
 - External engine integration (when configured)
-- Theme switching and mobile-friendly browser UI
+- Public pages for home, lobby, room, game, and analysis
 
 ## Website Functionality
 
@@ -69,15 +71,16 @@ mvn -DskipTests clean package
 java -jar target/XiangqiGame-1.0.0.jar
 ```
 
-### 3) Start Browser Edition
+### 3) Start the public online site
 
 ```bash
-java -cp target/classes com.xiangqi.web.PublicWebMain
+java -cp "target/classes;target/dependency/*" com.xiangqi.web.PublicWebMain
 ```
 
 Optional environment variables:
 - `PORT` (default: `18388`)
 - `BIND_HOST` (default: `0.0.0.0`)
+- `XQ_DATABASE_URL` (falls back to a local H2 file database when omitted)
 
 Example (PowerShell):
 
