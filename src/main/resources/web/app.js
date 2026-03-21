@@ -1,2317 +1,290 @@
-const BASE_W = 800,
-  BASE_H = 900,
-  CELL = 68,
-  MARGIN = 98,
-  R = 29,
-  GAME_XIANGQI = "XIANGQI",
-  GAME_GOMOKU = "GOMOKU",
-  GAME_GO = "GO",
-  GK_SIZE = 15,
-  GK_MARGIN = 86,
-  GK_CELL = (BASE_W - GK_MARGIN * 2) / (GK_SIZE - 1),
-  GK_R = Math.max(9, Math.floor(GK_CELL * 0.43)),
-  GO_SIZE = 19,
-  GO_MARGIN_X = 76,
-  GO_MARGIN_Y = 126,
-  GO_CELL = (BASE_W - GO_MARGIN_X * 2) / (GO_SIZE - 1),
-  GO_R = Math.max(7, Math.floor(GO_CELL * 0.43));
-const canvas = document.getElementById("boardXQ");
-const gomokuCanvas = document.getElementById("boardGK");
-const goCanvas = document.getElementById("boardGO");
-const boardStage = document.getElementById("boardStage");
-const flipStage = document.getElementById("flipStage");
-const boardCard = boardStage.closest(".boardCard");
-const ctx = canvas.getContext("2d", { alpha: true });
-const gctx = gomokuCanvas.getContext("2d", { alpha: true });
-const goctx = goCanvas.getContext("2d", { alpha: true });
-let state = null,
-  reqSeq = 0,
-  pending = false,
-  needRender = false,
-  scale = 1,
-  dpr = 1,
-  anim = null,
-  animKey = "",
-  pollTimer = 0,
-  lastStateStamp = "",
-  actionQueue = Promise.resolve(),
-  lastAppliedSeq = 0,
-  lastPerfPostAt = 0,
-  lastTacticSeq = 0,
-  tacticOverlayText = "",
-  tacticOverlayUntil = 0,
-  courtBannerTimer = 0,
-  lastOpeningSeq = 0,
-  gameTypeIntent = "";
-let lastKnownGoEngineAvailable = false;
-const isTouchDevice =
-  "ontouchstart" in window ||
-  ((navigator && navigator.maxTouchPoints) || 0) > 0;
-const isCompactScreen = () => window.innerWidth <= 900;
-function targetDpr() {
-  const raw = Math.max(1, window.devicePixelRatio || 1);
-  if (isTouchDevice)
-    return Math.min(window.innerWidth <= 768 ? 1.35 : 1.55, raw);
-  return Math.min(isCompactScreen() ? 1.85 : 2.2, raw);
-}
-dpr = targetDpr();
-const SID_KEY = "xq_sid";
-function makeSid() {
-  if (window.crypto && window.crypto.randomUUID)
-    return window.crypto.randomUUID().replace(/-/g, "");
-  return String(Date.now()) + Math.random().toString(16).slice(2);
-}
-const sid = (() => {
-  let v = sessionStorage.getItem(SID_KEY);
-  if (!v) {
-    v = makeSid();
-    sessionStorage.setItem(SID_KEY, v);
-  }
-  return v;
-})();
-function withSid(path) {
-  const sep = path.includes("?") ? "&" : "?";
-  return path + sep + "sid=" + encodeURIComponent(sid);
-}
-const moveAudio = new Audio("/assets/audio/move.wav");
-const mateAudio = new Audio("/assets/audio/mate.wav");
-moveAudio.preload = "auto";
-mateAudio.preload = "auto";
-moveAudio.volume = 0.92;
-mateAudio.volume = 0.98;
-let audioUnlocked = false,
-  lastMoveSoundKey = "",
-  lastMateSoundKey = "";
-let soundEnabled = (localStorage.getItem("xq_sound_enabled") ?? "1") !== "0";
-const ui = {
-  statusTag: document.getElementById("statusTag"),
-  stepTop: document.getElementById("stepTop"),
-  totalTop: document.getElementById("totalTop"),
-  modeTag: document.getElementById("modeTag"),
-  endgameTag: document.getElementById("endgameTag"),
-  drawReasonTag: document.getElementById("drawReasonTag"),
-  reviewTag: document.getElementById("reviewTag"),
-  drawerModeTag: document.getElementById("drawerModeTag"),
-  drawerEndgameTag: document.getElementById("drawerEndgameTag"),
-  drawerDrawReasonTag: document.getElementById("drawerDrawReasonTag"),
-  drawerReviewTag: document.getElementById("drawerReviewTag"),
-  info: document.getElementById("info"),
-  undo: document.getElementById("undo"),
-  surrender: document.getElementById("surrender"),
-  drawBtn: document.getElementById("drawBtn"),
-  goPass: document.getElementById("goPass"),
-  reviewStart: document.getElementById("reviewStart"),
-  reviewPrev: document.getElementById("reviewPrev"),
-  reviewNext: document.getElementById("reviewNext"),
-  reviewExit: document.getElementById("reviewExit"),
-  mode: document.getElementById("mode"),
-  firstHand: document.getElementById("firstHand"),
-  gameType: document.getElementById("gameType"),
-  xiangqiEngine: document.getElementById("xiangqiEngine"),
-  gomokuEngine: document.getElementById("gomokuEngine"),
-  goEngineRow: document.getElementById("goEngineRow"),
-  endgameSection: document.getElementById("endgameSection"),
-  endgameTab: document.getElementById("endgameTab"),
-  endgameTitle: document.getElementById("endgameTitle"),
-  endgameGrid: document.getElementById("endgameGrid"),
-  goScenarioGrid: document.getElementById("goScenarioGrid"),
-};
-let updateSetupSummary = () => {};
-function setTxt(el, v) {
-  if (el && el.textContent !== v) el.textContent = v;
-}
-function setDis(el, v) {
-  if (el && el.disabled !== v) el.disabled = v;
-}
-function clearUiError() {
-  if (ui.statusTag) ui.statusTag.classList.remove("is-error");
-  if (ui.info) ui.info.classList.remove("is-error");
-}
-function showUiError(err) {
-  const raw = (err && err.message) || String(err || "");
-  const msg = (raw && raw.trim()) || "操作失败，请稍后重试";
-  console.error("[xq-web]", err);
-  if (ui.statusTag) {
-    ui.statusTag.classList.add("is-error");
-    setTxt(ui.statusTag, "状态: " + msg);
-  }
-  if (ui.info) {
-    ui.info.classList.add("is-error");
-    setTxt(ui.info, msg);
-  }
-}
-const cache = document.createElement("canvas");
-cache.width = BASE_W;
-cache.height = BASE_H;
-const cctx = cache.getContext("2d");
-const pieceSpriteCache = Object.create(null);
-let pixiReady = false,
-  pixiApp = null,
-  pixiLayers = null,
-  pixiBoardTexture = null;
-const boardTex = new Image();
-let boardTexReady = false;
-boardTex.onload = () => {
-  boardTexReady = true;
-  drawStatic();
-  scheduleRender();
-};
-function initPixiRenderer() {
-  if (!window.PIXI || isTouchDevice) {
-    pixiReady = false;
-    return;
-  }
-  try {
-    dpr = targetDpr();
-    pixiApp = new PIXI.Application({
-      view: canvas,
-      width: BASE_W,
-      height: BASE_H,
-      backgroundAlpha: 0,
-      antialias: true,
-      resolution: dpr,
-      autoDensity: false,
-      autoStart: false,
-      sharedTicker: false,
-    });
-    pixiApp.stop();
-    pixiLayers = {
-      root: new PIXI.Container(),
-      staticLayer: new PIXI.Container(),
-      markerLayer: new PIXI.Container(),
-      pieceLayer: new PIXI.Container(),
-      fxLayer: new PIXI.Container(),
-      uiLayer: new PIXI.Container(),
-    };
-    pixiLayers.root.sortableChildren = true;
-    pixiLayers.root.addChild(
-      pixiLayers.staticLayer,
-      pixiLayers.markerLayer,
-      pixiLayers.pieceLayer,
-      pixiLayers.fxLayer,
-      pixiLayers.uiLayer,
-    );
-    pixiApp.stage.addChild(pixiLayers.root);
-    pixiReady = true;
-  } catch (_e) {
-    pixiReady = false;
-  }
-}
-function runCourtAnimations() {
-  if (!window.gsap || isTouchDevice || isCompactScreen()) return;
-  gsap.from(".wrap", { duration: 0.9, y: 26, opacity: 0, ease: "power3.out" });
-  gsap.from(".topMeta", {
-    duration: 0.75,
-    scaleX: 0.94,
-    opacity: 0,
-    transformOrigin: "50% 0%",
-    ease: "back.out(1.2)",
-    delay: 0.08,
-  });
-  gsap.from(".boardCard", {
-    duration: 0.95,
-    y: 18,
-    opacity: 0,
-    ease: "power2.out",
-    delay: 0.14,
-  });
-  gsap.from(".side", {
-    duration: 0.85,
-    x: 24,
-    opacity: 0,
-    ease: "power2.out",
-    delay: 0.2,
-  });
-  gsap.from(".side .row,.side .title,.side .tag", {
-    duration: 0.7,
-    y: 12,
-    opacity: 0,
-    stagger: 0.035,
-    ease: "power2.out",
-    delay: 0.26,
-  });
-  document.querySelectorAll("button,select").forEach((el) => {
-    el.addEventListener("pointerenter", () =>
-      gsap.to(el, {
-        duration: 0.22,
-        y: -1.2,
-        scale: 1.015,
-        boxShadow: "0 6px 14px rgba(76,42,18,.28)",
-        ease: "power2.out",
-      }),
-    );
-    el.addEventListener("pointerleave", () =>
-      gsap.to(el, {
-        duration: 0.24,
-        y: 0,
-        scale: 1,
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,.8),inset 0 -4px 6px rgba(109,73,35,.18)",
-        ease: "power2.out",
-      }),
-    );
-  });
-}
-function flashBanner(text, tone, durationMs) {
-  const el = document.getElementById("courtBanner");
-  if (!el) return;
-  const hold = Math.max(80, Number(durationMs) || 640);
-  el.dataset.tone = tone || "gold";
-  el.textContent = text;
-  if (!window.gsap) {
-    el.style.opacity = "1";
-    setTimeout(() => {
-      el.style.opacity = "0";
-    }, hold);
-    return;
-  }
-  if (courtBannerTimer) {
-    clearTimeout(courtBannerTimer);
-    courtBannerTimer = 0;
-  }
-  gsap.killTweensOf(el);
-  gsap.fromTo(
-    el,
-    { opacity: 0, scale: 0.82, y: 8 },
-    { opacity: 1, scale: 1, y: 0, duration: 0.2, ease: "back.out(1.5)" },
-  );
-  courtBannerTimer = setTimeout(() => {
-    gsap.to(el, {
-      opacity: 0,
-      scale: 0.92,
-      y: -6,
-      duration: 0.2,
-      ease: "power2.in",
-    });
-  }, hold);
-}
-function playOpeningCeremony() {
-  if (!window.gsap) return;
-  flashBanner("开局", "gold");
-  const tl = gsap.timeline();
-  tl.fromTo(
-    ".boardCard",
-    { filter: "brightness(.86) saturate(.9)" },
-    {
-      filter: "brightness(1.05) saturate(1.12)",
-      duration: 0.32,
-      ease: "power2.out",
-    },
-  ).to(".boardCard", {
-    filter: "brightness(1) saturate(1)",
-    duration: 0.44,
-    ease: "power2.inOut",
-  });
-  tl.fromTo(
-    ".topMeta",
-    { boxShadow: "0 0 0 rgba(0,0,0,0)" },
-    { boxShadow: "0 0 26px rgba(255,220,150,.38)", duration: 0.28 },
-    0,
-  ).to(
-    ".topMeta",
-    {
-      boxShadow:
-        "inset 0 1px 0 rgba(255,236,206,.7),inset 0 -6px 10px rgba(85,43,12,.45),0 6px 14px rgba(18,9,4,.35)",
-      duration: 0.46,
-    },
-    ">-.02",
-  );
-}
-function playCheckCeremony() {}
-function playMateCeremony() {}
-function syncGamePanels(gameType) {
-  const g =
-    gameType || (state && state.gameType) || ui.gameType.value || GAME_XIANGQI;
-  if (ui.gameType && ui.gameType.value !== g) ui.gameType.value = g;
-  const isG = g === GAME_GOMOKU;
-  const isGoGame = g === GAME_GO;
-  if (flipStage) {
-    flipStage.dataset.game = g;
-  }
-  const palace = document.querySelector(".palaceFrame");
-  if (palace) palace.style.display = isG || isGoGame ? "none" : "";
-  if (ui.endgameTitle) {
-    ui.endgameTitle.textContent = isGoGame ? "题库 / 死活题" : "残局 / 题库";
-  }
-  if (ui.endgameSection) {
-    ui.endgameSection.style.display = isG ? "none" : "";
-  }
-  if (ui.endgameTab) {
-    ui.endgameTab.style.display = isG ? "none" : "";
-  }
-  if (ui.endgameGrid)
-    ui.endgameGrid.style.display = isG || isGoGame ? "none" : "grid";
-  if (ui.goScenarioGrid)
-    ui.goScenarioGrid.style.display = isGoGame ? "grid" : "none";
-  if (ui.firstHand) {
-    const v = ui.firstHand.value;
-    ui.firstHand.innerHTML =
-      isG || isGoGame
-        ? '<option value="true" selected>我先手（执黑）</option><option value="false">我后手（执白）</option>'
-        : '<option value="true" selected>我先手（执红）</option><option value="false">我后手（执黑）</option>';
-    if (v === "false") ui.firstHand.value = "false";
-  }
-  if (ui.gomokuEngine) {
-    ui.gomokuEngine.disabled = !isG;
-    const row = ui.gomokuEngine.closest(".row");
-    if (row) row.style.display = isG ? "" : "none";
-  }
-  if (ui.xiangqiEngine) {
-    ui.xiangqiEngine.disabled = isG || isGoGame;
-    const row = ui.xiangqiEngine.closest(".row");
-    if (row) row.style.display = isG || isGoGame ? "none" : "";
-  }
-  if (ui.goEngineRow) {
-    ui.goEngineRow.style.display = isGoGame ? "block" : "none";
-    ui.goEngineRow.textContent = lastKnownGoEngineAvailable
-      ? "围棋引擎已就绪：可用人机对战、停一手与计分展示。"
-      : "围棋人机需要配置 XQ_GO_ENGINE_URL；当前仅开放双人对局与题库。";
-  }
-  if (ui.goPass) {
-    ui.goPass.style.display = isGoGame ? "flex" : "none";
-  }
-  if (ui.drawBtn) {
-    ui.drawBtn.style.display = isGoGame ? "none" : "";
-  }
-  const pvcOption = ui.mode && ui.mode.querySelector('option[value="pvc"]');
-  if (pvcOption) {
-    pvcOption.disabled = isGoGame && !lastKnownGoEngineAvailable;
-    if (pvcOption.disabled && ui.mode.value === "pvc") {
-      ui.mode.value = "pvp";
-    }
-  }
-  updateSetupSummary();
-}
-function setupCanvas() {
-  const viewportW = window.innerWidth || document.documentElement.clientWidth;
-  const viewportH = window.innerHeight || document.documentElement.clientHeight;
-  const maxW = Math.max(
-    300,
-    Math.min(
-      boardCard.clientWidth - 12,
-      isTouchDevice ? viewportW - 24 : viewportW - 72,
-    ),
-  );
-  const maxH = Math.max(
-    360,
-    Math.min(
-      viewportH * (isCompactScreen() ? 0.58 : 0.76),
-      viewportH - (isTouchDevice ? 150 : 130),
-    ),
-  );
-  const fitWByH = Math.floor((maxH * BASE_W) / BASE_H);
-  const cssW = Math.round(Math.max(280, Math.min(maxW, fitWByH)));
-  const cssH = Math.round((cssW * BASE_H) / BASE_W);
-  scale = cssW / BASE_W;
-  dpr = targetDpr();
-  boardStage.style.width = cssW + "px";
-  boardStage.style.height = cssH + "px";
-  if (flipStage) {
-    flipStage.style.width = cssW + "px";
-    flipStage.style.height = cssH + "px";
-  }
-  canvas.style.width = cssW + "px";
-  canvas.style.height = cssH + "px";
-  gomokuCanvas.style.width = cssW + "px";
-  gomokuCanvas.style.height = cssH + "px";
-  goCanvas.style.width = cssW + "px";
-  goCanvas.style.height = cssH + "px";
-  canvas.width = Math.round(cssW * dpr);
-  canvas.height = Math.round(cssH * dpr);
-  gomokuCanvas.width = Math.round(cssW * dpr);
-  gomokuCanvas.height = Math.round(cssH * dpr);
-  goCanvas.width = Math.round(cssW * dpr);
-  goCanvas.height = Math.round(cssH * dpr);
-  ctx.imageSmoothingEnabled = true;
-  gctx.imageSmoothingEnabled = true;
-  goctx.imageSmoothingEnabled = true;
-  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
-  gctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
-  goctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
-  if (pixiReady && pixiApp) {
-    pixiApp.renderer.resolution = dpr;
-    pixiApp.renderer.resize(BASE_W, BASE_H);
-  }
-  scheduleRender();
-}
-window.addEventListener("resize", setupCanvas);
-window.addEventListener("orientationchange", setupCanvas);
-function syncSoundToggle() {
-  const btn = document.getElementById("soundToggle");
-  if (btn) btn.textContent = "音效:" + (soundEnabled ? "开" : "关");
-}
-function toggleSound() {
-  soundEnabled = !soundEnabled;
-  localStorage.setItem("xq_sound_enabled", soundEnabled ? "1" : "0");
-  syncSoundToggle();
-}
-function unlockAudio() {
-  if (audioUnlocked) return;
-  audioUnlocked = true;
-  [moveAudio, mateAudio].forEach((a) => {
-    const p = a.play();
-    if (p && p.catch) {
-      p.then(() => {
-        a.pause();
-        a.currentTime = 0;
-      }).catch(() => {});
-    } else {
-      a.pause();
-      a.currentTime = 0;
-    }
-  });
-}
-function playSound(a) {
-  if (!soundEnabled || !audioUnlocked) return;
-  try {
-    a.pause();
-    a.currentTime = 0;
-    const p = a.play();
-    if (p && p.catch) p.catch(() => {});
-  } catch (_e) {}
-}
-const activeGameType = () => {
-  if (gameTypeIntent) return gameTypeIntent;
-  if (state && state.started) return state.gameType || GAME_XIANGQI;
-  return (
-    (ui.gameType && ui.gameType.value) ||
-    (state && state.gameType) ||
-    GAME_XIANGQI
-  );
-};
-const selectedGameType = () =>
-  gameTypeIntent || (ui.gameType && ui.gameType.value) || GAME_XIANGQI;
-const isGomoku = () => activeGameType() === GAME_GOMOKU;
-const isGo = () => activeGameType() === GAME_GO;
-const isFlipped = () => {
-  if (!state || state.reviewMode || isGomoku() || isGo()) return false;
-  if (state.mode === "PVP") return state.currentTurn === "BLACK";
-  return state.mode === "PVC" && state.pvcHumanColor === "BLACK";
-};
-const vr = (r) => (isFlipped() ? 9 - r : r);
-const vc = (c) => (isFlipped() ? 8 - c : c);
-const br = (r) => (isFlipped() ? 9 - r : r);
-const bc = (c) => (isFlipped() ? 8 - c : c);
-const pos = (r, c) => [MARGIN + vc(c) * CELL, MARGIN + vr(r) * CELL];
-const gPos = (r, c) => [GK_MARGIN + c * GK_CELL, GK_MARGIN + r * GK_CELL];
-const goPos = (r, c) => [GO_MARGIN_X + c * GO_CELL, GO_MARGIN_Y + r * GO_CELL];
-const hasActiveBoardState = (gameType) =>
-  !!(state && state.started && !gameTypeIntent && state.gameType === gameType);
-function pickGrid(x, y) {
-  if (isGomoku()) {
-    const c = Math.round((x - GK_MARGIN) / GK_CELL),
-      r = Math.round((y - GK_MARGIN) / GK_CELL);
-    if (r < 0 || r >= GK_SIZE || c < 0 || c >= GK_SIZE) return null;
-    const px = GK_MARGIN + c * GK_CELL,
-      py = GK_MARGIN + r * GK_CELL;
-    const hitFactor = isTouchDevice ? 0.62 : 0.5;
-    if (Math.hypot(x - px, y - py) > GK_CELL * hitFactor) return null;
-    return { row: r, col: c };
-  }
-  if (isGo()) {
-    const c = Math.round((x - GO_MARGIN_X) / GO_CELL),
-      r = Math.round((y - GO_MARGIN_Y) / GO_CELL);
-    if (r < 0 || r >= GO_SIZE || c < 0 || c >= GO_SIZE) return null;
-    const px = GO_MARGIN_X + c * GO_CELL,
-      py = GO_MARGIN_Y + r * GO_CELL;
-    const hitFactor = isTouchDevice ? 0.62 : 0.48;
-    if (Math.hypot(x - px, y - py) > GO_CELL * hitFactor) return null;
-    return { row: r, col: c };
-  }
-  const vcol = Math.round((x - MARGIN) / CELL),
-    vrow = Math.round((y - MARGIN) / CELL);
-  const baseHit =
-    state && state.mode === "PVC"
-      ? state.difficulty === "EASY"
-        ? 14
-        : 11
-      : 10;
-  const hitExpand = isTouchDevice ? baseHit + 5 : baseHit;
-  const minX = MARGIN - R - hitExpand,
-    maxX = MARGIN + 8 * CELL + R + hitExpand,
-    minY = MARGIN - R - hitExpand,
-    maxY = MARGIN + 9 * CELL + R + hitExpand;
-  if (x < minX || x > maxX || y < minY || y > maxY) return null;
-  const cc = Math.max(0, Math.min(8, vcol)),
-    rr = Math.max(0, Math.min(9, vrow));
-  return { row: br(rr), col: bc(cc) };
-}
-function drawStatic() {
-  if (pixiReady) {
-    drawStaticPixi();
-    return;
-  }
-  cctx.clearRect(0, 0, BASE_W, BASE_H);
-  const bx = MARGIN - 34,
-    by = MARGIN - 34,
-    bw = 8 * CELL + 68,
-    bh = 9 * CELL + 68;
-  if (boardTexReady) {
-    cctx.drawImage(boardTex, bx, by, bw, bh);
-  } else {
-    const g = cctx.createLinearGradient(0, 0, 0, BASE_H);
-    g.addColorStop(0, "#2c3f88");
-    g.addColorStop(1, "#1f2f66");
-    cctx.fillStyle = g;
-    cctx.fillRect(bx, by, bw, bh);
-  }
-  const vignette = cctx.createRadialGradient(
-    BASE_W / 2,
-    BASE_H / 2,
-    120,
-    BASE_W / 2,
-    BASE_H / 2,
-    520,
-  );
-  vignette.addColorStop(0, "rgba(255,255,255,.05)");
-  vignette.addColorStop(1, "rgba(0,0,0,.16)");
-  cctx.fillStyle = vignette;
-  cctx.fillRect(bx, by, bw, bh);
-  cctx.fillStyle = "rgba(20,33,88,.34)";
-  cctx.fillRect(MARGIN - 2, MARGIN - 2, 8 * CELL + 4, 9 * CELL + 4);
-  cctx.save();
-  cctx.shadowColor = "rgba(0,0,0,.35)";
-  cctx.shadowBlur = 16;
-  cctx.strokeStyle = "rgba(96,57,24,.96)";
-  cctx.lineWidth = 14;
-  cctx.strokeRect(bx - 11, by - 11, bw + 22, bh + 22);
-  cctx.restore();
-  cctx.strokeStyle = "#7f4f25";
-  cctx.lineWidth = 8;
-  cctx.strokeRect(bx - 6, by - 6, bw + 12, bh + 12);
-  cctx.strokeStyle = "#dfbc77";
-  cctx.lineWidth = 3;
-  cctx.strokeRect(bx, by, bw, bh);
-  cctx.strokeStyle = "rgba(255,240,210,.75)";
-  cctx.lineWidth = 1.5;
-  cctx.strokeRect(bx + 3, by + 3, bw - 6, bh - 6);
-  const corner = (x, y, sx, sy) => {
-    cctx.strokeStyle = "rgba(225,196,130,.96)";
-    cctx.lineWidth = 2;
-    cctx.beginPath();
-    cctx.moveTo(x, y);
-    cctx.lineTo(x + sx * 18, y);
-    cctx.lineTo(x + sx * 18, y + sy * 18);
-    cctx.moveTo(x + sx * 6, y);
-    cctx.lineTo(x + sx * 24, y);
-    cctx.moveTo(x, y + sy * 6);
-    cctx.lineTo(x, y + sy * 24);
-    cctx.stroke();
-  };
-  corner(bx + 10, by + 10, 1, 1);
-  corner(bx + bw - 10, by + 10, -1, 1);
-  corner(bx + 10, by + bh - 10, 1, -1);
-  corner(bx + bw - 10, by + bh - 10, -1, -1);
-  const topY = by - 20;
-  const botY = by + bh + 20;
-  cctx.strokeStyle = "rgba(108,64,28,.9)";
-  cctx.lineWidth = 3;
-  cctx.beginPath();
-  cctx.moveTo(bx + 30, topY);
-  cctx.bezierCurveTo(
-    bx + bw * 0.32,
-    topY - 16,
-    bx + bw * 0.68,
-    topY - 16,
-    bx + bw - 30,
-    topY,
-  );
-  cctx.moveTo(bx + 30, botY);
-  cctx.bezierCurveTo(
-    bx + bw * 0.32,
-    botY + 16,
-    bx + bw * 0.68,
-    botY + 16,
-    bx + bw - 30,
-    botY,
-  );
-  cctx.stroke();
-  cctx.strokeStyle = "rgba(213,178,106,.86)";
-  cctx.lineWidth = 2;
-  for (let r = 0; r < 10; r++) {
-    const y = MARGIN + r * CELL;
-    cctx.beginPath();
-    cctx.moveTo(MARGIN, y);
-    cctx.lineTo(MARGIN + 8 * CELL, y);
-    cctx.stroke();
-  }
-  for (let c = 0; c < 9; c++) {
-    const x = MARGIN + c * CELL;
-    cctx.beginPath();
-    if (c === 0 || c === 8) {
-      cctx.moveTo(x, MARGIN);
-      cctx.lineTo(x, MARGIN + 9 * CELL);
-    } else {
-      cctx.moveTo(x, MARGIN);
-      cctx.lineTo(x, MARGIN + 4 * CELL);
-      cctx.moveTo(x, MARGIN + 5 * CELL);
-      cctx.lineTo(x, MARGIN + 9 * CELL);
-    }
-    cctx.stroke();
-  }
-  cctx.beginPath();
-  cctx.moveTo(MARGIN + 3 * CELL, MARGIN);
-  cctx.lineTo(MARGIN + 5 * CELL, MARGIN + 2 * CELL);
-  cctx.moveTo(MARGIN + 5 * CELL, MARGIN);
-  cctx.lineTo(MARGIN + 3 * CELL, MARGIN + 2 * CELL);
-  cctx.moveTo(MARGIN + 3 * CELL, MARGIN + 7 * CELL);
-  cctx.lineTo(MARGIN + 5 * CELL, MARGIN + 9 * CELL);
-  cctx.moveTo(MARGIN + 5 * CELL, MARGIN + 7 * CELL);
-  cctx.lineTo(MARGIN + 3 * CELL, MARGIN + 9 * CELL);
-  cctx.stroke();
-  const ry = MARGIN + 4 * CELL + 3;
-  cctx.shadowColor = "rgba(0,0,0,.26)";
-  cctx.shadowBlur = 10;
-  cctx.fillStyle = "rgba(35,54,124,.92)";
-  cctx.beginPath();
-  cctx.roundRect(MARGIN + 12, ry, 8 * CELL - 24, CELL - 8, 22);
-  cctx.fill();
-  cctx.shadowBlur = 0;
-  cctx.strokeStyle = "rgba(213,178,106,.44)";
-  cctx.beginPath();
-  cctx.moveTo(MARGIN, MARGIN + 4 * CELL);
-  cctx.lineTo(MARGIN + 8 * CELL, MARGIN + 4 * CELL);
-  cctx.moveTo(MARGIN, MARGIN + 5 * CELL);
-  cctx.lineTo(MARGIN + 8 * CELL, MARGIN + 5 * CELL);
-  cctx.stroke();
-  cctx.font = "bold 45px KaiTi";
-  cctx.fillStyle = "#d8b574";
-  cctx.fillText("楚 河", MARGIN + CELL - 10, MARGIN + 4 * CELL + 44);
-  cctx.fillText("汉 界", MARGIN + 5 * CELL + 8, MARGIN + 4 * CELL + 44);
-}
-function scheduleRender() {
-  if (needRender) return;
-  needRender = true;
-  requestAnimationFrame(() => {
-    needRender = false;
-    draw();
-  });
-}
-function drawGomokuBoard(liveState) {
-  const ctx = gctx;
-  ctx.clearRect(0, 0, BASE_W, BASE_H);
-  const bs = (GK_SIZE - 1) * GK_CELL,
-    bx = GK_MARGIN - 26,
-    by = GK_MARGIN - 26,
-    bw = bs + 52,
-    bh = bs + 52;
-  const wood = ctx.createLinearGradient(0, 0, 0, BASE_H);
-  wood.addColorStop(0, "#d4b17a");
-  wood.addColorStop(1, "#b98a53");
-  ctx.fillStyle = wood;
-  ctx.fillRect(bx, by, bw, bh);
-  ctx.strokeStyle = "rgba(84,48,24,.9)";
-  ctx.lineWidth = 9;
-  ctx.strokeRect(bx - 6, by - 6, bw + 12, bh + 12);
-  ctx.strokeStyle = "rgba(248,226,184,.8)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(bx, by, bw, bh);
-  ctx.strokeStyle = "rgba(95,60,35,.78)";
-  ctx.lineWidth = 1.6;
-  for (let i = 0; i < GK_SIZE; i++) {
-    const t = GK_MARGIN + i * GK_CELL;
-    ctx.beginPath();
-    ctx.moveTo(GK_MARGIN, t);
-    ctx.lineTo(GK_MARGIN + bs, t);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(t, GK_MARGIN);
-    ctx.lineTo(t, GK_MARGIN + bs);
-    ctx.stroke();
-  }
-  const stars = [
-    [3, 3],
-    [3, 7],
-    [3, 11],
-    [7, 3],
-    [7, 7],
-    [7, 11],
-    [11, 3],
-    [11, 7],
-    [11, 11],
-  ];
-  ctx.fillStyle = "rgba(88,56,32,.8)";
-  for (const p of stars) {
-    const [x, y] = gPos(p[0], p[1]);
-    ctx.beginPath();
-    ctx.arc(x, y, 3.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (
-    liveState &&
-    liveState.gomoku &&
-    liveState.gomoku.forbiddenPoints &&
-    liveState.currentTurn === "BLACK" &&
-    !liveState.gameOver
-  ) {
-    ctx.strokeStyle = "rgba(190,52,46,.55)";
-    ctx.lineWidth = 1.4;
-    for (const fp of liveState.gomoku.forbiddenPoints) {
-      const [x, y] = gPos(fp.row, fp.col);
-      ctx.beginPath();
-      ctx.moveTo(x - 4, y - 4);
-      ctx.lineTo(x + 4, y + 4);
-      ctx.moveTo(x + 4, y - 4);
-      ctx.lineTo(x - 4, y + 4);
-      ctx.stroke();
-    }
-  }
-  if (liveState && liveState.board) {
-    for (let r = 0; r < GK_SIZE; r++) {
-      for (let c = 0; c < GK_SIZE; c++) {
-        const p = liveState.board[r][c];
-        if (!p) continue;
-        const [x, y] = gPos(r, c);
-        const black = p.color === "BLACK";
-        const rg = ctx.createRadialGradient(
-          x - GK_R * 0.35,
-          y - GK_R * 0.45,
-          1,
-          x,
-          y,
-          GK_R * 1.05,
-        );
-        if (black) {
-          rg.addColorStop(0, "#666");
-          rg.addColorStop(0.55, "#222");
-          rg.addColorStop(1, "#050505");
-        } else {
-          rg.addColorStop(0, "#fff");
-          rg.addColorStop(0.55, "#ece9e2");
-          rg.addColorStop(1, "#cfc7bb");
-        }
-        ctx.fillStyle = rg;
-        ctx.beginPath();
-        ctx.arc(x, y, GK_R, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = black ? "rgba(10,10,10,.95)" : "rgba(120,112,98,.9)";
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      }
-    }
-  }
-  if (liveState && liveState.recentMoves) {
-    for (const m of liveState.recentMoves) {
-      const [x, y] = gPos(m.toRow, m.toCol);
-      ctx.strokeStyle =
-        m.order === 1 ? "rgba(214,58,50,.95)" : "rgba(60,160,88,.85)";
-      ctx.lineWidth = m.order === 1 ? 2.8 : 2;
-      ctx.beginPath();
-      ctx.arc(x, y, GK_R + 4, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-  if (liveState && liveState.gomoku && liveState.gomoku.winnerLine) {
-    const w = liveState.gomoku.winnerLine,
-      [x1, y1] = gPos(w.fromRow, w.fromCol),
-      [x2, y2] = gPos(w.toRow, w.toCol);
-    ctx.strokeStyle = "rgba(212,60,52,.95)";
-    ctx.lineWidth = 4.6;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-}
-function drawGoBoard(liveState) {
-  const ctx = goctx;
-  ctx.clearRect(0, 0, BASE_W, BASE_H);
-  const bs = (GO_SIZE - 1) * GO_CELL,
-    bx = GO_MARGIN_X - 28,
-    by = GO_MARGIN_Y - 28,
-    bw = bs + 56,
-    bh = bs + 56;
-  const wood = ctx.createLinearGradient(0, 0, 0, BASE_H);
-  wood.addColorStop(0, "#dbc08c");
-  wood.addColorStop(1, "#b5854d");
-  ctx.fillStyle = wood;
-  ctx.fillRect(bx, by, bw, bh);
-  ctx.strokeStyle = "rgba(84,48,24,.9)";
-  ctx.lineWidth = 8;
-  ctx.strokeRect(bx - 6, by - 6, bw + 12, bh + 12);
-  ctx.strokeStyle = "rgba(248,226,184,.82)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(bx, by, bw, bh);
-  ctx.strokeStyle = "rgba(95,60,35,.78)";
-  ctx.lineWidth = 1.35;
-  for (let i = 0; i < GO_SIZE; i++) {
-    const x = GO_MARGIN_X + i * GO_CELL;
-    const y = GO_MARGIN_Y + i * GO_CELL;
-    ctx.beginPath();
-    ctx.moveTo(GO_MARGIN_X, y);
-    ctx.lineTo(GO_MARGIN_X + bs, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, GO_MARGIN_Y);
-    ctx.lineTo(x, GO_MARGIN_Y + bs);
-    ctx.stroke();
-  }
-  const stars = [
-    [3, 3],
-    [3, 9],
-    [3, 15],
-    [9, 3],
-    [9, 9],
-    [9, 15],
-    [15, 3],
-    [15, 9],
-    [15, 15],
-  ];
-  ctx.fillStyle = "rgba(88,56,32,.82)";
-  for (const [r, c] of stars) {
-    const [x, y] = goPos(r, c);
-    ctx.beginPath();
-    ctx.arc(x, y, 3.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (liveState && liveState.board) {
-    for (let r = 0; r < GO_SIZE; r++) {
-      for (let c = 0; c < GO_SIZE; c++) {
-        const p = liveState.board[r][c];
-        if (!p) continue;
-        const [x, y] = goPos(r, c);
-        const black = p.color === "BLACK";
-        const rg = ctx.createRadialGradient(
-          x - GO_R * 0.35,
-          y - GO_R * 0.45,
-          1,
-          x,
-          y,
-          GO_R * 1.06,
-        );
-        if (black) {
-          rg.addColorStop(0, "#6c6c6c");
-          rg.addColorStop(0.56, "#232323");
-          rg.addColorStop(1, "#040404");
-        } else {
-          rg.addColorStop(0, "#ffffff");
-          rg.addColorStop(0.56, "#ece8df");
-          rg.addColorStop(1, "#cac2b7");
-        }
-        ctx.fillStyle = rg;
-        ctx.beginPath();
-        ctx.arc(x, y, GO_R, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = black ? "rgba(12,12,12,.95)" : "rgba(128,118,104,.9)";
-        ctx.lineWidth = 1.1;
-        ctx.stroke();
-      }
-    }
-  }
-  if (liveState && liveState.recentMoves) {
-    for (const m of liveState.recentMoves) {
-      if (m.pass) continue;
-      const [x, y] = goPos(m.toRow, m.toCol);
-      ctx.strokeStyle =
-        m.order === 1 ? "rgba(214,58,50,.95)" : "rgba(60,160,88,.82)";
-      ctx.lineWidth = m.order === 1 ? 2.6 : 1.8;
-      ctx.beginPath();
-      ctx.arc(x, y, GO_R + 3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-}
-function draw() {
-  const t0 = performance.now();
-  if (isGomoku()) {
-    drawGomokuBoard(hasActiveBoardState(GAME_GOMOKU) ? state : null);
-    drawTacticFlash(gctx);
-    const cost = performance.now() - t0;
-    if (performance.now() - lastPerfPostAt > 5000 && cost > 14) {
-      lastPerfPostAt = performance.now();
-      api("/api/perf/event?type=render&cost=" + Math.round(cost)).catch(
-        () => {},
-      );
-    }
-    return;
-  }
-  if (isGo()) {
-    drawGoBoard(hasActiveBoardState(GAME_GO) ? state : null);
-    drawTacticFlash(goctx);
-    const cost = performance.now() - t0;
-    if (performance.now() - lastPerfPostAt > 5000 && cost > 14) {
-      lastPerfPostAt = performance.now();
-      api("/api/perf/event?type=render&cost=" + Math.round(cost)).catch(
-        () => {},
-      );
-    }
-    return;
-  }
-  if (pixiReady && hasActiveBoardState(GAME_XIANGQI)) {
-    drawPixi();
-    const cost = performance.now() - t0;
-    if (performance.now() - lastPerfPostAt > 5000 && cost > 14) {
-      lastPerfPostAt = performance.now();
-      api("/api/perf/event?type=render&cost=" + Math.round(cost)).catch(
-        () => {},
-      );
-    }
-    return;
-  }
-  ctx.clearRect(0, 0, BASE_W, BASE_H);
-  ctx.drawImage(cache, 0, 0);
-  if (!hasActiveBoardState(GAME_XIANGQI)) return;
-  drawMarkers();
-  drawPieces();
-  drawMoveAnim();
-  drawSelection();
-  drawTacticFlash(ctx);
-  const cost = performance.now() - t0;
-  if (performance.now() - lastPerfPostAt > 5000 && cost > 14) {
-    lastPerfPostAt = performance.now();
-    api("/api/perf/event?type=render&cost=" + Math.round(cost)).catch(() => {});
-  }
-}
-function drawStaticPixi() {
-  if (!pixiReady || !pixiLayers) return;
-  const sl = pixiLayers.staticLayer;
-  sl.removeChildren();
-  const bx = MARGIN - 34,
-    by = MARGIN - 34,
-    bw = 8 * CELL + 68,
-    bh = 9 * CELL + 68;
-  const bg = new PIXI.Graphics();
-  bg.beginFill(0x243b80, 0.96);
-  bg.drawRoundedRect(bx, by, bw, bh, 10);
-  bg.endFill();
-  sl.addChild(bg);
-  if (boardTexReady) {
-    if (!pixiBoardTexture) pixiBoardTexture = PIXI.Texture.from(boardTex);
-    const texSprite = new PIXI.Sprite(pixiBoardTexture);
-    texSprite.x = bx;
-    texSprite.y = by;
-    texSprite.width = bw;
-    texSprite.height = bh;
-    texSprite.alpha = 0.92;
-    sl.addChild(texSprite);
-  }
-  const grid = new PIXI.Graphics();
-  grid.lineStyle(2, 0xd5b26a, 0.9);
-  for (let r = 0; r < 10; r++) {
-    const y = MARGIN + r * CELL;
-    grid.moveTo(MARGIN, y);
-    grid.lineTo(MARGIN + 8 * CELL, y);
-  }
-  for (let c = 0; c < 9; c++) {
-    const x = MARGIN + c * CELL;
-    if (c === 0 || c === 8) {
-      grid.moveTo(x, MARGIN);
-      grid.lineTo(x, MARGIN + 9 * CELL);
-    } else {
-      grid.moveTo(x, MARGIN);
-      grid.lineTo(x, MARGIN + 4 * CELL);
-      grid.moveTo(x, MARGIN + 5 * CELL);
-      grid.lineTo(x, MARGIN + 9 * CELL);
-    }
-  }
-  grid.moveTo(MARGIN + 3 * CELL, MARGIN);
-  grid.lineTo(MARGIN + 5 * CELL, MARGIN + 2 * CELL);
-  grid.moveTo(MARGIN + 5 * CELL, MARGIN);
-  grid.lineTo(MARGIN + 3 * CELL, MARGIN + 2 * CELL);
-  grid.moveTo(MARGIN + 3 * CELL, MARGIN + 7 * CELL);
-  grid.lineTo(MARGIN + 5 * CELL, MARGIN + 9 * CELL);
-  grid.moveTo(MARGIN + 5 * CELL, MARGIN + 7 * CELL);
-  grid.lineTo(MARGIN + 3 * CELL, MARGIN + 9 * CELL);
-  sl.addChild(grid);
-  const river = new PIXI.Graphics();
-  river.beginFill(0x20357a, 0.92);
-  river.drawRoundedRect(
-    MARGIN + 12,
-    MARGIN + 4 * CELL + 3,
-    8 * CELL - 24,
-    CELL - 8,
-    20,
-  );
-  river.endFill();
-  sl.addChild(river);
-  const frame = new PIXI.Graphics();
-  frame.lineStyle(12, 0x5d3718, 0.55);
-  frame.drawRect(bx - 10, by - 10, bw + 20, bh + 20);
-  frame.lineStyle(3, 0xdfbc77, 0.95);
-  frame.drawRect(bx, by, bw, bh);
-  sl.addChild(frame);
-  const riverTextL = new PIXI.Text("楚 河", {
-    fontFamily: "KaiTi,STKaiti,serif",
-    fontSize: 45,
-    fontWeight: "700",
-    fill: 0xd8b574,
-  });
-  riverTextL.x = MARGIN + CELL - 10;
-  riverTextL.y = MARGIN + 4 * CELL + 6;
-  const riverTextR = new PIXI.Text("汉 界", {
-    fontFamily: "KaiTi,STKaiti,serif",
-    fontSize: 45,
-    fontWeight: "700",
-    fill: 0xd8b574,
-  });
-  riverTextR.x = MARGIN + 5 * CELL + 8;
-  riverTextR.y = MARGIN + 4 * CELL + 6;
-  sl.addChild(riverTextL, riverTextR);
-}
-function getPieceTexturePixi(name, color) {
-  const key = "pixi|" + color + "|" + name;
-  if (pieceSpriteCache[key]) return pieceSpriteCache[key];
-  const size = Math.ceil(R * 2 + 18);
-  const can = document.createElement("canvas");
-  can.width = size;
-  can.height = size;
-  const g = can.getContext("2d");
-  const cx = size / 2,
-    cy = size / 2;
-  g.fillStyle = "rgba(10,6,2,.28)";
-  g.beginPath();
-  g.ellipse(cx + 2, cy + 5, R * 1.02, R * 0.83, 0, 0, Math.PI * 2);
-  g.fill();
-  const rg = g.createRadialGradient(
-    cx - R * 0.36,
-    cy - R * 0.48,
-    R * 0.1,
-    cx,
-    cy,
-    R * 1.08,
-  );
-  if (color === "RED") {
-    rg.addColorStop(0, "#fff9ef");
-    rg.addColorStop(0.34, "#f4dfc2");
-    rg.addColorStop(0.7, "#d5b189");
-    rg.addColorStop(1, "#996946");
-  } else {
-    rg.addColorStop(0, "#ffffff");
-    rg.addColorStop(0.36, "#ece8df");
-    rg.addColorStop(0.7, "#c5bdb2");
-    rg.addColorStop(1, "#8f8477");
-  }
-  g.fillStyle = rg;
-  g.beginPath();
-  g.arc(cx, cy, R, 0, Math.PI * 2);
-  g.fill();
-  const bevel = g.createLinearGradient(cx, cy - R * 0.95, cx, cy + R * 0.95);
-  bevel.addColorStop(0, "rgba(255,255,255,.45)");
-  bevel.addColorStop(0.4, "rgba(255,255,255,.08)");
-  bevel.addColorStop(1, "rgba(0,0,0,.26)");
-  g.strokeStyle = bevel;
-  g.lineWidth = 3.2;
-  g.beginPath();
-  g.arc(cx, cy, R - 1.7, 0, Math.PI * 2);
-  g.stroke();
-  g.strokeStyle = "rgba(80,45,18,.95)";
-  g.lineWidth = 2.3;
-  g.beginPath();
-  g.arc(cx, cy, R - 3.3, 0, Math.PI * 2);
-  g.stroke();
-  g.strokeStyle = color === "RED" ? "#c63f37" : "#202020";
-  g.lineWidth = 2.3;
-  g.beginPath();
-  g.arc(cx, cy, R - 5.6, 0, Math.PI * 2);
-  g.stroke();
-  g.strokeStyle = "rgba(243,219,173,.92)";
-  g.lineWidth = 1.1;
-  g.beginPath();
-  g.arc(cx, cy, R - 8.2, 0, Math.PI * 2);
-  g.stroke();
-  const spec = g.createRadialGradient(
-    cx - R * 0.42,
-    cy - R * 0.56,
-    1,
-    cx - R * 0.1,
-    cy - R * 0.18,
-    R * 0.92,
-  );
-  spec.addColorStop(0, "rgba(255,255,255,.58)");
-  spec.addColorStop(0.4, "rgba(255,255,255,.2)");
-  spec.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = spec;
-  g.beginPath();
-  g.arc(cx, cy, R - 5, Math.PI * 0.98, Math.PI * 1.92);
-  g.lineTo(cx, cy);
-  g.closePath();
-  g.fill();
-  g.font = "bold 32px KaiTi";
-  g.lineWidth = 1.1;
-  g.strokeStyle = "rgba(255,246,225,.36)";
-  const w = g.measureText(name).width;
-  g.strokeText(name, cx - w / 2, cy + 11);
-  g.fillStyle = color === "RED" ? "#bc332c" : "#141414";
-  g.fillText(name, cx - w / 2, cy + 11);
-  const tex = PIXI.Texture.from(can);
-  pieceSpriteCache[key] = tex;
-  return tex;
-}
-function getPieceBloomTexturePixi(color) {
-  const key = "pixi-bloom|" + color;
-  if (pieceSpriteCache[key]) return pieceSpriteCache[key];
-  const size = Math.ceil(R * 2 + 26);
-  const can = document.createElement("canvas");
-  can.width = size;
-  can.height = size;
-  const g = can.getContext("2d");
-  const cx = size / 2,
-    cy = size / 2;
-  const grd = g.createRadialGradient(cx, cy, R * 0.3, cx, cy, R * 1.25);
-  if (color === "RED") {
-    grd.addColorStop(0, "rgba(255,150,130,.26)");
-    grd.addColorStop(0.6, "rgba(207,78,62,.14)");
-    grd.addColorStop(1, "rgba(160,45,34,0)");
-  } else {
-    grd.addColorStop(0, "rgba(255,246,224,.23)");
-    grd.addColorStop(0.6, "rgba(206,197,178,.13)");
-    grd.addColorStop(1, "rgba(120,112,98,0)");
-  }
-  g.fillStyle = grd;
-  g.beginPath();
-  g.arc(cx, cy, R * 1.25, 0, Math.PI * 2);
-  g.fill();
-  const tex = PIXI.Texture.from(can);
-  pieceSpriteCache[key] = tex;
-  return tex;
-}
-function getPieceSpecTexturePixi(color) {
-  const key = "pixi-spec|" + color;
-  if (pieceSpriteCache[key]) return pieceSpriteCache[key];
-  const size = Math.ceil(R * 2 + 18);
-  const can = document.createElement("canvas");
-  can.width = size;
-  can.height = size;
-  const g = can.getContext("2d");
-  const cx = size / 2,
-    cy = size / 2;
-  const spec = g.createRadialGradient(
-    cx - R * 0.4,
-    cy - R * 0.6,
-    1,
-    cx - R * 0.08,
-    cy - R * 0.15,
-    R * 0.95,
-  );
-  spec.addColorStop(0, "rgba(255,255,255,.62)");
-  spec.addColorStop(0.45, "rgba(255,255,255,.22)");
-  spec.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = spec;
-  g.beginPath();
-  g.arc(cx, cy, R - 4, Math.PI * 0.95, Math.PI * 1.9);
-  g.lineTo(cx, cy);
-  g.closePath();
-  g.fill();
-  g.strokeStyle =
-    color === "RED" ? "rgba(255,219,206,.5)" : "rgba(255,255,255,.45)";
-  g.lineWidth = 1;
-  g.beginPath();
-  g.arc(cx - 1, cy - 1, R - 10, Math.PI * 1.06, Math.PI * 1.78);
-  g.stroke();
-  const tex = PIXI.Texture.from(can);
-  pieceSpriteCache[key] = tex;
-  return tex;
-}
-function makePieceLayerSprite(name, color) {
-  const root = new PIXI.Container();
-  const sh = new PIXI.Graphics();
-  sh.beginFill(0x080502, 0.28);
-  sh.drawEllipse(2, 4, R * 1.02, R * 0.82);
-  sh.endFill();
-  root.addChild(sh);
-  const bloom = new PIXI.Sprite(getPieceBloomTexturePixi(color));
-  bloom.anchor.set(0.5);
-  bloom.alpha = 0.7;
-  bloom.blendMode = PIXI.BLEND_MODES.ADD;
-  root.addChild(bloom);
-  const body = new PIXI.Sprite(getPieceTexturePixi(name, color));
-  body.anchor.set(0.5);
-  root.addChild(body);
-  const spec = new PIXI.Sprite(getPieceSpecTexturePixi(color));
-  spec.anchor.set(0.5);
-  spec.alpha = 0.75;
-  spec.blendMode = PIXI.BLEND_MODES.SCREEN;
-  root.addChild(spec);
-  return root;
-}
-function drawMarkersPixi() {
-  if (!state || !state.recentMoves) return;
-  const gl = new PIXI.Graphics();
-  for (const m of state.recentMoves) {
-    const [fx, fy] = pos(m.fromRow, m.fromCol),
-      [tx, ty] = pos(m.toRow, m.toCol);
-    const color = m.color === "RED" ? 0xc6403c : 0x262626;
-    const alpha = m.order === 1 ? 0.96 : 0.82;
-    gl.lineStyle(m.order === 1 ? 3.8 : 3, color, alpha);
-    const dx = tx - fx,
-      dy = ty - fy,
-      len = Math.hypot(dx, dy);
-    if (len > 8) {
-      const ux = dx / len,
-        uy = dy / len;
-      const sx = fx + ux * (R - 7),
-        sy = fy + uy * (R - 7),
-        ex = tx - ux * (R - 6),
-        ey = ty - uy * (R - 6);
-      gl.moveTo(sx, sy);
-      gl.lineTo(ex, ey);
-      const hs = 10,
-        px = -uy,
-        py = ux;
-      gl.beginFill(color, alpha);
-      gl.moveTo(ex, ey);
-      gl.lineTo(ex - ux * hs + px * hs * 0.62, ey - uy * hs + py * hs * 0.62);
-      gl.lineTo(ex - ux * hs - px * hs * 0.62, ey - uy * hs - py * hs * 0.62);
-      gl.closePath();
-      gl.endFill();
-    }
-    gl.lineStyle(2.2, color, alpha);
-    gl.drawCircle(fx, fy, R - 10);
-    const s = m.order === 1 ? R + 9 : R + 6;
-    gl.drawRect(tx - s, ty - s, s * 2, s * 2);
-  }
-  pixiLayers.markerLayer.addChild(gl);
-}
-function drawPiecesPixi() {
-  if (!state) return;
-  for (let r = 0; r < 10; r++) {
-    for (let c = 0; c < 9; c++) {
-      const p = state.board[r][c];
-      if (!p) continue;
-      const [x, y] = pos(r, c);
-      const sp = makePieceLayerSprite(p.name, p.color);
-      sp.x = x;
-      sp.y = y;
-      pixiLayers.pieceLayer.addChild(sp);
-    }
-  }
-}
-function drawSelectionPixi() {
-  if (
-    !state ||
-    state.reviewMode ||
-    state.selectedRow < 0 ||
-    state.selectedCol < 0
-  )
-    return;
-  const [x, y] = pos(state.selectedRow, state.selectedCol);
-  const s = CELL / 2 - 4;
-  const g = new PIXI.Graphics();
-  g.lineStyle(2.8, 0x14a05a, 0.95);
-  g.drawRect(x - s, y - s, s * 2, s * 2);
-  g.lineStyle(1.4, 0xa8e4c4, 0.95);
-  g.drawRect(x - s + 3, y - s + 3, s * 2 - 6, s * 2 - 6);
-  pixiLayers.uiLayer.addChild(g);
-}
-function drawTacticFlashPixi() {
-  if (!tacticOverlayText || performance.now() > tacticOverlayUntil) return;
-  const panel = new PIXI.Graphics();
-  panel.beginFill(0x070a1a, 0.82);
-  panel.drawRect(BASE_W / 2 - 120, BASE_H / 2 - 44, 240, 62);
-  panel.endFill();
-  panel.lineStyle(2, 0xd8b86f, 0.9);
-  panel.drawRect(BASE_W / 2 - 120, BASE_H / 2 - 44, 240, 62);
-  const t = new PIXI.Text(tacticOverlayText, {
-    fontFamily: "Microsoft YaHei UI",
-    fontSize: 36,
-    fontWeight: "700",
-    fill: 0xffd86e,
-  });
-  t.anchor.set(0.5);
-  t.x = BASE_W / 2;
-  t.y = BASE_H / 2 - 2;
-  if (window.gsap) {
-    gsap.fromTo(
-      panel,
-      { alpha: 0.55 },
-      { alpha: 1, duration: 0.26, yoyo: true, repeat: 1 },
-    );
-    gsap.fromTo(
-      t.scale,
-      { x: 0.9, y: 0.9 },
-      { x: 1, y: 1, duration: 0.24, ease: "back.out(1.4)" },
-    );
-  }
-  pixiLayers.uiLayer.addChild(panel, t);
-}
-function drawMoveAnimPixi() {
-  if (!anim) return;
-  const t = (performance.now() - anim.start) / anim.dur;
-  if (t >= 1) {
-    anim = null;
-    return;
-  }
-  const k = Math.max(0, Math.min(1, t));
-  const ease = 1 - Math.pow(1 - k, 3);
-  const x = anim.fx + (anim.tx - anim.fx) * ease,
-    y = anim.fy + (anim.ty - anim.fy) * ease;
-  const sp = makePieceLayerSprite(anim.name, anim.color);
-  sp.x = x;
-  sp.y = y;
-  sp.alpha = 0.92;
-  sp.scale.set(1.02);
-  pixiLayers.fxLayer.addChild(sp);
-  scheduleRender();
-}
-function drawPixi() {
-  if (!pixiReady || !pixiLayers) return;
-  if (!pixiLayers.staticLayer.children.length) drawStaticPixi();
-  [
-    pixiLayers.markerLayer,
-    pixiLayers.pieceLayer,
-    pixiLayers.fxLayer,
-    pixiLayers.uiLayer,
-  ].forEach((layer) => {
-    for (const n of layer.removeChildren()) {
-      if (n && n.destroy) n.destroy({ children: true });
-    }
-  });
-  if (state) {
-    drawMarkersPixi();
-    drawPiecesPixi();
-    drawMoveAnimPixi();
-    drawSelectionPixi();
-    drawTacticFlashPixi();
-  }
-  pixiApp.render();
-}
-function makePieceSprite(name, color) {
-  const key = color + "|" + name;
-  if (pieceSpriteCache[key]) return pieceSpriteCache[key];
-  const size = Math.ceil(R * 2 + 12);
-  const can = document.createElement("canvas");
-  can.width = size;
-  can.height = size;
-  const g = can.getContext("2d");
-  const cx = size / 2,
-    cy = size / 2;
-  g.fillStyle = "rgba(13,8,0,.24)";
-  g.beginPath();
-  g.ellipse(cx + 2, cy + 3, R * 0.98, R * 0.82, 0, 0, Math.PI * 2);
-  g.fill();
-  const rg = g.createRadialGradient(cx - 9, cy - 10, 4, cx, cy, R);
-  if (color === "RED") {
-    rg.addColorStop(0, "#fff7ec");
-    rg.addColorStop(0.62, "#efd8bd");
-    rg.addColorStop(1, "#d1ad86");
-  } else {
-    rg.addColorStop(0, "#ffffff");
-    rg.addColorStop(0.62, "#ebe7df");
-    rg.addColorStop(1, "#c7c2b8");
-  }
-  g.fillStyle = rg;
-  g.beginPath();
-  g.arc(cx, cy, R, 0, Math.PI * 2);
-  g.fill();
-  const sh = g.createLinearGradient(cx, cy - R * 0.2, cx, cy + R);
-  sh.addColorStop(0, "rgba(0,0,0,0)");
-  sh.addColorStop(1, "rgba(0,0,0,.22)");
-  g.fillStyle = sh;
-  g.beginPath();
-  g.arc(cx, cy, R, 0, Math.PI * 2);
-  g.fill();
-  g.strokeStyle = "rgba(88,58,29,.94)";
-  g.lineWidth = 2.4;
-  g.beginPath();
-  g.arc(cx, cy, R, 0, Math.PI * 2);
-  g.stroke();
-  g.strokeStyle = color === "RED" ? "#d24c45" : "#252525";
-  g.lineWidth = 2.8;
-  g.beginPath();
-  g.arc(cx, cy, R - 3, 0, Math.PI * 2);
-  g.stroke();
-  g.strokeStyle = "rgba(229,207,160,.9)";
-  g.lineWidth = 1.2;
-  g.beginPath();
-  g.arc(cx, cy, R - 6, 0, Math.PI * 2);
-  g.stroke();
-  g.strokeStyle = "rgba(255,248,224,.72)";
-  g.lineWidth = 1;
-  g.beginPath();
-  g.arc(cx - 1, cy - 1, R - 9, Math.PI * 1.05, Math.PI * 1.82);
-  g.stroke();
-  g.fillStyle = "rgba(255,255,255,.22)";
-  g.beginPath();
-  g.arc(cx - 8, cy - 10, 7, 0, Math.PI * 2);
-  g.fill();
-  g.font = "bold 32px KaiTi";
-  g.lineWidth = 0.9;
-  g.strokeStyle = "rgba(255,244,220,.22)";
-  const w = g.measureText(name).width;
-  g.strokeText(name, cx - w / 2, cy + 11);
-  g.fillStyle = color === "RED" ? "#c43d36" : "#1b1b1b";
-  g.fillText(name, cx - w / 2, cy + 11);
-  pieceSpriteCache[key] = can;
-  return can;
-}
-function drawPieceDisc(x, y, name, color) {
-  const s = makePieceSprite(name, color);
-  ctx.drawImage(s, x - s.width / 2, y - s.height / 2);
-}
-function drawPieces() {
-  for (let r = 0; r < 10; r++) {
-    for (let c = 0; c < 9; c++) {
-      const p = state.board[r][c];
-      if (!p) continue;
-      const [x, y] = pos(r, c);
-      drawPieceDisc(x, y, p.name, p.color);
-    }
-  }
-}
-function drawMarkers() {
-  if (!state.recentMoves) return;
-  for (const m of state.recentMoves) {
-    const [fx, fy] = pos(m.fromRow, m.fromCol),
-      [tx, ty] = pos(m.toRow, m.toCol);
-    const color =
-      m.color === "RED" ? "rgba(198,64,60,.94)" : "rgba(35,35,35,.94)";
-    const glow =
-      m.color === "RED" ? "rgba(255,134,126,.22)" : "rgba(160,160,160,.18)";
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(fx, fy, R - 5, 0, Math.PI * 2);
-    ctx.fill();
-    const dx = tx - fx,
-      dy = ty - fy,
-      len = Math.hypot(dx, dy);
-    if (len > 8) {
-      const ux = dx / len,
-        uy = dy / len;
-      const sx = fx + ux * (R - 7),
-        sy = fy + uy * (R - 7),
-        ex = tx - ux * (R - 6),
-        ey = ty - uy * (R - 6);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = m.order === 1 ? 3.8 : 3;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-      const hs = 10,
-        px = -uy,
-        py = ux;
-      const ax1 = ex - ux * hs + px * hs * 0.62,
-        ay1 = ey - uy * hs + py * hs * 0.62,
-        ax2 = ex - ux * hs - px * hs * 0.62,
-        ay2 = ey - uy * hs - py * hs * 0.62;
-      ctx.beginPath();
-      ctx.moveTo(ex, ey);
-      ctx.lineTo(ax1, ay1);
-      ctx.lineTo(ax2, ay2);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(fx, fy, R - 10, 0, Math.PI * 2);
-    ctx.stroke();
-    const s = m.order === 1 ? R + 9 : R + 6;
-    ctx.lineWidth = m.order === 1 ? 3.6 : 2.8;
-    ctx.strokeRect(tx - s, ty - s, s * 2, s * 2);
-    const br = m.order === 1 ? 11 : 9,
-      bx = tx + s - 4,
-      by = ty - s + 4;
-    ctx.fillStyle = "rgba(251,243,224,.96)";
-    ctx.beginPath();
-    ctx.arc(bx, by, br, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = "rgba(22,22,22,.95)";
-    ctx.font = m.order === 1 ? "bold 13px Consolas" : "bold 12px Consolas";
-    ctx.fillText(String(m.order), bx - 3, by + 4);
-  }
-}
-function drawSelection() {
-  if (state.reviewMode) return;
-  if (state.selectedRow >= 0 && state.selectedCol >= 0) {
-    const [x, y] = pos(state.selectedRow, state.selectedCol);
-    const s = CELL / 2 - 4;
-    ctx.strokeStyle = "rgba(20,160,90,.92)";
-    ctx.lineWidth = 2.8;
-    ctx.strokeRect(x - s, y - s, s * 2, s * 2);
-    ctx.strokeStyle = "rgba(168,228,196,.95)";
-    ctx.lineWidth = 1.6;
-    ctx.strokeRect(x - s + 3, y - s + 3, s * 2 - 6, s * 2 - 6);
-  }
-}
-function drawTacticFlash(g) {
-  if (!tacticOverlayText || performance.now() > tacticOverlayUntil) return;
-  const c = g || ctx;
-  c.fillStyle = "rgba(7,10,26,.82)";
-  c.fillRect(BASE_W / 2 - 120, BASE_H / 2 - 44, 240, 62);
-  c.strokeStyle = "#d8b86f";
-  c.lineWidth = 2;
-  c.strokeRect(BASE_W / 2 - 120, BASE_H / 2 - 44, 240, 62);
-  c.font = "bold 36px Microsoft YaHei UI";
-  c.fillStyle = "#ffd86e";
-  c.textAlign = "center";
-  c.textBaseline = "middle";
-  c.fillText(tacticOverlayText, BASE_W / 2, BASE_H / 2 - 2);
-  c.textAlign = "start";
-  c.textBaseline = "alphabetic";
-}
-function fmtSec(v) {
-  if (v == null || v < 0) return "--:--";
-  const m = Math.floor(v / 60),
-    s = v % 60;
-  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-}
-function primeAnim() {
-  if (
-    !state ||
-    !state.recentMoves ||
-    !state.recentMoves.length ||
-    state.gameType !== GAME_XIANGQI
-  )
-    return;
-  const m = state.recentMoves[0];
-  const k = [m.fromRow, m.fromCol, m.toRow, m.toCol, m.color].join("-");
-  if (k === animKey) return;
-  animKey = k;
-  const p = state.board[m.toRow][m.toCol];
-  if (!p) return;
-  const [fx, fy] = pos(m.fromRow, m.fromCol),
-    [tx, ty] = pos(m.toRow, m.toCol);
-  anim = {
-    fx,
-    fy,
-    tx,
-    ty,
-    name: p.name,
-    color: p.color,
-    start: performance.now(),
-    dur: 120,
-  };
-}
-function drawMoveAnim() {
-  if (!anim) return;
-  const t = (performance.now() - anim.start) / anim.dur;
-  if (t >= 1) {
-    anim = null;
-    return;
-  }
-  const k = Math.max(0, Math.min(1, t));
-  const ease = 1 - Math.pow(1 - k, 3);
-  const x = anim.fx + (anim.tx - anim.fx) * ease,
-    y = anim.fy + (anim.ty - anim.fy) * ease;
-  drawPieceDisc(x, y, anim.name, anim.color);
-  scheduleRender();
-}
-function handleSounds() {
-  if (
-    !state ||
-    state.reviewMode ||
-    !state.recentMoves ||
-    !state.recentMoves.length
-  )
-    return;
-  const m = state.recentMoves[0];
-  const key = [m.fromRow, m.fromCol, m.toRow, m.toCol, m.color].join("-");
-  const rs = state.result || "";
-  const isMateCue =
-    state.tacticText === "绝杀" || (state.gameOver && /胜|获胜|将死/.test(rs));
-  if (key !== lastMoveSoundKey) {
-    lastMoveSoundKey = key;
-    if (isMateCue) {
-      lastMateSoundKey = key;
-      playSound(mateAudio);
-    } else {
-      playSound(moveAudio);
-    }
-    return;
-  }
-  if (isMateCue && key !== lastMateSoundKey) {
-    lastMateSoundKey = key;
-    playSound(mateAudio);
-  }
-}
-function stateStamp(s) {
-  if (!s) return "";
-  const m = s.recentMoves && s.recentMoves.length ? s.recentMoves[0] : null;
-  return [
-    s.seq,
-    s.gameType,
-    s.started,
-    s.mode,
-    s.currentTurn,
-    s.gameOver,
-    s.result,
-    s.selectedRow,
-    s.selectedCol,
-    s.reviewMode,
-    s.reviewMoveIndex,
-    s.reviewMaxMove,
-    s.tacticSeq,
-    m ? m.fromRow : "",
-    m ? m.fromCol : "",
-    m ? m.toRow : "",
-    m ? m.toCol : "",
-  ].join("|");
-}
-async function api(path) {
-  const base = withSid(path);
-  const q = base.includes("?") ? "&" : "?";
-  const url = base + q + "_t=" + Date.now();
-  let res;
-  try {
-    res = await fetch(url, { cache: "no-store" });
-  } catch (err) {
-    throw new Error("网络连接失败，请稍后重试");
-  }
-  if (!res.ok) {
-    let detail = "";
-    try {
-      detail = (await res.text()).trim();
-    } catch (_e) {}
-    throw new Error(
-      "请求失败 (" +
-        res.status +
-        ")" +
-        (detail ? ": " + detail.slice(0, 80) : ""),
-    );
-  }
-  const ct = (res.headers.get("content-type") || "").toLowerCase();
-  if (ct.includes("application/json")) return await res.json();
-  const body = (await res.text()).trim();
-  throw new Error("接口返回异常" + (body ? ": " + body.slice(0, 80) : ""));
-}
-function applyState(data) {
-  clearUiError();
-  const seq = (data && data.seq) || 0;
-  if (seq && seq < lastAppliedSeq) return;
-  lastAppliedSeq = Math.max(lastAppliedSeq, seq);
-  const prev = lastStateStamp;
-  const wasStarted = !!(state && state.started);
-  state = data || {};
-  if (typeof state.goEngineAvailable === "boolean") {
-    lastKnownGoEngineAvailable = state.goEngineAvailable;
-  }
-  const uiType = (ui.gameType && ui.gameType.value) || GAME_XIANGQI;
-  const serverType = state.gameType || uiType;
-  if (state.started && gameTypeIntent && serverType === gameTypeIntent) {
-    gameTypeIntent = "";
-  }
-  const displayType = gameTypeIntent || (state.started ? serverType : uiType);
-  syncGamePanels(displayType);
-  const isG = displayType === GAME_GOMOKU;
-  const isGoGame = displayType === GAME_GO;
-  const tq = state.tacticSeq || 0;
-  if (tq > lastTacticSeq && state.tacticText) {
-    lastTacticSeq = tq;
-    const tt = (state.tacticText || "").trim();
-    if (tt && tt !== "将军") {
-      tacticOverlayText = tt;
-      tacticOverlayUntil = performance.now() + 500;
-    } else {
-      tacticOverlayText = "";
-      tacticOverlayUntil = 0;
-    }
-  }
-  if (
-    !state.reviewMode &&
-    state.started &&
-    !wasStarted &&
-    seq !== lastOpeningSeq
-  ) {
-    lastOpeningSeq = seq;
-    playOpeningCeremony();
-  }
-  ui.firstHand.disabled = ui.mode.value !== "pvc";
-  if (ui.xiangqiEngine) {
-    const selected =
-      (state && state.xiangqiAiSelected) || ui.xiangqiEngine.value || "BUILTIN";
-    if (ui.xiangqiEngine.value !== selected) ui.xiangqiEngine.value = selected;
-    const pkOpt = ui.xiangqiEngine.querySelector('option[value="PIKAFISH"]');
-    if (pkOpt && state)
-      pkOpt.disabled = state.xiangqiAiPikafishConfigured === false;
-  }
-  if (ui.gomokuEngine) {
-    const selected =
-      (state && state.gomokuAiSelected) || ui.gomokuEngine.value || "BUILTIN";
-    if (ui.gomokuEngine.value !== selected) ui.gomokuEngine.value = selected;
-    const rapfiOpt = ui.gomokuEngine.querySelector('option[value="RAPFI"]');
-    const alphaOpt = ui.gomokuEngine.querySelector(
-      'option[value="ALPHAGOMOKU"]',
-    );
-    if (rapfiOpt && state)
-      rapfiOpt.disabled = state.gomokuAiRapfiConfigured === false;
-    if (alphaOpt && state)
-      alphaOpt.disabled = state.gomokuAiAlphaConfigured === false;
-  }
-  setTxt(
-    ui.statusTag,
-    "状态: " +
-      (!state.started
-        ? "待开始"
-        : state.gameOver
-          ? state.result || "结束"
-          : state.reviewMode
-            ? "回顾模式"
-            : "进行中"),
-  );
-  const sr = state.stepRemainSec;
-  setTxt(
-    ui.stepTop,
-    "当前步时倒计时: " + (sr != null && sr >= 0 ? sr + "s" : "--s"),
-  );
-  setTxt(
-    ui.totalTop,
-    "总时 红:" +
-      fmtSec(state.redTotalSec) +
-      " 黑:" +
-      fmtSec(state.blackTotalSec),
-  );
-  const humanTxt =
-    isG || isGoGame
-      ? state.pvcHumanColor === "WHITE"
-        ? " / 玩家执白"
-        : " / 玩家执黑"
-      : state.pvcHumanColor === "BLACK"
-        ? " / 玩家执黑"
-        : " / 玩家执红";
-  const gameLabel = isG ? "五子棋" : isGoGame ? "围棋" : "中国象棋";
-  const engineText = isG
-    ? state.gomokuAiEngineText
-    : isGoGame
-      ? state.goAiEngineText
-      : state.xiangqiAiEngineText;
-  const modeText =
-    "棋种: " +
-    gameLabel +
-    " / 模式: " +
-    (state.mode === "PVC" ? "人机" : "双人") +
-    " / " +
-    (state.difficultyText || "-") +
-    (state.mode === "PVC" ? humanTxt : "") +
-    (engineText ? " / 引擎:" + engineText : "");
-  const endgameText = isG
-    ? "规则: 黑方禁手（三三/四四/长连）"
-    : isGoGame
-      ? "题库: " +
-        (((state.go && state.go.scenarioName) || state.endgame || "标准开局") +
-          " / 贴目 " +
-          ((state.go && state.go.komi) || 7.5))
-      : "残局: " + (state.endgame || "标准开局");
-  const drawReasonText =
-    "和棋原因: " +
-    (state.drawReason && state.drawReason.length ? state.drawReason : "-");
-  const reviewText = state.reviewMode
-    ? "回顾: 第 " +
-      state.reviewMoveIndex +
-      " / " +
-      state.reviewMaxMove +
-      " 步"
-    : "回顾: 关闭";
-  setTxt(ui.modeTag, modeText);
-  setTxt(ui.drawerModeTag, modeText);
-  setTxt(ui.endgameTag, endgameText);
-  setTxt(ui.drawerEndgameTag, endgameText);
-  setTxt(ui.drawReasonTag, drawReasonText);
-  setTxt(ui.drawerDrawReasonTag, drawReasonText);
-  setTxt(ui.reviewTag, reviewText);
-  setTxt(ui.drawerReviewTag, reviewText);
-  const turnTxt =
-    isG || isGoGame
-      ? state.currentTurn === "WHITE"
-        ? "白方"
-        : "黑方"
-      : state.currentTurn === "RED"
-        ? "红方"
-        : "黑方";
-  setTxt(
-    ui.info,
-    !state.started
-      ? "请点击“新开一局”开始"
-      : state.gameOver
-        ? state.result || "对局结束"
-        : isGoGame && state.go && state.go.score
-          ? "当前回合: " + turnTxt + " · " + state.go.score.resultText
-          : "当前回合: " + turnTxt,
-  );
-  setDis(ui.undo, !state.started || state.reviewMode || state.gameOver);
-  setDis(ui.surrender, !state.started || state.reviewMode || state.gameOver);
-  setDis(ui.drawBtn, !state.canDraw);
-  setDis(
-    ui.reviewStart,
-    !state.started || !state.canReview || state.reviewMode,
-  );
-  setDis(ui.reviewPrev, !state.reviewMode || state.reviewMoveIndex <= 0);
-  setDis(
-    ui.reviewNext,
-    !state.reviewMode || state.reviewMoveIndex >= state.reviewMaxMove,
-  );
-  setDis(ui.reviewExit, !state.reviewMode);
-  document.querySelectorAll(".scenarioBtn").forEach((btn) => {
-    btn.disabled = isG || btn.dataset.game !== displayType;
-  });
-  handleSounds();
-  const stamp = stateStamp(state);
-  const changed = stamp !== prev;
-  lastStateStamp = stamp;
-  if (changed) {
-    primeAnim();
-    scheduleRender();
-  }
-}
-async function refresh() {
-  if (pending) return;
-  pending = true;
-  const seq = ++reqSeq;
-  const t0 = performance.now();
-  try {
-    const data = await api("/api/state");
-    if (seq !== reqSeq) return;
-    applyState(data);
-  } catch (err) {
-    if (!state) {
-      showUiError(err);
-    }
-  } finally {
-    pending = false;
-    const cost = performance.now() - t0;
-    if (cost > 120) {
-      api("/api/perf/event?type=state_fetch&cost=" + Math.round(cost)).catch(
-        () => {},
-      );
-    }
-  }
-}
-async function act(path) {
-  try {
-    const data = await api(path);
-    applyState(data);
-  } catch (err) {
-    showUiError(err);
-    throw err;
-  }
-}
-function enqueueAct(path) {
-  actionQueue = actionQueue.then(() => act(path)).catch(() => {});
-  return actionQueue;
-}
-document.addEventListener("pointerdown", unlockAudio, { once: true });
-function onBoardPointer(e, el) {
-  if (state && (!state.started || state.reviewMode || state.gameOver)) return;
-  if (gameTypeIntent && (!state || state.gameType !== gameTypeIntent)) return;
-  e.preventDefault();
-  const rect = el.getBoundingClientRect();
-  const sx = BASE_W / rect.width,
-    sy = BASE_H / rect.height;
-  const x = (e.clientX - rect.left) * sx,
-    y = (e.clientY - rect.top) * sy;
-  const g = pickGrid(x, y);
-  if (!g) return;
-  const p =
-    state && state.board && state.board[g.row]
-      ? state.board[g.row][g.col]
-      : null;
-  if (
-    state &&
-    state.selectedRow < 0 &&
-    p &&
-    p.color === state.currentTurn &&
-    (state.mode !== "PVC" || p.color === state.pvcHumanColor)
-  ) {
-    state.selectedRow = g.row;
-    state.selectedCol = g.col;
-    scheduleRender();
-  }
-  enqueueAct("/api/click?row=" + g.row + "&col=" + g.col);
-}
-canvas.addEventListener("pointerdown", (e) => onBoardPointer(e, canvas), {
-  passive: false,
-});
-gomokuCanvas.addEventListener(
-  "pointerdown",
-  (e) => onBoardPointer(e, gomokuCanvas),
-  { passive: false },
-);
-goCanvas.addEventListener("pointerdown", (e) => onBoardPointer(e, goCanvas), {
-  passive: false,
-});
-document.getElementById("newGame").addEventListener("click", () => {
-  const mode = ui.mode.value,
-    d = document.getElementById("difficulty").value,
-    h = ui.firstHand.value,
-    g = selectedGameType(),
-    xe = ui.xiangqiEngine ? ui.xiangqiEngine.value : "BUILTIN",
-    ge = ui.gomokuEngine ? ui.gomokuEngine.value : "BUILTIN";
-  enqueueAct(
-    "/api/new?mode=" +
-      mode +
-      "&difficulty=" +
-      d +
-      "&humanFirst=" +
-      h +
-      "&gameType=" +
-      g +
-      "&xiangqiEngine=" +
-      encodeURIComponent(xe) +
-      "&gomokuEngine=" +
-      encodeURIComponent(ge),
-  );
-});
-document.querySelectorAll(".scenarioBtn").forEach((btn) =>
-  btn.addEventListener("click", () => {
-    const mode = ui.mode.value,
-      d = document.getElementById("difficulty").value,
-      h = ui.firstHand.value,
-      g = selectedGameType(),
-      xe = ui.xiangqiEngine ? ui.xiangqiEngine.value : "BUILTIN",
-      ge = ui.gomokuEngine ? ui.gomokuEngine.value : "BUILTIN",
-      name = encodeURIComponent(btn.dataset.name);
-    const endpoint = g === GAME_GO ? "/api/scenario" : "/api/endgame";
-    enqueueAct(
-      endpoint +
-        "?name=" +
-        name +
-        "&mode=" +
-        mode +
-        "&difficulty=" +
-        d +
-        "&humanFirst=" +
-        h +
-        "&gameType=" +
-        g +
-        "&xiangqiEngine=" +
-        encodeURIComponent(xe) +
-        "&gomokuEngine=" +
-        encodeURIComponent(ge),
-    );
-  }),
-);
-document
-  .getElementById("undo")
-  .addEventListener("click", () => enqueueAct("/api/undo"));
-if (ui.goPass) {
-  ui.goPass.addEventListener("click", () => enqueueAct("/api/go/pass"));
-}
-document.getElementById("surrender").addEventListener("click", () => {
-  if (confirm("确定要认输吗？")) {
-    enqueueAct("/api/surrender");
-  }
-});
-document.getElementById("drawBtn").addEventListener("click", () => {
-  if (confirm("确认本局和棋？")) {
-    enqueueAct("/api/draw");
-  }
-});
-document.getElementById("soundToggle").addEventListener("click", toggleSound);
-document
-  .getElementById("reviewStart")
-  .addEventListener("click", () => enqueueAct("/api/review/start"));
-document
-  .getElementById("reviewPrev")
-  .addEventListener("click", () => enqueueAct("/api/review/prev"));
-document
-  .getElementById("reviewNext")
-  .addEventListener("click", () => enqueueAct("/api/review/next"));
-document
-  .getElementById("reviewExit")
-  .addEventListener("click", () => enqueueAct("/api/review/exit"));
-ui.mode.addEventListener("change", () => {
-  ui.firstHand.disabled = ui.mode.value !== "pvc";
-});
-ui.gameType.addEventListener("change", () => {
-  gameTypeIntent = ui.gameType.value;
-  syncGamePanels(gameTypeIntent);
-  ui.firstHand.disabled = ui.mode.value !== "pvc";
-  scheduleRender();
-});
-function pollDelay() {
-  if (document.hidden) return 1200;
-  if (!state || !state.started) return isTouchDevice ? 320 : 140;
-  const aiThinking =
-    state.mode === "PVC" && state.currentTurn !== state.pvcHumanColor;
-  if (aiThinking) {
-    if (state.gameType === GAME_GOMOKU || state.gameType === GAME_GO)
-      return isTouchDevice ? 150 : 55;
-    return isTouchDevice ? 190 : 80;
-  }
-  return isTouchDevice ? 240 : 110;
-}
-function schedulePoll() {
-  clearTimeout(pollTimer);
-  pollTimer = setTimeout(async () => {
-    await refresh();
-    schedulePoll();
-  }, pollDelay());
-}
-document.addEventListener("visibilitychange", schedulePoll);
-initPixiRenderer();
-drawStatic();
-setupCanvas();
-runCourtAnimations();
-syncSoundToggle();
-syncGamePanels(ui.gameType.value);
-refresh().finally(schedulePoll);
+const BASE_W=800,BASE_H=900,CELL=68,MARGIN=98,R=29,GAME_XIANGQI='XIANGQI',GAME_GOMOKU='GOMOKU',GK_SIZE=15,GK_MARGIN=86,GK_CELL=(BASE_W-GK_MARGIN*2)/(GK_SIZE-1),GK_R=Math.max(9,Math.floor(GK_CELL*0.43));
+const canvas=document.getElementById('boardXQ'); const gomokuCanvas=document.getElementById('boardGK'); const boardStage=document.getElementById('boardStage'); const flipStage=document.getElementById('flipStage'); const boardCard=boardStage.closest('.boardCard'); const ctx=canvas.getContext('2d',{alpha:true}); const gctx=gomokuCanvas.getContext('2d',{alpha:true});
+let state=null,reqSeq=0,pending=false,needRender=false,scale=1,dpr=1,anim=null,animKey='',pollTimer=0,lastStateStamp='',actionQueue=Promise.resolve(),lastAppliedSeq=0,lastPerfPostAt=0,lastTacticSeq=0,tacticOverlayText='',tacticOverlayUntil=0,courtBannerTimer=0,lastOpeningSeq=0,gameTypeIntent='';
+const isTouchDevice=('ontouchstart' in window)||((navigator&&navigator.maxTouchPoints)||0)>0;const isCompactScreen=()=>window.innerWidth<=900;function targetDpr(){const raw=Math.max(1,window.devicePixelRatio||1);if(isTouchDevice)return Math.min(window.innerWidth<=768?1.35:1.55,raw);return Math.min(isCompactScreen()?1.85:2.2,raw);}dpr=targetDpr();
+const SID_KEY='xq_sid';function makeSid(){if(window.crypto&&window.crypto.randomUUID)return window.crypto.randomUUID().replace(/-/g,'');return String(Date.now())+Math.random().toString(16).slice(2);}const sid=(()=>{let v=sessionStorage.getItem(SID_KEY);if(!v){v=makeSid();sessionStorage.setItem(SID_KEY,v);}return v;})();function withSid(path){const sep=path.includes('?')?'&':'?';return path+sep+'sid='+encodeURIComponent(sid);}
+const moveAudio=new Audio('/assets/audio/move.wav');const mateAudio=new Audio('/assets/audio/mate.wav');moveAudio.preload='auto';mateAudio.preload='auto';moveAudio.volume=0.92;mateAudio.volume=0.98;let audioUnlocked=false,lastMoveSoundKey='',lastMateSoundKey='';let soundEnabled=(localStorage.getItem('xq_sound_enabled')??'1')!=='0';
+const ui={statusTag:document.getElementById('statusTag'),stepTop:document.getElementById('stepTop'),totalTop:document.getElementById('totalTop'),modeTag:document.getElementById('modeTag'),endgameTag:document.getElementById('endgameTag'),drawReasonTag:document.getElementById('drawReasonTag'),reviewTag:document.getElementById('reviewTag'),drawerModeTag:document.getElementById('drawerModeTag'),drawerEndgameTag:document.getElementById('drawerEndgameTag'),drawerDrawReasonTag:document.getElementById('drawerDrawReasonTag'),drawerReviewTag:document.getElementById('drawerReviewTag'),info:document.getElementById('info'),undo:document.getElementById('undo'),surrender:document.getElementById('surrender'),drawBtn:document.getElementById('drawBtn'),reviewStart:document.getElementById('reviewStart'),reviewPrev:document.getElementById('reviewPrev'),reviewNext:document.getElementById('reviewNext'),reviewExit:document.getElementById('reviewExit'),mode:document.getElementById('mode'),firstHand:document.getElementById('firstHand'),gameType:document.getElementById('gameType'),xiangqiEngine:document.getElementById('xiangqiEngine'),gomokuEngine:document.getElementById('gomokuEngine'),endgameTitle:document.getElementById('endgameTitle'),endgameGrid:document.getElementById('endgameGrid')};function setTxt(el,v){if(el&&el.textContent!==v)el.textContent=v;}function setDis(el,v){if(el&&el.disabled!==v)el.disabled=v;}function clearUiError(){if(ui.statusTag)ui.statusTag.classList.remove('is-error');if(ui.info)ui.info.classList.remove('is-error');}function showUiError(err){const raw=(err&&err.message)||String(err||'');const msg=(raw&&raw.trim())||'操作失败，请稍后重试';console.error('[xq-web]',err);if(ui.statusTag){ui.statusTag.classList.add('is-error');setTxt(ui.statusTag,'状态: '+msg);}if(ui.info){ui.info.classList.add('is-error');setTxt(ui.info,msg);}}
+const cache=document.createElement('canvas'); cache.width=BASE_W; cache.height=BASE_H; const cctx=cache.getContext('2d');const pieceSpriteCache=Object.create(null);let pixiReady=false,pixiApp=null,pixiLayers=null,pixiBoardTexture=null;
+const BOARD_TEXTURE_URL='';const boardTex=new Image();let boardTexReady=false;if(BOARD_TEXTURE_URL){boardTex.crossOrigin='anonymous';boardTex.onload=()=>{boardTexReady=true;drawStatic();scheduleRender();};boardTex.src=BOARD_TEXTURE_URL;}
+function initPixiRenderer(){if(!window.PIXI||isTouchDevice){pixiReady=false;return;}try{dpr=targetDpr();pixiApp=new PIXI.Application({view:canvas,width:BASE_W,height:BASE_H,backgroundAlpha:0,antialias:true,resolution:dpr,autoDensity:false,autoStart:false,sharedTicker:false});pixiApp.stop();pixiLayers={root:new PIXI.Container(),staticLayer:new PIXI.Container(),markerLayer:new PIXI.Container(),pieceLayer:new PIXI.Container(),fxLayer:new PIXI.Container(),uiLayer:new PIXI.Container()};pixiLayers.root.sortableChildren=true;pixiLayers.root.addChild(pixiLayers.staticLayer,pixiLayers.markerLayer,pixiLayers.pieceLayer,pixiLayers.fxLayer,pixiLayers.uiLayer);pixiApp.stage.addChild(pixiLayers.root);pixiReady=true;}catch(_e){pixiReady=false;}}
+function runCourtAnimations(){if(!window.gsap||isTouchDevice||isCompactScreen())return;gsap.from('.wrap',{duration:0.9,y:26,opacity:0,ease:'power3.out'});gsap.from('.topMeta',{duration:0.75,scaleX:.94,opacity:0,transformOrigin:'50% 0%',ease:'back.out(1.2)',delay:.08});gsap.from('.boardCard',{duration:0.95,y:18,opacity:0,ease:'power2.out',delay:.14});gsap.from('.side',{duration:0.85,x:24,opacity:0,ease:'power2.out',delay:.2});gsap.from('.side .row,.side .title,.side .tag',{duration:.7,y:12,opacity:0,stagger:.035,ease:'power2.out',delay:.26});document.querySelectorAll('button,select').forEach(el=>{el.addEventListener('pointerenter',()=>gsap.to(el,{duration:.22,y:-1.2,scale:1.015,boxShadow:'0 6px 14px rgba(76,42,18,.28)',ease:'power2.out'}));el.addEventListener('pointerleave',()=>gsap.to(el,{duration:.24,y:0,scale:1,boxShadow:'inset 0 1px 0 rgba(255,255,255,.8),inset 0 -4px 6px rgba(109,73,35,.18)',ease:'power2.out'}));});}
+function flashBanner(text,tone,durationMs){const el=document.getElementById('courtBanner');if(!el)return;const hold=Math.max(80,Number(durationMs)||640);el.dataset.tone=tone||'gold';el.textContent=text;if(!window.gsap){el.style.opacity='1';setTimeout(()=>{el.style.opacity='0';},hold);return;}if(courtBannerTimer){clearTimeout(courtBannerTimer);courtBannerTimer=0;}gsap.killTweensOf(el);gsap.fromTo(el,{opacity:0,scale:.82,y:8},{opacity:1,scale:1,y:0,duration:.2,ease:'back.out(1.5)'});courtBannerTimer=setTimeout(()=>{gsap.to(el,{opacity:0,scale:.92,y:-6,duration:.2,ease:'power2.in'});},hold);}
+function playOpeningCeremony(){if(!window.gsap)return;flashBanner('开局','gold');const tl=gsap.timeline();tl.fromTo('.boardCard',{filter:'brightness(.86) saturate(.9)'},{filter:'brightness(1.05) saturate(1.12)',duration:.32,ease:'power2.out'}).to('.boardCard',{filter:'brightness(1) saturate(1)',duration:.44,ease:'power2.inOut'});tl.fromTo('.topMeta',{boxShadow:'0 0 0 rgba(0,0,0,0)'},{boxShadow:'0 0 26px rgba(255,220,150,.38)',duration:.28},0).to('.topMeta',{boxShadow:'inset 0 1px 0 rgba(255,236,206,.7),inset 0 -6px 10px rgba(85,43,12,.45),0 6px 14px rgba(18,9,4,.35)',duration:.46},'>-.02');}
+function playCheckCeremony(){}
+function playMateCeremony(){}
+function syncGamePanels(gameType){const g=gameType||((state&&state.gameType)||ui.gameType.value||GAME_XIANGQI);if(ui.gameType&&ui.gameType.value!==g)ui.gameType.value=g;const isG=g===GAME_GOMOKU;if(flipStage)flipStage.classList.toggle('gomokuFace',isG);const palace=document.querySelector('.palaceFrame');if(palace)palace.style.display=isG?'none':'';if(ui.endgameTitle)ui.endgameTitle.style.display=isG?'none':'';if(ui.endgameGrid)ui.endgameGrid.style.display=isG?'none':'grid';if(ui.firstHand){const v=ui.firstHand.value;ui.firstHand.innerHTML=isG?'<option value="true" selected>我先手（执黑）</option><option value="false">我后手（执白）</option>':'<option value="true" selected>我先手（执红）</option><option value="false">我后手（执黑）</option>';if(v==='false')ui.firstHand.value='false';}if(ui.gomokuEngine){ui.gomokuEngine.disabled=!isG;const row=ui.gomokuEngine.closest('.row');if(row)row.style.display=isG?'':'none';}if(ui.xiangqiEngine){ui.xiangqiEngine.disabled=isG;const row=ui.xiangqiEngine.closest('.row');if(row)row.style.display=isG?'none':'';}}
+function setupCanvas(){const viewportW=window.innerWidth||document.documentElement.clientWidth;const viewportH=window.innerHeight||document.documentElement.clientHeight;const mobile=isTouchDevice&&viewportW<=900;const maxW=Math.max(mobile?300:360,Math.min(boardCard.clientWidth-4,isTouchDevice?viewportW-12:viewportW-40));const boardHeightRatio=mobile?(viewportW<=640?0.82:0.78):(isCompactScreen()?0.76:0.9);const bottomReserve=mobile?(viewportW<=640?72:90):(isTouchDevice?96:72);const minBoardH=mobile?360:430;const maxH=Math.max(minBoardH,Math.min(viewportH*boardHeightRatio,viewportH-bottomReserve));const fitWByH=Math.floor(maxH*BASE_W/BASE_H);const cssW=Math.round(Math.max(mobile?280:360,Math.min(maxW,fitWByH)));const cssH=Math.round(cssW*BASE_H/BASE_W);scale=cssW/BASE_W;dpr=targetDpr();boardStage.style.width=cssW+'px';boardStage.style.height=cssH+'px';if(flipStage){flipStage.style.width=cssW+'px';flipStage.style.height=cssH+'px';}canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';gomokuCanvas.style.width=cssW+'px';gomokuCanvas.style.height=cssH+'px';canvas.width=Math.round(cssW*dpr);canvas.height=Math.round(cssH*dpr);gomokuCanvas.width=Math.round(cssW*dpr);gomokuCanvas.height=Math.round(cssH*dpr);ctx.imageSmoothingEnabled=true;gctx.imageSmoothingEnabled=true;ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);gctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);if(pixiReady&&pixiApp){pixiApp.renderer.resolution=dpr;pixiApp.renderer.resize(BASE_W,BASE_H);}scheduleRender();}
+window.addEventListener('resize', setupCanvas);window.addEventListener('orientationchange', setupCanvas);
+function syncSoundToggle(){const btn=document.getElementById('soundToggle');if(btn)btn.textContent='音效:'+(soundEnabled?'开':'关');}function toggleSound(){soundEnabled=!soundEnabled;localStorage.setItem('xq_sound_enabled',soundEnabled?'1':'0');syncSoundToggle();}function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;[moveAudio,mateAudio].forEach(a=>{const p=a.play();if(p&&p.catch){p.then(()=>{a.pause();a.currentTime=0;}).catch(()=>{});}else{a.pause();a.currentTime=0;}});}function playSound(a){if(!soundEnabled||!audioUnlocked)return;try{a.pause();a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(_e){}}
+const activeGameType=()=>{if(gameTypeIntent)return gameTypeIntent;if(state&&state.started)return state.gameType||GAME_XIANGQI;return (ui.gameType&&ui.gameType.value)||((state&&state.gameType)||GAME_XIANGQI);};const selectedGameType=()=>gameTypeIntent||((ui.gameType&&ui.gameType.value)||GAME_XIANGQI);const isGomoku=()=>activeGameType()===GAME_GOMOKU;const isFlipped=()=>{if(!state||state.reviewMode||isGomoku())return false;if(state.mode==='PVP')return state.currentTurn==='BLACK';return state.mode==='PVC'&&state.pvcHumanColor==='BLACK';};const vr=r=>isFlipped()?9-r:r;const vc=c=>isFlipped()?8-c:c;const br=r=>isFlipped()?9-r:r;const bc=c=>isFlipped()?8-c:c;const pos=(r,c)=>[MARGIN+vc(c)*CELL,MARGIN+vr(r)*CELL];const gPos=(r,c)=>[GK_MARGIN+c*GK_CELL,GK_MARGIN+r*GK_CELL];function pickGrid(x,y){if(isGomoku()){const c=Math.round((x-GK_MARGIN)/GK_CELL),r=Math.round((y-GK_MARGIN)/GK_CELL);if(r<0||r>=GK_SIZE||c<0||c>=GK_SIZE)return null;const px=GK_MARGIN+c*GK_CELL,py=GK_MARGIN+r*GK_CELL;const hitFactor=isTouchDevice?0.62:0.5;if(Math.hypot(x-px,y-py)>GK_CELL*hitFactor)return null;return {row:r,col:c};}const vcol=Math.round((x-MARGIN)/CELL),vrow=Math.round((y-MARGIN)/CELL);const baseHit=state&&state.mode==='PVC'?(state.difficulty==='EASY'?14:11):10;const hitExpand=isTouchDevice?baseHit+5:baseHit;const minX=MARGIN-R-hitExpand,maxX=MARGIN+8*CELL+R+hitExpand,minY=MARGIN-R-hitExpand,maxY=MARGIN+9*CELL+R+hitExpand;if(x<minX||x>maxX||y<minY||y>maxY)return null;const cc=Math.max(0,Math.min(8,vcol)),rr=Math.max(0,Math.min(9,vrow));return {row:br(rr),col:bc(cc)};}
+function drawStatic(){if(pixiReady){drawStaticPixi();return;}cctx.clearRect(0,0,BASE_W,BASE_H);const bx=MARGIN-34,by=MARGIN-34,bw=8*CELL+68,bh=9*CELL+68;if(boardTexReady){cctx.drawImage(boardTex,bx,by,bw,bh);}else{const g=cctx.createLinearGradient(0,0,0,BASE_H);g.addColorStop(0,'#2c3f88');g.addColorStop(1,'#1f2f66');cctx.fillStyle=g;cctx.fillRect(bx,by,bw,bh);}const vignette=cctx.createRadialGradient(BASE_W/2,BASE_H/2,120,BASE_W/2,BASE_H/2,520);vignette.addColorStop(0,'rgba(255,255,255,.05)');vignette.addColorStop(1,'rgba(0,0,0,.16)');cctx.fillStyle=vignette;cctx.fillRect(bx,by,bw,bh);cctx.fillStyle='rgba(20,33,88,.34)';cctx.fillRect(MARGIN-2,MARGIN-2,8*CELL+4,9*CELL+4);cctx.save();cctx.shadowColor='rgba(0,0,0,.35)';cctx.shadowBlur=16;cctx.strokeStyle='rgba(96,57,24,.96)';cctx.lineWidth=14;cctx.strokeRect(bx-11,by-11,bw+22,bh+22);cctx.restore();cctx.strokeStyle='#7f4f25';cctx.lineWidth=8;cctx.strokeRect(bx-6,by-6,bw+12,bh+12);cctx.strokeStyle='#dfbc77';cctx.lineWidth=3;cctx.strokeRect(bx,by,bw,bh);cctx.strokeStyle='rgba(255,240,210,.75)';cctx.lineWidth=1.5;cctx.strokeRect(bx+3,by+3,bw-6,bh-6);const corner=(x,y,sx,sy)=>{cctx.strokeStyle='rgba(225,196,130,.96)';cctx.lineWidth=2;cctx.beginPath();cctx.moveTo(x,y);cctx.lineTo(x+sx*18,y);cctx.lineTo(x+sx*18,y+sy*18);cctx.moveTo(x+sx*6,y);cctx.lineTo(x+sx*24,y);cctx.moveTo(x,y+sy*6);cctx.lineTo(x,y+sy*24);cctx.stroke();};corner(bx+10,by+10,1,1);corner(bx+bw-10,by+10,-1,1);corner(bx+10,by+bh-10,1,-1);corner(bx+bw-10,by+bh-10,-1,-1);const topY=by-20;const botY=by+bh+20;cctx.strokeStyle='rgba(108,64,28,.9)';cctx.lineWidth=3;cctx.beginPath();cctx.moveTo(bx+30,topY);cctx.bezierCurveTo(bx+bw*0.32,topY-16,bx+bw*0.68,topY-16,bx+bw-30,topY);cctx.moveTo(bx+30,botY);cctx.bezierCurveTo(bx+bw*0.32,botY+16,bx+bw*0.68,botY+16,bx+bw-30,botY);cctx.stroke();cctx.strokeStyle='rgba(213,178,106,.86)';cctx.lineWidth=2;for(let r=0;r<10;r++){const y=MARGIN+r*CELL;cctx.beginPath();cctx.moveTo(MARGIN,y);cctx.lineTo(MARGIN+8*CELL,y);cctx.stroke();}for(let c=0;c<9;c++){const x=MARGIN+c*CELL;cctx.beginPath();if(c===0||c===8){cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+9*CELL);}else{cctx.moveTo(x,MARGIN);cctx.lineTo(x,MARGIN+4*CELL);cctx.moveTo(x,MARGIN+5*CELL);cctx.lineTo(x,MARGIN+9*CELL);}cctx.stroke();}cctx.beginPath();cctx.moveTo(MARGIN+3*CELL,MARGIN);cctx.lineTo(MARGIN+5*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN);cctx.lineTo(MARGIN+3*CELL,MARGIN+2*CELL);cctx.moveTo(MARGIN+3*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+5*CELL,MARGIN+9*CELL);cctx.moveTo(MARGIN+5*CELL,MARGIN+7*CELL);cctx.lineTo(MARGIN+3*CELL,MARGIN+9*CELL);cctx.stroke();const ry=MARGIN+4*CELL+3;cctx.shadowColor='rgba(0,0,0,.26)';cctx.shadowBlur=10;cctx.fillStyle='rgba(35,54,124,.92)';cctx.beginPath();cctx.roundRect(MARGIN+12,ry,8*CELL-24,CELL-8,22);cctx.fill();cctx.shadowBlur=0;cctx.strokeStyle='rgba(213,178,106,.44)';cctx.beginPath();cctx.moveTo(MARGIN, MARGIN+4*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+4*CELL);cctx.moveTo(MARGIN,MARGIN+5*CELL);cctx.lineTo(MARGIN+8*CELL,MARGIN+5*CELL);cctx.stroke();cctx.font='bold 45px KaiTi';cctx.fillStyle='#d8b574';cctx.fillText('楚 河',MARGIN+CELL-10,MARGIN+4*CELL+44);cctx.fillText('汉 界',MARGIN+5*CELL+8,MARGIN+4*CELL+44);}
+function scheduleRender(){if(needRender)return;needRender=true;requestAnimationFrame(()=>{needRender=false;draw();});}
+function drawGomokuBoard(){const ctx=gctx;ctx.clearRect(0,0,BASE_W,BASE_H);const bs=(GK_SIZE-1)*GK_CELL,bx=GK_MARGIN-26,by=GK_MARGIN-26,bw=bs+52,bh=bs+52;const wood=ctx.createLinearGradient(0,0,0,BASE_H);wood.addColorStop(0,'#d4b17a');wood.addColorStop(1,'#b98a53');ctx.fillStyle=wood;ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='rgba(84,48,24,.9)';ctx.lineWidth=9;ctx.strokeRect(bx-6,by-6,bw+12,bh+12);ctx.strokeStyle='rgba(248,226,184,.8)';ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);ctx.strokeStyle='rgba(95,60,35,.78)';ctx.lineWidth=1.6;for(let i=0;i<GK_SIZE;i++){const t=GK_MARGIN+i*GK_CELL;ctx.beginPath();ctx.moveTo(GK_MARGIN,t);ctx.lineTo(GK_MARGIN+bs,t);ctx.stroke();ctx.beginPath();ctx.moveTo(t,GK_MARGIN);ctx.lineTo(t,GK_MARGIN+bs);ctx.stroke();}const stars=[[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];ctx.fillStyle='rgba(88,56,32,.8)';for(const p of stars){const [x,y]=gPos(p[0],p[1]);ctx.beginPath();ctx.arc(x,y,3.2,0,Math.PI*2);ctx.fill();}if(state&&state.gomoku&&state.gomoku.forbiddenPoints&&state.currentTurn==='BLACK'&&!state.gameOver){ctx.strokeStyle='rgba(190,52,46,.55)';ctx.lineWidth=1.4;for(const fp of state.gomoku.forbiddenPoints){const [x,y]=gPos(fp.row,fp.col);ctx.beginPath();ctx.moveTo(x-4,y-4);ctx.lineTo(x+4,y+4);ctx.moveTo(x+4,y-4);ctx.lineTo(x-4,y+4);ctx.stroke();}}if(state&&state.board){for(let r=0;r<GK_SIZE;r++){for(let c=0;c<GK_SIZE;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=gPos(r,c);const black=p.color==='BLACK';const rg=ctx.createRadialGradient(x-GK_R*.35,y-GK_R*.45,1,x,y,GK_R*1.05);if(black){rg.addColorStop(0,'#666');rg.addColorStop(.55,'#222');rg.addColorStop(1,'#050505');}else{rg.addColorStop(0,'#fff');rg.addColorStop(.55,'#ece9e2');rg.addColorStop(1,'#cfc7bb');}ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,GK_R,0,Math.PI*2);ctx.fill();ctx.strokeStyle=black?'rgba(10,10,10,.95)':'rgba(120,112,98,.9)';ctx.lineWidth=1.2;ctx.stroke();}}}if(state&&state.recentMoves){for(const m of state.recentMoves){const [x,y]=gPos(m.toRow,m.toCol);ctx.strokeStyle=m.order===1?'rgba(214,58,50,.95)':'rgba(60,160,88,.85)';ctx.lineWidth=m.order===1?2.8:2;ctx.beginPath();ctx.arc(x,y,GK_R+4,0,Math.PI*2);ctx.stroke();}}if(state&&state.gomoku&&state.gomoku.winnerLine){const w=state.gomoku.winnerLine,[x1,y1]=gPos(w.fromRow,w.fromCol),[x2,y2]=gPos(w.toRow,w.toCol);ctx.strokeStyle='rgba(212,60,52,.95)';ctx.lineWidth=4.6;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}}
+function draw(){const t0=performance.now();if(isGomoku()){drawGomokuBoard();drawTacticFlash(gctx);const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}return;}if(pixiReady){drawPixi();const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}return;}ctx.clearRect(0,0,BASE_W,BASE_H);ctx.drawImage(cache,0,0);if(!state)return;drawMarkers();drawPieces();drawMoveAnim();drawSelection();drawTacticFlash(ctx);const cost=performance.now()-t0;if(performance.now()-lastPerfPostAt>5000&&cost>14){lastPerfPostAt=performance.now();api('/api/perf/event?type=render&cost='+Math.round(cost)).catch(()=>{});}}
+function drawStaticPixi(){if(!pixiReady||!pixiLayers)return;const sl=pixiLayers.staticLayer;sl.removeChildren();const bx=MARGIN-34,by=MARGIN-34,bw=8*CELL+68,bh=9*CELL+68;const bg=new PIXI.Graphics();bg.beginFill(0x243b80,0.96);bg.drawRoundedRect(bx,by,bw,bh,10);bg.endFill();sl.addChild(bg);if(boardTexReady){if(!pixiBoardTexture)pixiBoardTexture=PIXI.Texture.from(boardTex);const texSprite=new PIXI.Sprite(pixiBoardTexture);texSprite.x=bx;texSprite.y=by;texSprite.width=bw;texSprite.height=bh;texSprite.alpha=.92;sl.addChild(texSprite);}const grid=new PIXI.Graphics();grid.lineStyle(2,0xd5b26a,.9);for(let r=0;r<10;r++){const y=MARGIN+r*CELL;grid.moveTo(MARGIN,y);grid.lineTo(MARGIN+8*CELL,y);}for(let c=0;c<9;c++){const x=MARGIN+c*CELL;if(c===0||c===8){grid.moveTo(x,MARGIN);grid.lineTo(x,MARGIN+9*CELL);}else{grid.moveTo(x,MARGIN);grid.lineTo(x,MARGIN+4*CELL);grid.moveTo(x,MARGIN+5*CELL);grid.lineTo(x,MARGIN+9*CELL);}}grid.moveTo(MARGIN+3*CELL,MARGIN);grid.lineTo(MARGIN+5*CELL,MARGIN+2*CELL);grid.moveTo(MARGIN+5*CELL,MARGIN);grid.lineTo(MARGIN+3*CELL,MARGIN+2*CELL);grid.moveTo(MARGIN+3*CELL,MARGIN+7*CELL);grid.lineTo(MARGIN+5*CELL,MARGIN+9*CELL);grid.moveTo(MARGIN+5*CELL,MARGIN+7*CELL);grid.lineTo(MARGIN+3*CELL,MARGIN+9*CELL);sl.addChild(grid);const river=new PIXI.Graphics();river.beginFill(0x20357a,.92);river.drawRoundedRect(MARGIN+12,MARGIN+4*CELL+3,8*CELL-24,CELL-8,20);river.endFill();sl.addChild(river);const frame=new PIXI.Graphics();frame.lineStyle(12,0x5d3718,.55);frame.drawRect(bx-10,by-10,bw+20,bh+20);frame.lineStyle(3,0xdfbc77,.95);frame.drawRect(bx,by,bw,bh);sl.addChild(frame);const riverTextL=new PIXI.Text('楚 河',{fontFamily:'KaiTi,STKaiti,serif',fontSize:45,fontWeight:'700',fill:0xd8b574});riverTextL.x=MARGIN+CELL-10;riverTextL.y=MARGIN+4*CELL+6;const riverTextR=new PIXI.Text('汉 界',{fontFamily:'KaiTi,STKaiti,serif',fontSize:45,fontWeight:'700',fill:0xd8b574});riverTextR.x=MARGIN+5*CELL+8;riverTextR.y=MARGIN+4*CELL+6;sl.addChild(riverTextL,riverTextR);}
+function getPieceTexturePixi(name,color){const key='pixi|'+color+'|'+name;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+18);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;g.fillStyle='rgba(10,6,2,.28)';g.beginPath();g.ellipse(cx+2,cy+5,R*1.02,R*.83,0,0,Math.PI*2);g.fill();const rg=g.createRadialGradient(cx-R*.36,cy-R*.48,R*.1,cx,cy,R*1.08);if(color==='RED'){rg.addColorStop(0,'#fff9ef');rg.addColorStop(.34,'#f4dfc2');rg.addColorStop(.7,'#d5b189');rg.addColorStop(1,'#996946');}else{rg.addColorStop(0,'#ffffff');rg.addColorStop(.36,'#ece8df');rg.addColorStop(.7,'#c5bdb2');rg.addColorStop(1,'#8f8477');}g.fillStyle=rg;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();const bevel=g.createLinearGradient(cx,cy-R*.95,cx,cy+R*.95);bevel.addColorStop(0,'rgba(255,255,255,.45)');bevel.addColorStop(.4,'rgba(255,255,255,.08)');bevel.addColorStop(1,'rgba(0,0,0,.26)');g.strokeStyle=bevel;g.lineWidth=3.2;g.beginPath();g.arc(cx,cy,R-1.7,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(80,45,18,.95)';g.lineWidth=2.3;g.beginPath();g.arc(cx,cy,R-3.3,0,Math.PI*2);g.stroke();g.strokeStyle=color==='RED'?'#c63f37':'#202020';g.lineWidth=2.3;g.beginPath();g.arc(cx,cy,R-5.6,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(243,219,173,.92)';g.lineWidth=1.1;g.beginPath();g.arc(cx,cy,R-8.2,0,Math.PI*2);g.stroke();const spec=g.createRadialGradient(cx-R*.42,cy-R*.56,1,cx-R*.1,cy-R*.18,R*.92);spec.addColorStop(0,'rgba(255,255,255,.58)');spec.addColorStop(.4,'rgba(255,255,255,.2)');spec.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=spec;g.beginPath();g.arc(cx,cy,R-5,Math.PI*.98,Math.PI*1.92);g.lineTo(cx,cy);g.closePath();g.fill();g.font='bold 32px KaiTi';g.lineWidth=1.1;g.strokeStyle='rgba(255,246,225,.36)';const w=g.measureText(name).width;g.strokeText(name,cx-w/2,cy+11);g.fillStyle=color==='RED'?'#bc332c':'#141414';g.fillText(name,cx-w/2,cy+11);const tex=PIXI.Texture.from(can);pieceSpriteCache[key]=tex;return tex;}
+function getPieceBloomTexturePixi(color){const key='pixi-bloom|'+color;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+26);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;const grd=g.createRadialGradient(cx,cy,R*.3,cx,cy,R*1.25);if(color==='RED'){grd.addColorStop(0,'rgba(255,150,130,.26)');grd.addColorStop(.6,'rgba(207,78,62,.14)');grd.addColorStop(1,'rgba(160,45,34,0)');}else{grd.addColorStop(0,'rgba(255,246,224,.23)');grd.addColorStop(.6,'rgba(206,197,178,.13)');grd.addColorStop(1,'rgba(120,112,98,0)');}g.fillStyle=grd;g.beginPath();g.arc(cx,cy,R*1.25,0,Math.PI*2);g.fill();const tex=PIXI.Texture.from(can);pieceSpriteCache[key]=tex;return tex;}
+function getPieceSpecTexturePixi(color){const key='pixi-spec|'+color;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+18);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;const spec=g.createRadialGradient(cx-R*.4,cy-R*.6,1,cx-R*.08,cy-R*.15,R*.95);spec.addColorStop(0,'rgba(255,255,255,.62)');spec.addColorStop(.45,'rgba(255,255,255,.22)');spec.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=spec;g.beginPath();g.arc(cx,cy,R-4,Math.PI*.95,Math.PI*1.9);g.lineTo(cx,cy);g.closePath();g.fill();g.strokeStyle=color==='RED'?'rgba(255,219,206,.5)':'rgba(255,255,255,.45)';g.lineWidth=1;g.beginPath();g.arc(cx-1,cy-1,R-10,Math.PI*1.06,Math.PI*1.78);g.stroke();const tex=PIXI.Texture.from(can);pieceSpriteCache[key]=tex;return tex;}
+function makePieceLayerSprite(name,color){const root=new PIXI.Container();const sh=new PIXI.Graphics();sh.beginFill(0x080502,.28);sh.drawEllipse(2,4,R*1.02,R*.82);sh.endFill();root.addChild(sh);const bloom=new PIXI.Sprite(getPieceBloomTexturePixi(color));bloom.anchor.set(.5);bloom.alpha=.7;bloom.blendMode=PIXI.BLEND_MODES.ADD;root.addChild(bloom);const body=new PIXI.Sprite(getPieceTexturePixi(name,color));body.anchor.set(.5);root.addChild(body);const spec=new PIXI.Sprite(getPieceSpecTexturePixi(color));spec.anchor.set(.5);spec.alpha=.75;spec.blendMode=PIXI.BLEND_MODES.SCREEN;root.addChild(spec);return root;}
+function drawMarkersPixi(){if(!state||!state.recentMoves)return;const gl=new PIXI.Graphics();for(const m of state.recentMoves){const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);const color=m.color==='RED'?0xc6403c:0x262626;const alpha=m.order===1?.96:.82;gl.lineStyle(m.order===1?3.8:3,color,alpha);const dx=tx-fx,dy=ty-fy,len=Math.hypot(dx,dy);if(len>8){const ux=dx/len,uy=dy/len;const sx=fx+ux*(R-7),sy=fy+uy*(R-7),ex=tx-ux*(R-6),ey=ty-uy*(R-6);gl.moveTo(sx,sy);gl.lineTo(ex,ey);const hs=10,px=-uy,py=ux;gl.beginFill(color,alpha);gl.moveTo(ex,ey);gl.lineTo(ex-ux*hs+px*hs*0.62,ey-uy*hs+py*hs*0.62);gl.lineTo(ex-ux*hs-px*hs*0.62,ey-uy*hs-py*hs*0.62);gl.closePath();gl.endFill();}gl.lineStyle(2.2,color,alpha);gl.drawCircle(fx,fy,R-10);const s=(m.order===1)?R+9:R+6;gl.drawRect(tx-s,ty-s,s*2,s*2);}pixiLayers.markerLayer.addChild(gl);}
+function drawPiecesPixi(){if(!state)return;for(let r=0;r<10;r++){for(let c=0;c<9;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=pos(r,c);const sp=makePieceLayerSprite(p.name,p.color);sp.x=x;sp.y=y;pixiLayers.pieceLayer.addChild(sp);}}}
+function drawSelectionPixi(){if(!state||state.reviewMode||state.selectedRow<0||state.selectedCol<0)return;const [x,y]=pos(state.selectedRow,state.selectedCol);const s=CELL/2-4;const g=new PIXI.Graphics();g.lineStyle(2.8,0x14a05a,.95);g.drawRect(x-s,y-s,s*2,s*2);g.lineStyle(1.4,0xa8e4c4,.95);g.drawRect(x-s+3,y-s+3,s*2-6,s*2-6);pixiLayers.uiLayer.addChild(g);}
+function drawTacticFlashPixi(){if(!tacticOverlayText||performance.now()>tacticOverlayUntil)return;const panel=new PIXI.Graphics();panel.beginFill(0x070a1a,.82);panel.drawRect(BASE_W/2-120,BASE_H/2-44,240,62);panel.endFill();panel.lineStyle(2,0xd8b86f,.9);panel.drawRect(BASE_W/2-120,BASE_H/2-44,240,62);const t=new PIXI.Text(tacticOverlayText,{fontFamily:'Microsoft YaHei UI',fontSize:36,fontWeight:'700',fill:0xffd86e});t.anchor.set(.5);t.x=BASE_W/2;t.y=BASE_H/2-2;if(window.gsap){gsap.fromTo(panel,{alpha:.55},{alpha:1,duration:.26,yoyo:true,repeat:1});gsap.fromTo(t.scale,{x:.9,y:.9},{x:1,y:1,duration:.24,ease:'back.out(1.4)'});}pixiLayers.uiLayer.addChild(panel,t);}
+function drawMoveAnimPixi(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;const sp=makePieceLayerSprite(anim.name,anim.color);sp.x=x;sp.y=y;sp.alpha=.92;sp.scale.set(1.02);pixiLayers.fxLayer.addChild(sp);scheduleRender();}
+function drawPixi(){if(!pixiReady||!pixiLayers)return;if(!pixiLayers.staticLayer.children.length)drawStaticPixi();[pixiLayers.markerLayer,pixiLayers.pieceLayer,pixiLayers.fxLayer,pixiLayers.uiLayer].forEach(layer=>{for(const n of layer.removeChildren()){if(n&&n.destroy)n.destroy({children:true});}});if(state){drawMarkersPixi();drawPiecesPixi();drawMoveAnimPixi();drawSelectionPixi();drawTacticFlashPixi();}pixiApp.render();}
+function makePieceSprite(name,color){const key=color+'|'+name;if(pieceSpriteCache[key])return pieceSpriteCache[key];const size=Math.ceil(R*2+12);const can=document.createElement('canvas');can.width=size;can.height=size;const g=can.getContext('2d');const cx=size/2,cy=size/2;g.fillStyle='rgba(13,8,0,.24)';g.beginPath();g.ellipse(cx+2,cy+3,R*0.98,R*0.82,0,0,Math.PI*2);g.fill();const rg=g.createRadialGradient(cx-9,cy-10,4,cx,cy,R);if(color==='RED'){rg.addColorStop(0,'#fff7ec');rg.addColorStop(0.62,'#efd8bd');rg.addColorStop(1,'#d1ad86');}else{rg.addColorStop(0,'#ffffff');rg.addColorStop(0.62,'#ebe7df');rg.addColorStop(1,'#c7c2b8');}g.fillStyle=rg;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();const sh=g.createLinearGradient(cx,cy-R*0.2,cx,cy+R);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.22)');g.fillStyle=sh;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();g.strokeStyle='rgba(88,58,29,.94)';g.lineWidth=2.4;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.stroke();g.strokeStyle=(color==='RED')?'#d24c45':'#252525';g.lineWidth=2.8;g.beginPath();g.arc(cx,cy,R-3,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(229,207,160,.9)';g.lineWidth=1.2;g.beginPath();g.arc(cx,cy,R-6,0,Math.PI*2);g.stroke();g.strokeStyle='rgba(255,248,224,.72)';g.lineWidth=1;g.beginPath();g.arc(cx-1,cy-1,R-9,Math.PI*1.05,Math.PI*1.82);g.stroke();g.fillStyle='rgba(255,255,255,.22)';g.beginPath();g.arc(cx-8,cy-10,7,0,Math.PI*2);g.fill();g.font='bold 32px KaiTi';g.lineWidth=0.9;g.strokeStyle='rgba(255,244,220,.22)';const w=g.measureText(name).width;g.strokeText(name,cx-w/2,cy+11);g.fillStyle=(color==='RED')?'#c43d36':'#1b1b1b';g.fillText(name,cx-w/2,cy+11);pieceSpriteCache[key]=can;return can;}function drawPieceDisc(x,y,name,color){const s=makePieceSprite(name,color);ctx.drawImage(s,x-s.width/2,y-s.height/2);}function drawPieces(){for(let r=0;r<10;r++){for(let c=0;c<9;c++){const p=state.board[r][c];if(!p)continue;const [x,y]=pos(r,c);drawPieceDisc(x,y,p.name,p.color);}}}
+function drawMarkers(){if(!state.recentMoves)return;for(const m of state.recentMoves){const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);const color=m.color==='RED'?'rgba(198,64,60,.94)':'rgba(35,35,35,.94)';const glow=m.color==='RED'?'rgba(255,134,126,.22)':'rgba(160,160,160,.18)';ctx.fillStyle=glow;ctx.beginPath();ctx.arc(fx,fy,R-5,0,Math.PI*2);ctx.fill();const dx=tx-fx,dy=ty-fy,len=Math.hypot(dx,dy);if(len>8){const ux=dx/len,uy=dy/len;const sx=fx+ux*(R-7),sy=fy+uy*(R-7),ex=tx-ux*(R-6),ey=ty-uy*(R-6);ctx.strokeStyle=color;ctx.lineWidth=(m.order===1)?3.8:3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();const hs=10,px=-uy,py=ux;const ax1=ex-ux*hs+px*hs*0.62,ay1=ey-uy*hs+py*hs*0.62,ax2=ex-ux*hs-px*hs*0.62,ay2=ey-uy*hs-py*hs*0.62;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ax1,ay1);ctx.lineTo(ax2,ay2);ctx.closePath();ctx.fillStyle=color;ctx.fill();}ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(fx,fy,R-10,0,Math.PI*2);ctx.stroke();const s=(m.order===1)?R+9:R+6;ctx.lineWidth=(m.order===1)?3.6:2.8;ctx.strokeRect(tx-s,ty-s,s*2,s*2);const br=(m.order===1)?11:9,bx=tx+s-4,by=ty-s+4;ctx.fillStyle='rgba(251,243,224,.96)';ctx.beginPath();ctx.arc(bx,by,br,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='rgba(22,22,22,.95)';ctx.font=(m.order===1)?'bold 13px Consolas':'bold 12px Consolas';ctx.fillText(String(m.order),bx-3,by+4);}}
+function drawSelection(){if(state.reviewMode)return;if(state.selectedRow>=0&&state.selectedCol>=0){const [x,y]=pos(state.selectedRow,state.selectedCol);const s=CELL/2-4;ctx.strokeStyle='rgba(20,160,90,.92)';ctx.lineWidth=2.8;ctx.strokeRect(x-s,y-s,s*2,s*2);ctx.strokeStyle='rgba(168,228,196,.95)';ctx.lineWidth=1.6;ctx.strokeRect(x-s+3,y-s+3,s*2-6,s*2-6);}}
+function drawTacticFlash(g){if(!tacticOverlayText||performance.now()>tacticOverlayUntil)return;const c=g||ctx;c.fillStyle='rgba(7,10,26,.82)';c.fillRect(BASE_W/2-120,BASE_H/2-44,240,62);c.strokeStyle='#d8b86f';c.lineWidth=2;c.strokeRect(BASE_W/2-120,BASE_H/2-44,240,62);c.font='bold 36px Microsoft YaHei UI';c.fillStyle='#ffd86e';c.textAlign='center';c.textBaseline='middle';c.fillText(tacticOverlayText,BASE_W/2,BASE_H/2-2);c.textAlign='start';c.textBaseline='alphabetic';}function fmtSec(v){if(v==null||v<0)return '--:--';const m=Math.floor(v/60),s=v%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}function primeAnim(){if(!state||!state.recentMoves||!state.recentMoves.length||state.gameType===GAME_GOMOKU)return;const m=state.recentMoves[0];const k=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');if(k===animKey)return;animKey=k;const p=state.board[m.toRow][m.toCol];if(!p)return;const [fx,fy]=pos(m.fromRow,m.fromCol),[tx,ty]=pos(m.toRow,m.toCol);anim={fx,fy,tx,ty,name:p.name,color:p.color,start:performance.now(),dur:120};}function drawMoveAnim(){if(!anim)return;const t=(performance.now()-anim.start)/anim.dur;if(t>=1){anim=null;return;}const k=Math.max(0,Math.min(1,t));const ease=1-Math.pow(1-k,3);const x=anim.fx+(anim.tx-anim.fx)*ease,y=anim.fy+(anim.ty-anim.fy)*ease;drawPieceDisc(x,y,anim.name,anim.color);scheduleRender();}function handleSounds(){if(!state||state.reviewMode||!state.recentMoves||!state.recentMoves.length)return;const m=state.recentMoves[0];const key=[m.fromRow,m.fromCol,m.toRow,m.toCol,m.color].join('-');const rs=state.result||'';const isMateCue=(state.tacticText==='绝杀')||(state.gameOver&&(/胜|获胜|将死/.test(rs)));if(key!==lastMoveSoundKey){lastMoveSoundKey=key;if(isMateCue){lastMateSoundKey=key;playSound(mateAudio);}else{playSound(moveAudio);}return;}if(isMateCue&&key!==lastMateSoundKey){lastMateSoundKey=key;playSound(mateAudio);}}function stateStamp(s){if(!s)return'';const m=(s.recentMoves&&s.recentMoves.length)?s.recentMoves[0]:null;return [s.seq,s.gameType,s.started,s.mode,s.currentTurn,s.gameOver,s.result,s.selectedRow,s.selectedCol,s.reviewMode,s.reviewMoveIndex,s.reviewMaxMove,s.tacticSeq,m?m.fromRow:'',m?m.fromCol:'',m?m.toRow:'',m?m.toCol:''].join('|');}
+async function api(path){const base=withSid(path);const q=base.includes('?')?'&':'?';const url=base+q+'_t='+Date.now();let res;try{res=await fetch(url,{cache:'no-store'});}catch(err){throw new Error('网络连接失败，请稍后重试');}if(!res.ok){let detail='';try{detail=(await res.text()).trim();}catch(_e){}throw new Error('请求失败 ('+res.status+')'+(detail?': '+detail.slice(0,80):''));}const ct=(res.headers.get('content-type')||'').toLowerCase();if(ct.includes('application/json'))return await res.json();const body=(await res.text()).trim();throw new Error('接口返回异常'+(body?': '+body.slice(0,80):''));}
+function applyState(data){clearUiError();const seq=(data&&data.seq)||0;if(seq&&seq<lastAppliedSeq)return;lastAppliedSeq=Math.max(lastAppliedSeq,seq);const prev=lastStateStamp;const wasStarted=!!(state&&state.started);state=data||{};const uiType=(ui.gameType&&ui.gameType.value)||GAME_XIANGQI;const serverType=state.gameType||uiType;if(state.started&&gameTypeIntent&&serverType===gameTypeIntent){gameTypeIntent='';}const displayType=gameTypeIntent||(state.started?serverType:uiType);syncGamePanels(displayType);const isG=displayType===GAME_GOMOKU;const tq=state.tacticSeq||0;if(tq>lastTacticSeq&&state.tacticText){lastTacticSeq=tq;const tt=(state.tacticText||'').trim();if(tt&&tt!=='将军'){tacticOverlayText=tt;tacticOverlayUntil=performance.now()+500;}else{tacticOverlayText='';tacticOverlayUntil=0;}}if(!state.reviewMode&&state.started&&!wasStarted&&seq!==lastOpeningSeq){lastOpeningSeq=seq;playOpeningCeremony();}ui.firstHand.disabled=ui.mode.value!=='pvc';if(ui.xiangqiEngine){const selected=(state&&state.xiangqiAiSelected)||ui.xiangqiEngine.value||'BUILTIN';if(ui.xiangqiEngine.value!==selected)ui.xiangqiEngine.value=selected;const pkOpt=ui.xiangqiEngine.querySelector('option[value="PIKAFISH"]');if(pkOpt&&state)pkOpt.disabled=state.xiangqiAiPikafishConfigured===false;}if(ui.gomokuEngine){const selected=(state&&state.gomokuAiSelected)||ui.gomokuEngine.value||'BUILTIN';if(ui.gomokuEngine.value!==selected)ui.gomokuEngine.value=selected;const rapfiOpt=ui.gomokuEngine.querySelector('option[value="RAPFI"]');const alphaOpt=ui.gomokuEngine.querySelector('option[value="ALPHAGOMOKU"]');if(rapfiOpt&&state)rapfiOpt.disabled=state.gomokuAiRapfiConfigured===false;if(alphaOpt&&state)alphaOpt.disabled=state.gomokuAiAlphaConfigured===false;}setTxt(ui.statusTag,'状态: '+(!state.started?'待开始':(state.gameOver?(state.result||'结束'):(state.reviewMode?'回顾模式':'进行中'))));const sr=state.stepRemainSec;setTxt(ui.stepTop,'当前步时倒计时: '+((sr!=null&&sr>=0)?(sr+'s'):'--s'));setTxt(ui.totalTop,'总时 红:'+fmtSec(state.redTotalSec)+' 黑:'+fmtSec(state.blackTotalSec));const humanTxt=isG?(state.pvcHumanColor==='WHITE'?' / 玩家执白':' / 玩家执黑'):(state.pvcHumanColor==='BLACK'?' / 玩家执黑':' / 玩家执红');setTxt(ui.modeTag,'棋种: '+(isG?'五子棋':'中国象棋')+' / 模式: '+(state.mode==='PVC'?'人机':'双人')+' / '+(state.difficultyText||'-')+(state.mode==='PVC'?humanTxt:'')+((isG&&state.gomokuAiEngineText)?(' / 引擎:'+state.gomokuAiEngineText):((!isG&&state.xiangqiAiEngineText)?(' / 引擎:'+state.xiangqiAiEngineText):'')));setTxt(ui.endgameTag,isG?'规则: 黑方禁手（三三/四四/长连）':('残局: '+(state.endgame||'标准开局')));setTxt(ui.drawReasonTag,'和棋原因: '+(state.drawReason&&state.drawReason.length?state.drawReason:'-'));setTxt(ui.reviewTag,state.reviewMode?('回顾: 第 '+state.reviewMoveIndex+' / '+state.reviewMaxMove+' 步'):'回顾: 关闭');const turnTxt=isG?(state.currentTurn==='WHITE'?'白方':'黑方'):(state.currentTurn==='RED'?'红方':'黑方');setTxt(ui.info,!state.started?'请点击“新开一局”开始':(state.gameOver?(state.result||'对局结束'):('当前回合: '+turnTxt)));setDis(ui.undo,!state.started||state.reviewMode||state.gameOver);setDis(ui.surrender,!state.started||state.reviewMode||state.gameOver);setDis(ui.drawBtn,!state.canDraw);setDis(ui.reviewStart,!state.started||!state.canReview||state.reviewMode);setDis(ui.reviewPrev,!state.reviewMode||state.reviewMoveIndex<=0);setDis(ui.reviewNext,!state.reviewMode||state.reviewMoveIndex>=state.reviewMaxMove);setDis(ui.reviewExit,!state.reviewMode);document.querySelectorAll('.egBtn').forEach(btn=>{btn.disabled=isG;});handleSounds();const stamp=stateStamp(state);const changed=stamp!==prev;lastStateStamp=stamp;if(changed){primeAnim();scheduleRender();}}
+async function refresh(){if(pending)return;pending=true;const seq=++reqSeq;const t0=performance.now();try{const data=await api('/api/state');if(seq!==reqSeq)return;applyState(data);}catch(err){if(!state){showUiError(err);}}finally{pending=false;const cost=performance.now()-t0;if(cost>120){api('/api/perf/event?type=state_fetch&cost='+Math.round(cost)).catch(()=>{});}}}
+async function act(path){try{const data=await api(path);applyState(data);}catch(err){showUiError(err);throw err;}}function enqueueAct(path){actionQueue=actionQueue.then(()=>act(path)).catch(()=>{});return actionQueue;}
+document.addEventListener('pointerdown',unlockAudio,{once:true});function onBoardPointer(e,el){if(state&&(!state.started||state.reviewMode||state.gameOver))return;e.preventDefault();const rect=el.getBoundingClientRect();const sx=BASE_W/rect.width,sy=BASE_H/rect.height;const x=(e.clientX-rect.left)*sx,y=(e.clientY-rect.top)*sy;const g=pickGrid(x,y);if(!g)return;const p=state&&state.board&&state.board[g.row]?state.board[g.row][g.col]:null;if(state&&state.selectedRow<0&&p&&p.color===state.currentTurn&&(state.mode!=='PVC'||p.color===state.pvcHumanColor)){state.selectedRow=g.row;state.selectedCol=g.col;scheduleRender();}enqueueAct('/api/click?row='+g.row+'&col='+g.col);}canvas.addEventListener('pointerdown',e=>onBoardPointer(e,canvas),{passive:false});gomokuCanvas.addEventListener('pointerdown',e=>onBoardPointer(e,gomokuCanvas),{passive:false});
+document.getElementById('newGame').addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=selectedGameType(),xe=ui.xiangqiEngine?ui.xiangqiEngine.value:'BUILTIN',ge=ui.gomokuEngine?ui.gomokuEngine.value:'BUILTIN';enqueueAct('/api/new?mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g+'&xiangqiEngine='+encodeURIComponent(xe)+'&gomokuEngine='+encodeURIComponent(ge));});document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',()=>{const mode=ui.mode.value,d=document.getElementById('difficulty').value,h=ui.firstHand.value,g=selectedGameType(),xe=ui.xiangqiEngine?ui.xiangqiEngine.value:'BUILTIN',ge=ui.gomokuEngine?ui.gomokuEngine.value:'BUILTIN',name=encodeURIComponent(btn.dataset.name);enqueueAct('/api/endgame?name='+name+'&mode='+mode+'&difficulty='+d+'&humanFirst='+h+'&gameType='+g+'&xiangqiEngine='+encodeURIComponent(xe)+'&gomokuEngine='+encodeURIComponent(ge));}));
+document.getElementById('undo').addEventListener('click',()=>enqueueAct('/api/undo'));document.getElementById('surrender').addEventListener('click',()=>{if(confirm('确定要认输吗？')){enqueueAct('/api/surrender');}});document.getElementById('drawBtn').addEventListener('click',()=>{if(confirm('确认本局和棋？')){enqueueAct('/api/draw');}});document.getElementById('soundToggle').addEventListener('click',toggleSound);
+document.getElementById('reviewStart').addEventListener('click',()=>enqueueAct('/api/review/start'));
+document.getElementById('reviewPrev').addEventListener('click',()=>enqueueAct('/api/review/prev'));
+document.getElementById('reviewNext').addEventListener('click',()=>enqueueAct('/api/review/next'));
+document.getElementById('reviewExit').addEventListener('click',()=>enqueueAct('/api/review/exit'));
+ui.mode.addEventListener('change',()=>{ui.firstHand.disabled=ui.mode.value!=='pvc';});ui.gameType.addEventListener('change',()=>{gameTypeIntent=ui.gameType.value;syncGamePanels(gameTypeIntent);ui.firstHand.disabled=ui.mode.value!=='pvc';scheduleRender();});
+function pollDelay(){if(document.hidden)return 1200;if(!state||!state.started)return isTouchDevice?320:140;const aiThinking=state.mode==='PVC'&&state.currentTurn!==state.pvcHumanColor;if(aiThinking){if(state.gameType===GAME_GOMOKU)return isTouchDevice?150:55;return isTouchDevice?190:80;}return isTouchDevice?240:110;}function schedulePoll(){clearTimeout(pollTimer);pollTimer=setTimeout(async()=>{await refresh();schedulePoll();},pollDelay());}document.addEventListener('visibilitychange',schedulePoll);initPixiRenderer();drawStatic();setupCanvas();runCourtAnimations();syncSoundToggle();syncGamePanels(ui.gameType.value);refresh().finally(schedulePoll);
 
-(function () {
-  const shellRoot = document.getElementById("appShell");
-  const sideToggle = document.getElementById("sideToggle");
-  const closeDrawer = document.getElementById("closeDrawer");
-  const drawerBackdrop = document.getElementById("drawerBackdrop");
-  const panelTabs = Array.from(document.querySelectorAll(".panelTab"));
-  const panels = Array.from(
-    document.querySelectorAll(".panelCard[data-panel]"),
-  );
-  function showPanel(name) {
-    let applied = false;
-    panelTabs.forEach((btn) => {
-      const active = btn.dataset.panelTarget === name;
-      btn.classList.toggle("is-active", active);
-      if (active) {
-        applied = true;
-      }
-    });
-    panels.forEach((panel) =>
-      panel.classList.toggle("is-active", panel.dataset.panel === name),
-    );
-    if (!applied && panelTabs.length) {
-      const fallback =
-        panelTabs.find((btn) => btn.style.display !== "none") || panelTabs[0];
-      if (fallback) {
-        showPanel(fallback.dataset.panelTarget);
-      }
+(function(){
+const shellRoot=document.getElementById('appShell');
+const sideToggle=document.getElementById('sideToggle');
+const closeDrawer=document.getElementById('closeDrawer');
+const drawerBackdrop=document.getElementById('drawerBackdrop');
+const panelTabs=Array.from(document.querySelectorAll('.panelTab'));
+const panels=Array.from(document.querySelectorAll('.panelCard[data-panel]'));
+function showPanel(name){
+  let applied=false;
+  panelTabs.forEach(btn=>{
+    const active=btn.dataset.panelTarget===name;
+    btn.classList.toggle('is-active',active);
+    if(active){applied=true;}
+  });
+  panels.forEach(panel=>panel.classList.toggle('is-active',panel.dataset.panel===name));
+  if(!applied&&panelTabs.length){
+    const fallback=panelTabs.find(btn=>btn.style.display!=='none')||panelTabs[0];
+    if(fallback){showPanel(fallback.dataset.panelTarget);}
+  }
+}
+function isMobileDrawer(){
+  return window.innerWidth<=980;
+}
+function setDrawer(open){
+  if(!shellRoot)return;
+  shellRoot.classList.toggle('drawer-open',!!open);
+}
+function closeDrawerOnMobile(){
+  if(isMobileDrawer()){
+    shellRoot.classList.remove('drawer-open');
+  }
+}
+if(sideToggle){
+  sideToggle.addEventListener('click',()=>{
+    if(!shellRoot)return;
+    setDrawer(!shellRoot.classList.contains('drawer-open'));
+  });
+}
+if(closeDrawer){
+  const closeNow=e=>{if(e){e.preventDefault();e.stopPropagation();}setDrawer(false);};
+  closeDrawer.addEventListener('click',closeNow);
+  closeDrawer.addEventListener('pointerdown',closeNow);
+}
+if(drawerBackdrop){
+  drawerBackdrop.addEventListener('click',()=>setDrawer(false));
+}
+panelTabs.forEach(btn=>btn.addEventListener('click',()=>{showPanel(btn.dataset.panelTarget);if(isMobileDrawer())setDrawer(true);}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')setDrawer(false);});document.addEventListener('click',e=>{if(!shellRoot||!shellRoot.classList.contains('drawer-open'))return;const side=document.querySelector('.side');if(!side)return;const target=e.target;if(target===sideToggle||sideToggle&&sideToggle.contains(target))return;if(side.contains(target))return;setDrawer(false);});
+['newGame','reviewStart','reviewExit','reviewPrev','reviewNext'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el){el.addEventListener('click',closeDrawerOnMobile);}
+});
+document.querySelectorAll('.egBtn').forEach(btn=>btn.addEventListener('click',closeDrawerOnMobile));
+window.addEventListener('resize',()=>{
+  if(!shellRoot)return;
+  if(isMobileDrawer()) shellRoot.classList.remove('drawer-open');
+});
+const originalSyncGamePanels=syncGamePanels;
+syncGamePanels=function(gameType){
+  originalSyncGamePanels(gameType);
+  const g=gameType||((state&&state.gameType)||selectedGameType());
+  const isG=g===GAME_GOMOKU;
+  const endgameSection=document.getElementById('endgameSection');
+  const endgameTab=document.getElementById('endgameTab');
+  if(endgameSection){
+    endgameSection.style.display=isG?'none':'';
+  }
+  if(endgameTab){
+    endgameTab.style.display=isG?'none':'';
+    if(isG&&endgameTab.classList.contains('is-active')){
+      showPanel('setup');
     }
   }
-  function isMobileDrawer() {
-    return window.innerWidth <= 980;
-  }
-  function setDrawer(open) {
-    if (!shellRoot) return;
-    shellRoot.classList.toggle("drawer-open", !!open);
-  }
-  function closeDrawerOnMobile() {
-    if (isMobileDrawer()) {
-      shellRoot.classList.remove("drawer-open");
-    }
-  }
-  if (sideToggle) {
-    sideToggle.addEventListener("click", () => {
-      if (!shellRoot) return;
-      setDrawer(!shellRoot.classList.contains("drawer-open"));
-    });
-  }
-  if (closeDrawer) {
-    const closeNow = (e) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      setDrawer(false);
-    };
-    closeDrawer.addEventListener("click", closeNow);
-    closeDrawer.addEventListener("pointerdown", closeNow);
-  }
-  if (drawerBackdrop) {
-    drawerBackdrop.addEventListener("click", () => setDrawer(false));
-  }
-  panelTabs.forEach((btn) =>
-    btn.addEventListener("click", () => {
-      showPanel(btn.dataset.panelTarget);
-      if (isMobileDrawer()) setDrawer(true);
-    }),
-  );
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setDrawer(false);
-  });
-  document.addEventListener("click", (e) => {
-    if (!shellRoot || !shellRoot.classList.contains("drawer-open")) return;
-    const side = document.querySelector(".side");
-    if (!side) return;
-    const target = e.target;
-    if (target === sideToggle || (sideToggle && sideToggle.contains(target)))
-      return;
-    if (side.contains(target)) return;
-    setDrawer(false);
-  });
-  ["newGame", "reviewStart", "reviewExit", "reviewPrev", "reviewNext"].forEach(
-    (id) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener("click", closeDrawerOnMobile);
-      }
-    },
-  );
-  document
-    .querySelectorAll(".scenarioBtn")
-    .forEach((btn) => btn.addEventListener("click", closeDrawerOnMobile));
-  window.addEventListener("resize", () => {
-    if (!shellRoot) return;
-    if (isMobileDrawer()) shellRoot.classList.remove("drawer-open");
-  });
-  const originalSyncGamePanels = syncGamePanels;
-  syncGamePanels = function (gameType) {
-    originalSyncGamePanels(gameType);
-    const g = gameType || (state && state.gameType) || selectedGameType();
-    const isG = g === GAME_GOMOKU;
-    if (ui.endgameTab && isG) {
-      if (ui.endgameTab.classList.contains("is-active")) {
-        showPanel("setup");
-      }
-    }
-  };
-  showPanel("setup");
-  setDrawer(false);
-  syncGamePanels((ui.gameType && ui.gameType.value) || GAME_XIANGQI);
+};
+showPanel('setup');
+setDrawer(false);
+syncGamePanels((ui.gameType&&ui.gameType.value)||GAME_XIANGQI);
 })();
 
-(function () {
-  const shell = document.getElementById("appShell");
-  const body = document.body;
-  const summary = document.getElementById("currentChoiceSummary");
-  const leadTitle = document.getElementById("leadTitle");
-  const difficulty = document.getElementById("difficulty");
-  const startButton = document.getElementById("newGame");
-  const themeNote = document.getElementById("themeNote");
-  const themeButtons = Array.from(document.querySelectorAll(".skinBtn"));
-  const THEME_KEY = "xq_ui_theme";
-  const THEMES = { minimal: "极简清新", ink: "简雅国风", imperial: "御案古风" };
-  function currentTheme() {
-    const raw =
-      localStorage.getItem(THEME_KEY) || body.dataset.theme || "minimal";
-    return THEMES[raw] ? raw : "minimal";
-  }
-  function selectedText(el) {
-    return el && el.options && el.selectedIndex >= 0
-      ? el.options[el.selectedIndex].text
-      : "";
-  }
-  updateSetupSummary = function () {
-    const selectedGame = (ui.gameType && ui.gameType.value) || GAME_XIANGQI;
-    const game =
-      selectedGame === GAME_GOMOKU
-        ? "五子棋"
-        : selectedGame === GAME_GO
-          ? "围棋"
-          : "中国象棋";
-    const mode = ui.mode && ui.mode.value === "pvc" ? "人机对战" : "双人对战";
-    const diff = selectedText(difficulty) || "中等";
-    const theme = THEMES[currentTheme()] || "极简清新";
-    if (summary) summary.textContent = [game, mode, diff, theme].join(" · ");
-    const started = !!(state && state.started);
-    if (shell) shell.classList.toggle("is-started", started);
-    if (leadTitle)
-      leadTitle.textContent = started
-        ? "对局进行中，可在右上角继续调整设置或复盘"
-        : "先选择模式，再开始对局";
-    if (startButton)
-      startButton.innerHTML = started
-        ? "<strong>重新开局</strong><span>当前设置会重新开始本局</span>"
-        : "<strong>开始对局</strong><span>先选模式，再点这里</span>";
-    if (themeNote)
-      themeNote.textContent = "当前皮肤：" + theme + " · 可在设置中切换";
-  };
-  function applyTheme(theme) {
-    const next = THEMES[theme] ? theme : "minimal";
-    body.dataset.theme = next;
-    localStorage.setItem(THEME_KEY, next);
-    themeButtons.forEach((btn) =>
-      btn.classList.toggle("is-active", btn.dataset.theme === next),
-    );
-    updateSetupSummary();
-    scheduleRender();
-  }
-  themeButtons.forEach((btn) =>
-    btn.addEventListener("click", () => applyTheme(btn.dataset.theme)),
-  );
-  [ui.gameType, ui.mode, ui.firstHand, difficulty]
-    .filter(Boolean)
-    .forEach((el) => el.addEventListener("change", updateSetupSummary));
-  const oldApplyState = applyState;
-  applyState = function (data) {
-    oldApplyState(data);
-    updateSetupSummary();
-  };
-  applyTheme(currentTheme());
-  updateSetupSummary();
+
+(function(){
+const shell=document.getElementById('appShell');
+const body=document.body;
+const summary=document.getElementById('currentChoiceSummary');
+const leadTitle=document.getElementById('leadTitle');
+const difficulty=document.getElementById('difficulty');
+const startButton=document.getElementById('newGame');
+const themeNote=document.getElementById('themeNote');
+const themeButtons=Array.from(document.querySelectorAll('.skinBtn'));
+const THEME_KEY='xq_ui_theme';
+const THEMES={minimal:'极简清新',ink:'简雅国风',imperial:'御案古风'};
+function currentTheme(){const raw=(localStorage.getItem(THEME_KEY)||body.dataset.theme||'minimal');return THEMES[raw]?raw:'minimal';}
+function selectedText(el){return el&&el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:'';}
+function updateSetupSummary(){
+  const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';
+  const mode=ui.mode&&ui.mode.value==='pvc'?'人机对战':'双人对战';
+  const diff=selectedText(difficulty)||'中等';
+  const theme=THEMES[currentTheme()]||'极简清新';
+  if(summary)summary.textContent=[game,mode,diff,theme].join(' · ');
+  const started=!!(window.state&&state&&state.started);
+  if(shell)shell.classList.toggle('is-started',started);
+  if(leadTitle)leadTitle.textContent=started?'对局进行中，可在右上角继续调整设置或复盘':'先选择模式，再开始对局';
+  if(startButton)startButton.innerHTML=started?'<strong>重新开局</strong><span>当前设置会重新开始本局</span>':'<strong>开始对局</strong><span>确认设置后开局</span>';
+  if(themeNote)themeNote.textContent='当前皮肤：'+theme+' · 可在设置中切换';
+}
+function applyTheme(theme){const next=THEMES[theme]?theme:'minimal';body.dataset.theme=next;localStorage.setItem(THEME_KEY,next);themeButtons.forEach(btn=>btn.classList.toggle('is-active',btn.dataset.theme===next));updateSetupSummary();scheduleRender();}
+themeButtons.forEach(btn=>btn.addEventListener('click',()=>applyTheme(btn.dataset.theme)));
+[ui.gameType,ui.mode,ui.firstHand,difficulty].filter(Boolean).forEach(el=>el.addEventListener('change',updateSetupSummary));
+const oldApplyState=applyState;
+applyState=function(data){oldApplyState(data);updateSetupSummary();};
+const oldSyncGamePanels=syncGamePanels;
+syncGamePanels=function(gameType){oldSyncGamePanels(gameType);const g=gameType||((state&&state.gameType)||((ui.gameType&&ui.gameType.value)||GAME_XIANGQI));body.classList.toggle('is-gomoku',g===GAME_GOMOKU);updateSetupSummary();};
+applyTheme(currentTheme());
+updateSetupSummary();
 })();
 
-(function () {
-  const shell = document.getElementById("appShell");
-  const landingStatus = document.getElementById("landingStatus");
-  const backToLanding = document.getElementById("backToLanding");
-  const entryButtons = Array.from(document.querySelectorAll("[data-entry-game]"));
-  const newGameButton = document.getElementById("newGame");
-  let hasEntrySelection = false;
-  let pinnedToLanding = false;
+(function(){
+const shell=document.getElementById('appShell');
+const landingStatus=document.getElementById('landingStatus');
+const backToLanding=document.getElementById('backToLanding');
+const entryButtons=Array.from(document.querySelectorAll('[data-entry-game]'));
+let hasEntrySelection=false;
 
-  function setView(view) {
-    if (!shell) return;
-    shell.dataset.view = view;
-    if (view === "landing") {
-      shell.classList.remove("drawer-open");
-    }
+function setView(view){
+  if(!shell)return;
+  shell.dataset.view=view;
+  if(view==='landing'){
+    shell.classList.remove('drawer-open');
   }
+}
 
-  function updateLandingStatus() {
-    if (!landingStatus) return;
-    if (!state) {
-      landingStatus.textContent = "系统状态：同步中...";
-      return;
-    }
-    if (state.started) {
-      const gameText =
-        state.gameType === GAME_GOMOKU
-          ? "五子棋"
-          : state.gameType === GAME_GO
-            ? "围棋"
-            : "中国象棋";
-      landingStatus.textContent =
-        "系统状态：存在进行中的" + gameText + "对局，点击对应棋种继续";
-      return;
-    }
-    landingStatus.textContent = "系统状态：待开始，可直接进入棋种对局页";
+function updateLandingStatus(){
+  if(!landingStatus)return;
+  if(!state){
+    landingStatus.textContent='系统状态：同步中...';
+    return;
   }
-
-  function enterGameView(gameType) {
-    if (ui.gameType) {
-      ui.gameType.value = gameType;
-    }
-    gameTypeIntent = gameType;
-    pinnedToLanding = false;
-    hasEntrySelection = true;
-    syncGamePanels(gameType);
-    setView("game");
-    scheduleRender();
+  if(state.started){
+    const gameText=state.gameType===GAME_GOMOKU?'五子棋':'中国象棋';
+    landingStatus.textContent='系统状态：存在进行中的'+gameText+'对局，点击对应棋种继续';
+    return;
   }
+  landingStatus.textContent='系统状态：待开始，可直接进入棋种对局页';
+}
 
-  entryButtons.forEach((btn) =>
-    btn.addEventListener("click", () => {
-      const raw = btn.dataset.entryGame;
-      const gameType =
-        raw === GAME_GOMOKU ? GAME_GOMOKU : raw === GAME_GO ? GAME_GO : GAME_XIANGQI;
-      enterGameView(gameType);
-    }),
-  );
-
-  if (backToLanding) {
-    backToLanding.addEventListener("click", () => {
-      pinnedToLanding = true;
-      hasEntrySelection = false;
-      setView("landing");
-      updateLandingStatus();
-    });
+function enterGameView(gameType){
+  if(ui.gameType){
+    ui.gameType.value=gameType;
   }
+  gameTypeIntent=gameType;
+  hasEntrySelection=true;
+  syncGamePanels(gameType);
+  setView('game');
+  scheduleRender();
+}
 
-  if (newGameButton) {
-    newGameButton.addEventListener("click", () => {
-      pinnedToLanding = false;
-      hasEntrySelection = true;
-      setView("game");
-    });
-  }
+entryButtons.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const gameType=btn.dataset.entryGame===GAME_GOMOKU?GAME_GOMOKU:GAME_XIANGQI;
+    enterGameView(gameType);
+  });
+});
 
-  const baseApplyState = applyState;
-  applyState = function (data) {
-    baseApplyState(data);
-    if (state && state.started) {
-      hasEntrySelection = true;
-      if (!pinnedToLanding) {
-        setView("game");
-      }
-    } else if (!hasEntrySelection) {
-      setView("landing");
-    }
+if(backToLanding){
+  backToLanding.addEventListener('click',()=>{
+    hasEntrySelection=false;
+    setView('landing');
     updateLandingStatus();
-  };
+  });
+}
 
-  setView("landing");
+const baseApplyState=applyState;
+applyState=function(data){
+  baseApplyState(data);
+  const started=!!(state&&state.started);
+  if(started){
+    hasEntrySelection=true;
+    setView('game');
+  }else if(!hasEntrySelection){
+    setView('landing');
+  }
   updateLandingStatus();
+};
+
+const baseNewGameBtn=document.getElementById('newGame');
+if(baseNewGameBtn){
+  baseNewGameBtn.addEventListener('click',()=>{
+    hasEntrySelection=true;
+    setView('game');
+  });
+}
+
+setView('landing');
+updateLandingStatus();
+})();
+
+(function(){
+const authSummary=document.getElementById('authSummary');
+const authPanel=document.getElementById('authPanel');
+const authToggle=document.getElementById('authToggle');
+const authUsername=document.getElementById('authUsername');
+const authPassword=document.getElementById('authPassword');
+const authSubmit=document.getElementById('authSubmit');
+const authSwitch=document.getElementById('authSwitch');
+const authLogout=document.getElementById('authLogout');
+const authMessage=document.getElementById('authMessage');
+const landingStatus=document.getElementById('landingStatus');
+const leadTitle=document.getElementById('leadTitle');
+const summary=document.getElementById('currentChoiceSummary');
+const startButton=document.getElementById('newGame');
+const modeLabel=document.getElementById('modeTag');
+const endgameTag=document.getElementById('endgameTag');
+let authMode='login';
+let currentUser=null;
+
+function selectedText(el){return el&&el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:'';}
+function setAuthText(message){if(authMessage)authMessage.textContent=message;}
+function renderAuth(){if(authSummary)authSummary.textContent=currentUser?('账号状态：已登录 @'+currentUser.username):'账号状态：未登录，开始 AI 对局前需先登录';if(authSubmit)authSubmit.textContent=authMode==='login'?'登录':'注册并登录';if(authSwitch)authSwitch.textContent=authMode==='login'?'切换到注册':'切换到登录';if(authLogout)authLogout.hidden=!currentUser;if(authUsername)authUsername.disabled=!!currentUser;if(authPassword)authPassword.disabled=!!currentUser;}
+function syncHomeChrome(){if(ui.mode){ui.mode.value='pvc';ui.mode.disabled=true;}setDis(ui.undo,true);setDis(ui.drawBtn,true);if(endgameTag&&endgameTag.textContent.indexOf('残局')===0)endgameTag.textContent='首页链路：AI 对局';const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';const diff=selectedText(document.getElementById('difficulty'))||'中等';if(summary)summary.textContent=[game,'AI 对局',diff].join(' · ');if(leadTitle)leadTitle.textContent=state&&state.started?'AI 对局进行中，可继续落子或复盘':(currentUser?'首页已就绪，点击“开始 AI 对局”即可开局':'先登录，再开始首页 AI 对局');if(ui.info&&!state?.started)ui.info.textContent=currentUser?'选择棋种、难度和先后手后开始 AI 对局':'请先登录，再开始 AI 对局';if(landingStatus&&!state?.started)landingStatus.textContent=currentUser?'系统状态：已登录，可直接进入所选棋种的 AI 对局页':'系统状态：未登录，可先登录或进入 Online 大厅';if(modeLabel&&modeLabel.textContent.includes('模式:'))modeLabel.textContent=modeLabel.textContent.replace('模式: 人机','模式: AI').replace('模式: 双人','模式: AI');if(startButton){const strong=startButton.querySelector('strong');const span=startButton.querySelector('span');if(strong)strong.textContent=state&&state.started?'重新开始 AI 对局':'开始 AI 对局';if(span)span.textContent=currentUser?'按当前设置立即开局':'登录后即可开局';}}
+async function refreshAuth(){try{const data=await fetchJson('/api/auth/me');currentUser=data;}catch(_e){currentUser=null;}renderAuth();syncHomeChrome();}
+async function authRequest(url,payload){const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});const text=await res.text();const data=text?JSON.parse(text):null;if(!res.ok)throw new Error(data&&data.error?data.error:('请求失败 ('+res.status+')'));return data;}
+async function submitAuth(){if(currentUser){authPanel.hidden=true;return;}try{const data=await authRequest(authMode==='login'?'/api/auth/login':'/api/auth/register',{username:authUsername.value.trim(),password:authPassword.value});currentUser=data.user;authPanel.hidden=true;authPassword.value='';setAuthText('已登录，可直接开始 AI 对局。');await refresh();renderAuth();syncHomeChrome();}catch(err){setAuthText(err.message||'登录失败');renderAuth();}}
+async function logoutAuth(){await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'}).catch(()=>null);currentUser=null;authPanel.hidden=true;setAuthText('已退出登录。');await refresh();renderAuth();syncHomeChrome();}
+
+if(authToggle)authToggle.addEventListener('click',()=>{authPanel.hidden=!authPanel.hidden;setAuthText(currentUser?'已登录，可直接开局。':'登录后即可开始 AI 对局。');renderAuth();});
+if(authSwitch)authSwitch.addEventListener('click',()=>{authMode=authMode==='login'?'register':'login';setAuthText(authMode==='login'?'输入已有账号后登录。':'注册后会自动登录。');renderAuth();});
+if(authSubmit)authSubmit.addEventListener('click',submitAuth);
+if(authLogout)authLogout.addEventListener('click',logoutAuth);
+if(startButton)startButton.addEventListener('click',e=>{if(currentUser)return;e.preventDefault();e.stopImmediatePropagation();authPanel.hidden=false;setAuthText('请先登录，再开始 AI 对局。');renderAuth();},true);
+
+const previousApplyState=applyState;
+applyState=function(data){previousApplyState(data);syncHomeChrome();};
+[ui.gameType,ui.firstHand,document.getElementById('difficulty')].filter(Boolean).forEach(el=>el.addEventListener('change',syncHomeChrome));
+
+refreshAuth();
+syncHomeChrome();
 })();

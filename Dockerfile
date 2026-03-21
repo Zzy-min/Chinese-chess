@@ -10,6 +10,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 COPY --from=build /app/target/classes ./classes
+COPY --from=build /app/target/dependency ./dependency
 
 EXPOSE 18388
-CMD ["java", "-Dfile.encoding=UTF-8", "-cp", "/app/classes", "com.xiangqi.web.PublicWebMain"]
+CMD ["java", "-Dfile.encoding=UTF-8", "-cp", "/app/classes:/app/dependency/*", "com.xiangqi.web.PublicWebMain"]

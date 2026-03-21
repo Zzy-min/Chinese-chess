@@ -18,3 +18,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 services/go-engine/.katago/
+
+# Local online-site database fallback
+data/*.mv.db
+data/*.lock.db

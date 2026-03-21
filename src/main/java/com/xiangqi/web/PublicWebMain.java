@@ -14,8 +14,10 @@ public final class PublicWebMain {
             bindHost = "0.0.0.0";
         }
 
-        URI uri = WebXiangqiServer.getInstance().start(bindHost, port);
-        System.out.println("Public web started at: " + uri + " (bind " + bindHost + ":" + port + ")");
+        PublicSiteServer server = new PublicSiteServer();
+        server.start(bindHost, port);
+        URI uri = URI.create("http://" + ("0.0.0.0".equals(bindHost) ? "127.0.0.1" : bindHost) + ":" + port + "/");
+        System.out.println("Public site started at: " + uri + " (bind " + bindHost + ":" + port + ")");
         new CountDownLatch(1).await();
     }
 
