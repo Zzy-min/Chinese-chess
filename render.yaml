@@ -1,5 +1,6 @@
 databases:
   - name: xiangqi-db
+    plan: free
     databaseName: xiangqi
     user: xiangqi
 
