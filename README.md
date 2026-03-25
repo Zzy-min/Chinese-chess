@@ -1,11 +1,52 @@
 # 轻·棋局
 
-纯网页版三棋项目，基于 Java Web 服务提供中国象棋、五子棋与围棋对局体验。
+当前仓库同时包含两条产品线：
+
+- 现有 Java Web 版本：三棋站点，提供中国象棋、五子棋与围棋体验。
+- 新的 Node/TypeScript workspace：四棋综合棋站，覆盖中国象棋、五子棋、围棋、国际象棋，并提供在线对局、AI 练习、账号、历史、回顾、排行榜等统一产品链路。
 
 - 中文文档: [README.zh-CN.md](README.zh-CN.md)
 - English docs: [README.en.md](README.en.md)
 
 当前仓库已移除 Swing 桌面端，只保留 Web 入口与部署链路。
+
+## 新 workspace
+
+新增目录：
+
+- `apps/web`: Next.js 四棋主站，包含首页、登录/注册、对局、练习、历史、回顾、个人页、排行榜
+- `apps/server`: Fastify API + WebSocket 服务，负责认证、房间、练习、归档、排行榜
+- `packages/core`: 四棋共享目录、类型和棋盘主题
+- `packages/engines-chess`: 基于 `chess.js` 的国际象棋规则适配器
+
+当前已落地：
+
+- 四棋在线对局与 AI 练习
+- 中国象棋与国际象棋差异化棋盘表现
+- WebSocket 房间同步
+- 站内注册、登录、登出和 cookie 会话
+- 本地文件数据库持久化用户、会话、活动房间、活动练习、归档与排行榜统计
+- 历史页、回顾页、个人页、排行榜页
+
+说明：
+
+- 当前本地验证使用文件数据库持久化，接口边界按后续迁移 PostgreSQL 组织。
+- 当前回顾页提供高质量回放与轻量标签，不是深度引擎分析。
+
+常用 workspace 命令：
+
+```powershell
+corepack pnpm install
+corepack pnpm test
+corepack pnpm build
+```
+
+默认本地服务：
+
+- Node API: `http://127.0.0.1:4310`
+- Next.js Web: 通过 `next dev` 或 `next start` 启动
+
+## 现有 Java 版本
 
 - 主入口: `com.xiangqi.web.PublicWebMain`
 - 本地启动脚本: `run_web.bat` / `运行游戏.bat`

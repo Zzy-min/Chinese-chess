@@ -1,0 +1,22 @@
+{
+  "name": "@qiju/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@qiju/core": "workspace:*",
+    "@qiju/engines-chess": "workspace:*",
+    "next": "16.2.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.0.1"
+  }
+}

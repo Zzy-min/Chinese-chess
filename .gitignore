@@ -4,6 +4,10 @@ out/
 output/
 bin/
 *.class
+node_modules/
+.next/
+coverage/
+dist/
 
 # IDE
 .idea/
@@ -15,10 +19,14 @@ Thumbs.db
 
 # Local scripts/logs
 *.log
+*.pid
 __pycache__/
 *.pyc
 services/go-engine/.katago/
 
-# Local online-site database fallback
+# Local databases
+apps/server/data/
 data/*.mv.db
 data/*.lock.db
+data/*.sqlite
+data/*.sqlite-*
