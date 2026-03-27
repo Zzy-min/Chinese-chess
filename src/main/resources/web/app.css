@@ -420,9 +420,8 @@ body:not([data-theme="imperial"]) .palaceFrame{display:none;}
   align-items:center;
   justify-content:center;
 }
-.flipStage[data-game="XIANGQI"] [data-board-face="XIANGQI"],
-.flipStage[data-game="GOMOKU"] [data-board-face="GOMOKU"],
-.flipStage[data-game="GO"] [data-board-face="GO"]{
+.flipStage:not(.gomokuFace) [data-board-face="XIANGQI"],
+.flipStage.gomokuFace [data-board-face="GOMOKU"]{
   display:flex;
 }
 .boardFace canvas{
