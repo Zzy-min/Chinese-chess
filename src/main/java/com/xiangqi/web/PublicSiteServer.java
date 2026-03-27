@@ -58,11 +58,20 @@ public final class PublicSiteServer {
     }
 
     public PublicSiteServer(OnlineStore store) {
-        this.store = store;
+        this.store = initializeStore(store);
         this.authService = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
         this.roomHub = new OnlineRoomHub(store);
         this.practiceHub = new PracticeGameHub(store);
         this.legacyHomeHub = new LegacyHomeSessionHub(practiceHub);
+    }
+
+    private static OnlineStore initializeStore(OnlineStore store) {
+        try {
+            store.initSchema();
+            return store;
+        } catch (Exception ex) {
+            throw new IllegalStateException("failed to initialize public site schema", ex);
+        }
     }
 
     public void start(String host, int port) {

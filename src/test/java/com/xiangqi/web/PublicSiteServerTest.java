@@ -43,6 +43,24 @@ class PublicSiteServerTest {
         }
     }
 
+    @Test
+    void initializesSchemaForPublicSiteStoreAutomatically() throws Exception {
+        OnlineStore store = newUninitializedStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpResponse<String> bootstrap = client.send(request(port, "/online/api/site/bootstrap"), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, bootstrap.statusCode());
+            assertTrue(bootstrap.body().contains("\"totalUsers\""));
+        } finally {
+            server.stop();
+        }
+    }
+
     private HttpRequest request(int port, String path) {
         return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).GET().build();
     }
@@ -54,11 +72,15 @@ class PublicSiteServerTest {
     }
 
     private OnlineStore newStore() throws Exception {
+        OnlineStore store = newUninitializedStore();
+        store.initSchema();
+        return store;
+    }
+
+    private OnlineStore newUninitializedStore() {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1");
         dataSource.setUser("sa");
-        OnlineStore store = new OnlineStore(dataSource);
-        store.initSchema();
-        return store;
+        return new OnlineStore(dataSource);
     }
 }
