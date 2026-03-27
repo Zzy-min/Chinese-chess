@@ -1,0 +1,7 @@
+tunnel: YOUR_TUNNEL_ID
+credentials-file: C:\Users\<your-user>\.cloudflared\YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: www.xiangqiarena.com
+    service: http://127.0.0.1:18388
+  - service: http_status:404
