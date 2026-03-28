@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -62,6 +63,9 @@ class OnlineStoreTest {
         ));
 
         String gameId = asString(created.get("gameId"));
+        waitUntil(() -> hub.gameSnapshotById(gameId, user), snapshot ->
+            Boolean.FALSE.equals(snapshot.get("aiPending")) && ((Number) snapshot.get("moveCount")).intValue() >= 1
+        );
         Map<String, Object> resigned = hub.resign(gameId, user);
         List<Map<String, Object>> recent = store.recentGamesForUser(user.id(), 10);
         Map<String, Object> analysis = store.loadGameAnalysis(gameId);
@@ -105,5 +109,18 @@ class OnlineStoreTest {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private Map<String, Object> waitUntil(Supplier<Map<String, Object>> supplier, java.util.function.Predicate<Map<String, Object>> predicate) throws Exception {
+        long deadline = System.currentTimeMillis() + 5000L;
+        Map<String, Object> latest = supplier.get();
+        while (System.currentTimeMillis() < deadline) {
+            if (predicate.test(latest)) {
+                return latest;
+            }
+            Thread.sleep(50L);
+            latest = supplier.get();
+        }
+        return latest;
     }
 }

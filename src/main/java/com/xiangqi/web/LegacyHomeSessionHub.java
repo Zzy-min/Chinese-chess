@@ -65,7 +65,7 @@ public final class LegacyHomeSessionHub {
             session.selectedRow = -1;
             session.selectedCol = -1;
             session.endgameLabel = "标准开局";
-            return buildState(session, user);
+            return buildState(session, user, game);
         }
     }
 
@@ -86,10 +86,10 @@ public final class LegacyHomeSessionHub {
                 if (cellAt(live, row, col) != null) {
                     return buildState(session, user);
                 }
-                practiceHub.applyMove(session.gameId, user, gomokuPayload(row, col));
+                Map<String, Object> updated = practiceHub.applyMove(session.gameId, user, gomokuPayload(row, col));
                 session.selectedRow = -1;
                 session.selectedCol = -1;
-                return buildState(session, user);
+                return buildState(session, user, updated);
             }
             return clickXiangqi(session, user, live, row, col);
         }
@@ -102,7 +102,10 @@ public final class LegacyHomeSessionHub {
         LegacySession session = session(sessionId);
         synchronized (session) {
             if (!session.gameId.isEmpty()) {
-                practiceHub.resign(session.gameId, user);
+                Map<String, Object> updated = practiceHub.resign(session.gameId, user);
+                session.selectedRow = -1;
+                session.selectedCol = -1;
+                return buildState(session, user, updated);
             }
             session.selectedRow = -1;
             session.selectedCol = -1;
@@ -169,15 +172,18 @@ public final class LegacyHomeSessionHub {
             session.selectedCol = col;
             return buildState(session, user);
         }
-        practiceHub.applyMove(session.gameId, user, xiangqiPayload(session.selectedRow, session.selectedCol, row, col));
+        Map<String, Object> updated = practiceHub.applyMove(session.gameId, user, xiangqiPayload(session.selectedRow, session.selectedCol, row, col));
         session.selectedRow = -1;
         session.selectedCol = -1;
-        return buildState(session, user);
+        return buildState(session, user, updated);
     }
 
     private Map<String, Object> buildState(LegacySession session, AuthUser user) {
-        Map<String, Object> game = currentGame(session, user);
-        Map<String, Object> analysis = currentAnalysis(session);
+        return buildState(session, user, currentGame(session, user));
+    }
+
+    private Map<String, Object> buildState(LegacySession session, AuthUser user, Map<String, Object> game) {
+        Map<String, Object> analysis = session.gameId.isEmpty() ? Collections.<String, Object>emptyMap() : game;
         int reviewMaxMove = moveCount(analysis);
         int reviewIndex = session.reviewMode ? Math.max(0, Math.min(session.reviewMoveIndex, reviewMaxMove)) : 0;
         Map<String, Object> state = new LinkedHashMap<String, Object>();
@@ -196,6 +202,7 @@ public final class LegacyHomeSessionHub {
         state.put("endgame", session.endgameLabel);
         state.put("currentTurn", session.reviewMode ? reviewTurn(session.gameType, reviewIndex, reviewMaxMove, game) : asString(game.get("currentTurn")));
         state.put("gameOver", asBoolean(game.get("gameOver")));
+        state.put("aiPending", asBoolean(game.get("aiPending")));
         state.put("canDraw", false);
         state.put("result", asString(game.get("resultText")));
         state.put("drawReason", "");

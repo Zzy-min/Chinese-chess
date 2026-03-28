@@ -2,9 +2,11 @@ package com.xiangqi.online.practice;
 
 import com.xiangqi.ai.ConfigurableXiangqiEngine;
 import com.xiangqi.ai.MinimaxAI;
+import com.xiangqi.model.Board;
 import com.xiangqi.model.Move;
 import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
+import com.xiangqi.model.gomoku.GomokuBoard;
 import com.xiangqi.model.gomoku.GomokuStone;
 import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.game.GameType;
@@ -22,11 +24,28 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.logging.Logger;
 
 public final class PracticeGameHub {
     private static final Logger LOG = Logger.getLogger(PracticeGameHub.class.getName());
+    private static final ExecutorService AI_EXECUTOR = Executors.newFixedThreadPool(
+        Math.max(2, Runtime.getRuntime().availableProcessors() - 1),
+        new ThreadFactory() {
+            private int index = 0;
+
+            @Override
+            public synchronized Thread newThread(Runnable runnable) {
+                Thread thread = new Thread(runnable, "practice-ai-" + (++index));
+                thread.setDaemon(true);
+                return thread;
+            }
+        }
+    );
     private final ConcurrentHashMap<String, ActivePracticeGame> gamesById = new ConcurrentHashMap<String, ActivePracticeGame>();
     private final OnlineStore store;
 
@@ -103,7 +122,7 @@ public final class PracticeGameHub {
             + " enginePref=" + game.enginePreference);
 
         if (game.aiSide.equals(game.currentTurn)) {
-            applyAiMove(game);
+            scheduleAiMove(game);
         }
         return snapshot(game, user);
     }
@@ -118,6 +137,7 @@ public final class PracticeGameHub {
             return store.loadGameAnalysis(gameId);
         }
         synchronized (game) {
+            drainPendingAiIfReady(game);
             return snapshot(game, viewer);
         }
     }
@@ -128,6 +148,7 @@ public final class PracticeGameHub {
             return store.loadGameAnalysis(gameId);
         }
         synchronized (game) {
+            drainPendingAiIfReady(game);
             return snapshot(game, null);
         }
     }
@@ -152,7 +173,7 @@ public final class PracticeGameHub {
             syncStateFromMatch(game);
             appendLatestMove(game, actor.id(), payloadWithSide(payload, game.humanSide));
             if (!refreshOutcome(game)) {
-                applyAiMove(game);
+                scheduleAiMove(game);
             }
             return snapshot(game, actor);
         }
@@ -168,12 +189,44 @@ public final class PracticeGameHub {
         }
     }
 
-    private void applyAiMove(ActivePracticeGame game) {
-        if ("FINISHED".equals(game.status)) {
+    private void scheduleAiMove(ActivePracticeGame game) {
+        if ("FINISHED".equals(game.status) || game.aiPending || !game.aiSide.equals(game.currentTurn)) {
             return;
         }
-        long startedAt = System.nanoTime();
-        Map<String, Object> payload = nextAiPayload(game);
+        game.aiPending = true;
+        game.aiStartedAtNanos = System.nanoTime();
+        game.updatedAt = Instant.now();
+        final MinimaxAI.Difficulty difficulty = game.difficulty;
+        final String aiSide = game.aiSide;
+        if (game.gameType == GameType.GOMOKU) {
+            final GomokuBoard snapshot = new GomokuBoard(((GomokuMatch) game.match).boardState());
+            final ConfigurableGomokuEngine engine = game.gomokuEngine;
+            game.aiFuture = CompletableFuture.supplyAsync(
+                () -> computeGomokuAiPayload(snapshot, engine, difficulty, aiSide),
+                AI_EXECUTOR
+            );
+            return;
+        }
+        final Board snapshot = new Board(((XiangqiMatch) game.match).boardState());
+        final ConfigurableXiangqiEngine engine = game.xiangqiEngine;
+        game.aiFuture = CompletableFuture.supplyAsync(
+            () -> computeXiangqiAiPayload(snapshot, engine, difficulty, aiSide),
+            AI_EXECUTOR
+        );
+    }
+
+    private void drainPendingAiIfReady(ActivePracticeGame game) {
+        if (!game.aiPending || game.aiFuture == null || !game.aiFuture.isDone() || "FINISHED".equals(game.status)) {
+            return;
+        }
+        Map<String, Object> payload;
+        try {
+            payload = game.aiFuture.getNow(new LinkedHashMap<String, Object>());
+        } catch (Exception ignored) {
+            payload = new LinkedHashMap<String, Object>();
+        }
+        game.aiFuture = null;
+        game.aiPending = false;
         if (payload.isEmpty()) {
             finalizeGame(game, game.humanSide, "AI has no legal move", "AI_NO_MOVE");
             return;
@@ -185,11 +238,12 @@ public final class PracticeGameHub {
         }
         syncStateFromMatch(game);
         appendLatestMove(game, game.aiUser.id(), payloadWithSide(payload, game.aiSide));
-        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        long elapsedMs = game.aiStartedAtNanos <= 0L ? -1L : (System.nanoTime() - game.aiStartedAtNanos) / 1_000_000L;
+        final String payloadText = String.valueOf(payload);
         LOG.info(() -> "practice.move.ai gameId=" + game.gameId
             + " side=" + game.aiSide
             + " engine=" + aiEngineId(game)
-            + " payload=" + payload
+            + " payload=" + payloadText
             + " elapsedMs=" + elapsedMs);
         refreshOutcome(game);
     }
@@ -235,6 +289,9 @@ public final class PracticeGameHub {
         game.resultText = resultText == null ? "" : resultText;
         game.terminationReason = terminationReason == null ? "" : terminationReason;
         game.updatedAt = Instant.now();
+        game.aiPending = false;
+        game.aiFuture = null;
+        game.aiStartedAtNanos = 0L;
         store.updateGameRecord(snapshot(game, null));
         closeEngines(game);
         LOG.info(() -> "practice.finish gameId=" + game.gameId
@@ -299,6 +356,32 @@ public final class PracticeGameHub {
         return payload;
     }
 
+    private Map<String, Object> computeXiangqiAiPayload(Board snapshot, ConfigurableXiangqiEngine engine, MinimaxAI.Difficulty difficulty, String aiSide) {
+        PieceColor color = "RED".equals(aiSide) ? PieceColor.RED : PieceColor.BLACK;
+        Move move = engine.findBestMove(snapshot, color, difficulty);
+        if (move == null) {
+            return new LinkedHashMap<String, Object>();
+        }
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("fromRow", move.getFromRow());
+        payload.put("fromCol", move.getFromCol());
+        payload.put("toRow", move.getToRow());
+        payload.put("toCol", move.getToCol());
+        return payload;
+    }
+
+    private Map<String, Object> computeGomokuAiPayload(GomokuBoard snapshot, ConfigurableGomokuEngine engine, MinimaxAI.Difficulty difficulty, String aiSide) {
+        GomokuStone stone = "BLACK".equals(aiSide) ? GomokuStone.BLACK : GomokuStone.WHITE;
+        int[] move = engine.findBestMove(snapshot, stone, difficulty);
+        if (move == null || move.length < 2) {
+            return new LinkedHashMap<String, Object>();
+        }
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("row", move[0]);
+        payload.put("col", move[1]);
+        return payload;
+    }
+
     private Map<String, Object> snapshot(ActivePracticeGame game, AuthUser viewer) {
         Map<String, Object> snapshot = new LinkedHashMap<String, Object>();
         snapshot.put("gameId", game.gameId);
@@ -320,6 +403,7 @@ public final class PracticeGameHub {
         snapshot.put("updatedAt", game.updatedAt.toString());
         snapshot.put("isTraining", true);
         snapshot.put("opponentType", game.opponentType);
+        snapshot.put("aiPending", game.aiPending);
         snapshot.put("aiEngine", aiEngineId(game));
         snapshot.put("difficulty", game.difficulty.name());
         snapshot.put("ai", aiMap(game));
@@ -489,6 +573,9 @@ public final class PracticeGameHub {
         private String terminationReason;
         private String opponentType;
         private Instant updatedAt;
+        private boolean aiPending;
+        private long aiStartedAtNanos;
+        private CompletableFuture<Map<String, Object>> aiFuture;
         private final List<Map<String, Object>> moves = new ArrayList<Map<String, Object>>();
     }
 }
