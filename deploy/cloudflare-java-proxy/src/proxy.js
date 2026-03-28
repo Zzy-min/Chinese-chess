@@ -32,12 +32,15 @@ export function isWebSocketRequest(request) {
   return request.headers.get("upgrade")?.toLowerCase() === "websocket";
 }
 
-export function buildProxyRequest(request, originBaseUrl) {
+export function buildProxyRequest(request, originBaseUrl, options = {}) {
   const targetUrl = buildOriginUrl(request.url, originBaseUrl);
   const headers = new Headers(request.headers);
   const publicUrl = new URL(request.url);
 
   headers.delete("host");
+  if (options.originHostHeader) {
+    headers.set("host", options.originHostHeader);
+  }
   headers.set("x-forwarded-host", publicUrl.host);
   headers.set("x-forwarded-proto", publicUrl.protocol.replace(":", ""));
   headers.set("x-forwarded-for", request.headers.get("cf-connecting-ip") || "");

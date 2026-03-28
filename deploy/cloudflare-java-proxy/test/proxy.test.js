@@ -71,3 +71,19 @@ test("buildProxyRequest removes host and preserves forwarding headers", () => {
   assert.equal(proxied.headers.get("x-forwarded-host"), "chinese-chess.zzy19812007.workers.dev");
   assert.equal(proxied.headers.get("x-forwarded-for"), "1.2.3.4");
 });
+
+test("buildProxyRequest can override the upstream host header", () => {
+  const request = new Request("https://www.xiangqiarena.com/online/api/site/bootstrap", {
+    headers: {
+      Host: "www.xiangqiarena.com",
+    },
+  });
+
+  const proxied = buildProxyRequest(request, "http://47.80.60.26", {
+    originHostHeader: "origin.xiangqiarena.com",
+  });
+
+  assert.equal(proxied.url, "http://47.80.60.26/online/api/site/bootstrap");
+  assert.equal(proxied.headers.get("host"), "origin.xiangqiarena.com");
+  assert.equal(proxied.headers.get("x-forwarded-host"), "www.xiangqiarena.com");
+});

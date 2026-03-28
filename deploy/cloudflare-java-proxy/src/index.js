@@ -30,7 +30,9 @@ export default {
       });
     }
 
-    const upstreamRequest = buildProxyRequest(request, env.ORIGIN_BASE_URL);
+    const upstreamRequest = buildProxyRequest(request, env.ORIGIN_BASE_URL, {
+      originHostHeader: env.ORIGIN_HOST_HEADER || "",
+    });
 
     if (isWebSocketRequest(request)) {
       return fetch(upstreamRequest);
