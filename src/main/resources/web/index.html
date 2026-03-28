@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>轻·象棋 - 浏览器模式</title>
+  <title>轻棋局 - 首页</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232f7f6f'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='34' fill='white' font-family='Arial'%3E%E6%A3%8B%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/assets/ui/app.css?v=20260327b" />
 </head>
@@ -14,14 +14,14 @@
       <section id="landingView" class="landingView">
         <div class="landingFrame">
           <div class="landingHead">
-            <p class="landingEyebrow">轻棋局 · 专注落子</p>
-            <h1 class="landingTitle">首页直接进入 AI 对局，在线对战单独进入大厅</h1>
-            <p class="landingDesc">中国象棋与五子棋都可以在首页直接开始人机对局；双人在线对战统一进入 Online 大厅。</p>
+            <p class="landingEyebrow">首页入口 · 米色大厅</p>
+            <h1 class="landingTitle">首页承接 AI 对局与在线对局两条入口</h1>
+            <p class="landingDesc">沿用偏米色大厅语言组织入口。中国象棋与五子棋的人机对局留在首页，联机、房间和分析继续从在线大厅进入。</p>
             <div class="landingActions">
               <div id="authSummary" class="landingStatus">账号状态：检查中...</div>
               <div class="landingButtons">
                 <button id="authToggle" class="menuBtn" type="button">登录 / 注册</button>
-                <a class="menuBtn ghostBtn" href="/online">在线对战</a>
+                <a class="menuBtn ghostBtn" href="/online">在线对局</a>
               </div>
             </div>
             <div id="authPanel" class="authPanel" hidden>
@@ -32,14 +32,14 @@
           </div>
           <div class="entryGrid">
             <button class="entryCard" type="button" data-entry-game="XIANGQI">
-              <span class="entryMeta">Homepage AI</span>
+              <span class="entryMeta">首页棋桌</span>
               <strong>中国象棋</strong>
-              <span>旧棋盘直开人机对局 · 支持复盘</span>
+              <span>从首页直接开局的人机桌面，保留大棋盘与复盘。</span>
             </button>
             <button class="entryCard" type="button" data-entry-game="GOMOKU">
-              <span class="entryMeta">Homepage AI</span>
+              <span class="entryMeta">首页棋桌</span>
               <strong>五子棋</strong>
-              <span>首页直接开局 · 黑方禁手 · 人机对抗</span>
+              <span>同一套大厅气质下切换棋种，继续走首页 AI 练习链路。</span>
             </button>
           </div>
           <div id="landingStatus" class="landingStatus">系统状态：加载中</div>
@@ -48,9 +48,9 @@
 
       <div id="gameView" class="gameView">
         <header class="topMeta">
-          <div class="brandBlock">
-            <div class="brandEyebrow">局内视图</div>
-            <div class="brandTitle">轻·象棋</div>
+            <div class="brandBlock">
+            <div class="brandEyebrow">首页对局桌面</div>
+            <div class="brandTitle">轻棋局</div>
           </div>
           <div class="metaCluster">
             <div id="statusTag" class="metaPill statePill">状态: 加载中</div>
@@ -58,7 +58,7 @@
             <div id="stepTop" class="metaPill">当前步时倒计时: --s</div>
           </div>
           <div class="topActions">
-            <a class="menuBtn ghostBtn" href="/online">在线对战</a>
+            <a class="menuBtn ghostBtn" href="/">首页</a>
             <button id="backToLanding" class="menuBtn ghostBtn" type="button">棋种入口</button>
             <button id="sideToggle" class="menuBtn" type="button">设置 / 复盘</button>
           </div>
@@ -66,8 +66,8 @@
 
         <section class="pageLead">
           <div>
-            <h1 id="leadTitle">登录后即可开始首页 AI 对局</h1>
-            <div id="currentChoiceSummary" class="leadSummary">中国象棋 · AI 对局 · 中等 · 极简清新</div>
+            <h1 id="leadTitle">登录后即可从首页进入 AI 对局</h1>
+            <div id="currentChoiceSummary" class="leadSummary">中国象棋 · AI 对局 · 中等 · 米杏大厅</div>
           </div>
           <div id="info" class="log infoBanner">等待数据...</div>
         </section>
@@ -80,7 +80,7 @@
           </article>
           <article class="setupCard emphasis">
             <div class="cardTitle">AI 对局</div>
-            <div class="cardHint">首页只负责人机开局；双人对战请进入 Online 大厅。</div>
+            <div class="cardHint">首页只负责 AI 对局；需要房间、联机和观战时进入在线大厅。</div>
             <div class="row"><select id="mode"><option value="pvc" selected>AI 对局</option></select><select id="difficulty"><option value="EASY">简单</option><option value="MEDIUM" selected>中等</option><option value="HARD">困难</option></select></div>
           </article>
           <article class="setupCard">
@@ -173,7 +173,7 @@
             <div class="sideHead">
               <div>
                 <div class="title">设置与复盘</div>
-                <div class="sideHint">首页保留旧棋盘与复盘入口；双人在线对战请使用 Online 大厅。</div>
+                <div class="sideHint">首页保留大棋盘与复盘入口；在线对局、房间和分析由米色大厅统一承接。</div>
               </div>
               <button id="closeDrawer" class="menuBtn closeBtn" type="button">关闭</button>
             </div>
@@ -187,11 +187,11 @@
               <div class="row"><select id="gomokuEngine"><option value="BUILTIN" selected>五子棋引擎: 内置AI</option><option value="RAPFI">五子棋引擎: Rapfi</option><option value="ALPHAGOMOKU">五子棋引擎: AlphaGomoku</option></select></div>
               <div class="cardTitle small">皮肤库</div>
               <div class="skinButtons compact">
-                <button class="skinBtn is-active" data-theme="minimal" type="button">极简清新</button>
-                <button class="skinBtn" data-theme="ink" type="button">简雅国风</button>
-                <button class="skinBtn" data-theme="imperial" type="button">御案古风</button>
+                <button class="skinBtn is-active" data-theme="minimal" type="button">米杏大厅</button>
+                <button class="skinBtn" data-theme="ink" type="button">墨青大厅</button>
+                <button class="skinBtn" data-theme="imperial" type="button">御案金厅</button>
               </div>
-              <div id="themeNote" class="themeNote">当前皮肤：极简清新 · 可随时切换</div>
+              <div id="themeNote" class="themeNote">当前大厅皮肤：米杏大厅 · 可随时切换</div>
               <div class="drawerStatusCard">
                 <div class="cardTitle small">局内状态</div>
                 <div id="drawerModeTag" class="tag compact">模式: -</div>

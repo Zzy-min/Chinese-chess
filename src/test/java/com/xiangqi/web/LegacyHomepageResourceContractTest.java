@@ -24,6 +24,17 @@ class LegacyHomepageResourceContractTest {
         assertTrue(css.contains(".flipStage:not(.gomokuFace) [data-board-face=\"XIANGQI\"]"));
     }
 
+    @Test
+    void legacyHomepageUsesLobbyPaletteAndHomeReturnLink() throws Exception {
+        String html = readResource("/web/index.html");
+        String css = readResource("/web/app.css");
+
+        assertTrue(html.contains("href=\"/\">首页</a>"));
+        assertTrue(css.contains("--brand:#2f5f4a;"));
+        assertTrue(css.contains("--accent:#b66a2a;"));
+        assertTrue(css.contains("background:linear-gradient(180deg,#f8f4ec 0,#f2ede2 100%)"));
+    }
+
     private String readResource(String path) throws IOException {
         try (InputStream input = LegacyHomepageResourceContractTest.class.getResourceAsStream(path)) {
             if (input == null) {
