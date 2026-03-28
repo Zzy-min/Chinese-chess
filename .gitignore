@@ -14,10 +14,12 @@ bin/
 Thumbs.db
 
 # Local scripts/logs
+.env
 *.log
 __pycache__/
 *.pyc
 services/go-engine/.katago/
+backups/
 
 # Local online-site database fallback
 data/*.mv.db
