@@ -30,6 +30,7 @@
 - Modify: `src/test/java/com/xiangqi/web/LegacyHomeSessionHubTest.java`
 
 - [ ] 在首页旧棋盘前端增加动作进行中状态
+- [ ] 为中国象棋首页 AI 对局增加本地即时落子回显
 - [ ] 人机走子请求发出后显示 “AI 思考中...”
 - [ ] 请求完成后恢复棋盘交互
 - [ ] 在 `PracticeGameHub` 增加开局、落子、AI 应手耗时和终局日志

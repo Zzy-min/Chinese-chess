@@ -25,6 +25,7 @@ class LegacyHomepageResourceContractTest {
         assertTrue(css.contains(".flipStage:not(.gomokuFace) [data-board-face=\"XIANGQI\"]"));
         assertTrue(onlineJs.contains("window.location.href = '/home-ai';"));
         assertTrue(onlineJs.contains("xiangqiReviewBoard"));
+        assertTrue(js.contains("function applyOptimisticPracticeMove"));
     }
 
     private String readResource(String path) throws IOException {
