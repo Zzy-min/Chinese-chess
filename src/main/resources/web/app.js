@@ -141,20 +141,20 @@ const startButton=document.getElementById('newGame');
 const themeNote=document.getElementById('themeNote');
 const themeButtons=Array.from(document.querySelectorAll('.skinBtn'));
 const THEME_KEY='xq_ui_theme';
-const THEMES={minimal:'极简清新',ink:'简雅国风',imperial:'御案古风'};
+const THEMES={minimal:'米杏大厅',ink:'墨青大厅',imperial:'御案金厅'};
 function currentTheme(){const raw=(localStorage.getItem(THEME_KEY)||body.dataset.theme||'minimal');return THEMES[raw]?raw:'minimal';}
 function selectedText(el){return el&&el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:'';}
 function updateSetupSummary(){
   const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';
   const mode=ui.mode&&ui.mode.value==='pvc'?'人机对战':'双人对战';
   const diff=selectedText(difficulty)||'中等';
-  const theme=THEMES[currentTheme()]||'极简清新';
+  const theme=THEMES[currentTheme()]||'米杏大厅';
   if(summary)summary.textContent=[game,mode,diff,theme].join(' · ');
   const started=!!(window.state&&state&&state.started);
   if(shell)shell.classList.toggle('is-started',started);
-  if(leadTitle)leadTitle.textContent=started?'对局进行中，可在右上角继续调整设置或复盘':'先选择模式，再开始对局';
-  if(startButton)startButton.innerHTML=started?'<strong>重新开局</strong><span>当前设置会重新开始本局</span>':'<strong>开始对局</strong><span>确认设置后开局</span>';
-  if(themeNote)themeNote.textContent='当前皮肤：'+theme+' · 可在设置中切换';
+  if(leadTitle)leadTitle.textContent=started?'AI 对局进行中，可继续走子、复盘或返回首页入口':'从首页入口直接开始 AI 对局';
+  if(startButton)startButton.innerHTML=started?'<strong>重新开局</strong><span>当前设置会重新开始本局</span>':'<strong>开始 AI 对局</strong><span>确认设置后立即开局</span>';
+  if(themeNote)themeNote.textContent='当前大厅皮肤：'+theme+' · 可在设置中切换';
 }
 function applyTheme(theme){const next=THEMES[theme]?theme:'minimal';body.dataset.theme=next;localStorage.setItem(THEME_KEY,next);themeButtons.forEach(btn=>btn.classList.toggle('is-active',btn.dataset.theme===next));updateSetupSummary();scheduleRender();}
 themeButtons.forEach(btn=>btn.addEventListener('click',()=>applyTheme(btn.dataset.theme)));
@@ -193,7 +193,7 @@ function updateLandingStatus(){
     landingStatus.textContent='系统状态：存在进行中的'+gameText+'对局，点击对应棋种继续';
     return;
   }
-  landingStatus.textContent='系统状态：待开始，可直接进入棋种对局页';
+  landingStatus.textContent='系统状态：待开始，可从首页进入 AI 对局或在线大厅';
 }
 
 function enterGameView(gameType){
@@ -269,7 +269,7 @@ let currentUser=null;
 function selectedText(el){return el&&el.options&&el.selectedIndex>=0?el.options[el.selectedIndex].text:'';}
 function setAuthText(message){if(authMessage)authMessage.textContent=message;}
 function renderAuth(){if(authSummary)authSummary.textContent=currentUser?('账号状态：已登录 @'+currentUser.username):'账号状态：未登录，开始 AI 对局前需先登录';if(authSubmit)authSubmit.textContent=authMode==='login'?'登录':'注册并登录';if(authSwitch)authSwitch.textContent=authMode==='login'?'切换到注册':'切换到登录';if(authLogout)authLogout.hidden=!currentUser;if(authUsername)authUsername.disabled=!!currentUser;if(authPassword)authPassword.disabled=!!currentUser;}
-function syncHomeChrome(){if(ui.mode){ui.mode.value='pvc';ui.mode.disabled=true;}setDis(ui.undo,true);setDis(ui.drawBtn,true);if(endgameTag&&endgameTag.textContent.indexOf('残局')===0)endgameTag.textContent='首页链路：AI 对局';const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';const diff=selectedText(document.getElementById('difficulty'))||'中等';if(summary)summary.textContent=[game,'AI 对局',diff].join(' · ');if(leadTitle)leadTitle.textContent=state&&state.started?'AI 对局进行中，可继续落子或复盘':(currentUser?'首页已就绪，点击“开始 AI 对局”即可开局':'先登录，再开始首页 AI 对局');if(ui.info&&!state?.started)ui.info.textContent=currentUser?'选择棋种、难度和先后手后开始 AI 对局':'请先登录，再开始 AI 对局';if(landingStatus&&!state?.started)landingStatus.textContent=currentUser?'系统状态：已登录，可直接进入所选棋种的 AI 对局页':'系统状态：未登录，可先登录或进入 Online 大厅';if(modeLabel&&modeLabel.textContent.includes('模式:'))modeLabel.textContent=modeLabel.textContent.replace('模式: 人机','模式: AI').replace('模式: 双人','模式: AI');if(startButton){const strong=startButton.querySelector('strong');const span=startButton.querySelector('span');if(strong)strong.textContent=state&&state.started?'重新开始 AI 对局':'开始 AI 对局';if(span)span.textContent=currentUser?'按当前设置立即开局':'登录后即可开局';}}
+function syncHomeChrome(){if(ui.mode){ui.mode.value='pvc';ui.mode.disabled=true;}setDis(ui.undo,true);setDis(ui.drawBtn,true);if(endgameTag&&endgameTag.textContent.indexOf('残局')===0)endgameTag.textContent='首页链路：AI 对局';const game=(ui.gameType&&ui.gameType.value)===GAME_GOMOKU?'五子棋':'中国象棋';const diff=selectedText(document.getElementById('difficulty'))||'中等';if(summary)summary.textContent=[game,'AI 对局',diff,'米杏大厅'].join(' · ');if(leadTitle)leadTitle.textContent=state&&state.started?'AI 对局进行中，可继续落子、复盘或回到首页':(currentUser?'首页已就绪，点击“开始 AI 对局”即可开局':'先登录，再开始首页 AI 对局');if(ui.info&&!state?.started)ui.info.textContent=currentUser?'选择棋种、难度和先后手后开始 AI 对局':'请先登录，再开始 AI 对局';if(landingStatus&&!state?.started)landingStatus.textContent=currentUser?'系统状态：已登录，可从首页进入 AI 对局或在线大厅':'系统状态：未登录，可先登录或进入在线大厅';if(modeLabel&&modeLabel.textContent.includes('模式:'))modeLabel.textContent=modeLabel.textContent.replace('模式: 人机','模式: AI').replace('模式: 双人','模式: AI');if(startButton){const strong=startButton.querySelector('strong');const span=startButton.querySelector('span');if(strong)strong.textContent=state&&state.started?'重新开始 AI 对局':'开始 AI 对局';if(span)span.textContent=currentUser?'按当前设置立即开局':'登录后即可开局';}}
 async function refreshAuth(){try{const data=await fetchJson('/api/auth/me');currentUser=data;}catch(_e){currentUser=null;}renderAuth();syncHomeChrome();}
 async function authRequest(url,payload){const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});const text=await res.text();const data=text?JSON.parse(text):null;if(!res.ok)throw new Error(data&&data.error?data.error:('请求失败 ('+res.status+')'));return data;}
 async function submitAuth(){if(currentUser){authPanel.hidden=true;return;}try{const data=await authRequest(authMode==='login'?'/api/auth/login':'/api/auth/register',{username:authUsername.value.trim(),password:authPassword.value});currentUser=data.user;authPanel.hidden=true;authPassword.value='';setAuthText('已登录，可直接开始 AI 对局。');await refresh();renderAuth();syncHomeChrome();}catch(err){setAuthText(err.message||'登录失败');renderAuth();}}

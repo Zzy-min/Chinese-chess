@@ -82,13 +82,13 @@ function renderTopbar(active) {
       <div class="brand">
         <div class="brandMark">棋</div>
         <div class="brandText">
-          <strong>轻棋局 Online</strong>
-          <span>在线房间对局大厅</span>
+          <strong>轻棋局</strong>
+          <span>首页 / 在线对局入口</span>
         </div>
       </div>
       <nav class="nav">
         ${navLink('home', '首页', active)}
-        ${navLink('play', '对局', active)}
+        ${navLink('play', '在线大厅', active)}
         ${navLink('learn', '学习', active)}
         ${navLink('watch', '观战', active)}
         ${navLink('community', '社区', active)}
@@ -138,27 +138,27 @@ function renderHome() {
   const activeGame = activity.game;
   return `
     <section class="hero">
-      <div class="meta">Online Lobby</div>
-      <h1>这里专注在线房间对局</h1>
-      <p>中国象棋与五子棋都可以通过房间码或公开房间开始在线对战。AI 对局已经回到站点首页，围棋在线仍保留占位，观战与社区仍是壳层。</p>
+      <div class="meta">首页入口</div>
+      <h1>首页承接 AI 对局与在线对局两条入口</h1>
+      <p>这里沿用偏米色大厅语言承接总站入口。AI 对局回到根首页的大棋盘桌面，在线对局继续从这里进入房间、联机、分析与归档流程。</p>
       <div class="grid cards">
-        <div class="card"><div class="meta">Rooms</div><h3>${b.activeRooms}</h3><p>当前活动房间</p></div>
-        <div class="card"><div class="meta">Players</div><h3>${b.totalUsers}</h3><p>已注册用户</p></div>
+        <div class="card"><div class="meta">Rooms</div><h3>${b.activeRooms}</h3><p>当前活动在线房间</p></div>
+        <div class="card"><div class="meta">Players</div><h3>${b.totalUsers}</h3><p>已注册棋手</p></div>
         <div class="card"><div class="meta">Games</div><h3>${b.totalGames}</h3><p>已归档在线局与练习局</p></div>
       </div>
     </section>
     <div class="split">
       <section class="panel">
-        <h2 class="sectionTitle">快速开始</h2>
+        <h2 class="sectionTitle">首页入口</h2>
         <div class="grid cards">
-          <div class="card"><h3>在线房间对局</h3><p>创建房间、分享邀请码、实时对战，支持棋钟、求和、认输与局后分析。</p><button class="btn" data-nav="play">进入大厅</button></div>
-          <div class="card"><h3>首页 AI 对局</h3><p>需要人机练习时，直接回到首页使用旧棋盘开局与复盘。</p><button class="btn" data-action="go-home-ai">回到首页</button></div>
-          <div class="card"><h3>围棋</h3><p>统一入口已保留，在线对战和 AI 练习都将在后续补齐。</p><button class="ghost" disabled>即将开放</button></div>
+          <div class="card"><h3>AI 对局</h3><p>回到根首页，使用大棋盘桌面直接开局、复盘并继续人机练习。</p><button class="ghost" data-action="go-home-ai">回到首页</button></div>
+          <div class="card"><h3>在线对局</h3><p>创建房间、分享邀请码、实时对战，支持棋钟、求和、认输与局后分析。</p><button class="btn" data-nav="play">进入大厅</button></div>
+          <div class="card"><h3>围棋</h3><p>围棋入口仍保留在总站层级，在线对局与 AI 练习后续继续补齐。</p><button class="ghost" disabled>即将开放</button></div>
         </div>
         ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
       </section>
       <section class="panel">
-        <h2 class="sectionTitle">最近对局</h2>
+        <h2 class="sectionTitle">最近归档</h2>
         <div class="moves">
           ${(b.recentGames || []).length ? b.recentGames.map(renderRecentGameCard).join('') : '<div class="banner">还没有归档对局，先去大厅或首页开始一局。</div>'}
         </div>
@@ -171,14 +171,14 @@ function renderLearn() {
   return `
     <section class="hero">
       <div class="meta">Learn</div>
-      <h1>学习页仍保留壳层</h1>
-      <p>AI 对局已经回到首页旧棋盘入口。这里先保留后续学习能力的位置，围棋、观战和社区的边界暂不变化。</p>
+      <h1>学习页仍保留在首页体系下</h1>
+      <p>AI 对局已经回到根首页桌面，这里继续保留学习能力的位置。围棋、观战和社区的边界暂不变化，但视觉语言仍跟随米色大厅。</p>
     </section>
     <div class="split">
       <section class="panel">
         <h2 class="sectionTitle">当前入口调整</h2>
         <div class="stack">
-          <div class="banner">首页已经接管 AI 对局入口，并继续使用原有棋盘与复盘交互。</div>
+          <div class="banner">首页已经接管 AI 对局入口，并继续使用原有大棋盘与复盘交互。</div>
           <button class="btn" data-action="go-home-ai">回到首页开始 AI 对局</button>
         </div>
       </section>
@@ -419,7 +419,7 @@ function renderAnalysis(gameId) {
           <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
         </div>
         <div class="status">${analysis.isTraining ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
-        ${analysis.gameType === 'GOMOKU' ? renderStaticGomokuBoard(board) : renderStaticXiangqiBoard(board)}
+        ${renderReadonlyBoard(analysis.gameType, board)}
         <div class="roomRow">
           <button class="ghost" data-analysis-step="0">开局</button>
           <button class="ghost" data-analysis-step="${Math.max(0, step - 1)}">上一步</button>
@@ -534,42 +534,58 @@ function renderAuthOverlay() {
 }
 
 function renderXiangqiBoard(game) {
-  const rows = game.board || [];
-  const disabled = !canInteractWithBoard(game);
+  return renderXiangqiBoardState(game.board || [], {
+    interactive: true,
+    disabled: !canInteractWithBoard(game),
+    selectedFrom: state.selectedFrom
+  });
+}
+
+function renderGomokuBoard(game) {
+  return renderGomokuBoardState(game.board || [], {
+    interactive: true,
+    disabled: !canInteractWithBoard(game)
+  });
+}
+
+function renderReadonlyBoard(gameType, board) {
+  return gameType === 'GOMOKU'
+    ? renderGomokuBoardState(board, { interactive: false, disabled: false })
+    : renderXiangqiBoardState(board, { interactive: false, disabled: false, selectedFrom: null });
+}
+
+function renderXiangqiBoardState(board, options = {}) {
+  const rows = normalizeBoard(board);
+  const interactive = options.interactive === true;
+  const disabled = options.disabled === true;
+  const selectedFrom = options.selectedFrom || null;
   return `<div class="xiangqiBoard">
     ${rows.map((row, r) => row.map((cell, c) => {
       const cls = ['xiangqiCell'];
       if (cell && !isRedPiece(cell)) cls.push('is-black');
-      if (state.selectedFrom && state.selectedFrom.row === r && state.selectedFrom.col === c) cls.push('is-selected');
-      return `<button class="${cls.join(' ')}" data-board="xiangqi" data-row="${r}" data-col="${c}" ${disabled ? 'disabled' : ''}>${cell || ''}</button>`;
+      if (selectedFrom && selectedFrom.row === r && selectedFrom.col === c) cls.push('is-selected');
+      const attrs = interactive
+        ? ` data-board="xiangqi" data-row="${r}" data-col="${c}"${disabled ? ' disabled' : ''}`
+        : '';
+      return `<button class="${cls.join(' ')}"${attrs}>${cell || ''}</button>`;
     }).join('')).join('')}
   </div>`;
 }
 
-function renderStaticXiangqiBoard(board) {
+function renderGomokuBoardState(board, options = {}) {
   const rows = normalizeBoard(board);
-  return `<div class="xiangqiBoard">
-    ${rows.map(row => row.map(cell => `<button class="xiangqiCell ${cell && !isRedPiece(cell) ? 'is-black' : ''}" disabled>${cell || ''}</button>`).join('')).join('')}
-  </div>`;
-}
-
-function renderGomokuBoard(game) {
-  const rows = game.board || [];
-  const disabled = !canInteractWithBoard(game);
+  const interactive = options.interactive === true;
+  const disabled = options.disabled === true;
   return `<div class="gomokuBoard">
     ${rows.map((row, r) => row.map((cell, c) => {
       const cls = ['gomokuCell'];
       if (cell === 'BLACK') cls.push('is-black');
       if (cell === 'WHITE') cls.push('is-white');
-      return `<button class="${cls.join(' ')}" data-board="gomoku" data-row="${r}" data-col="${c}" ${disabled ? 'disabled' : ''}></button>`;
+      const attrs = interactive
+        ? ` data-board="gomoku" data-row="${r}" data-col="${c}"${disabled ? ' disabled' : ''}`
+        : '';
+      return `<button class="${cls.join(' ')}"${attrs}></button>`;
     }).join('')).join('')}
-  </div>`;
-}
-
-function renderStaticGomokuBoard(board) {
-  const rows = normalizeBoard(board);
-  return `<div class="gomokuBoard">
-    ${rows.map(row => row.map(cell => `<button class="gomokuCell ${cell === 'BLACK' ? 'is-black' : ''} ${cell === 'WHITE' ? 'is-white' : ''}" disabled></button>`).join('')).join('')}
   </div>`;
 }
 
