@@ -5,7 +5,13 @@ A Java web project for Xiangqi, Gomoku, and Go, centered on a public online site
 ## Live Entry
 
 - Production domain: `https://www.xiangqiarena.com/`
-- Cloudflare deployment guide: [`docs/deployment/cloudflare-tunnel.md`](docs/deployment/cloudflare-tunnel.md)
+- Cloudflare Worker front door guide: [`docs/deployment/cloudflare-java-proxy.md`](docs/deployment/cloudflare-java-proxy.md)
+- Cloudflare Tunnel guide: [`docs/deployment/cloudflare-tunnel.md`](docs/deployment/cloudflare-tunnel.md)
+
+Worker deployment compatibility note:
+
+- the real Worker project lives in `deploy/cloudflare-java-proxy/`
+- a repository-root `wrangler.jsonc` intentionally remains as a safety shim so accidental root-level `npx wrangler deploy` still deploys the same proxy Worker instead of failing against the wrong repository shape
 - Repository landing page: [`README.md`](./README.md)
 
 This repository is web-first. `PublicWebMain` is the primary production entry, while `BrowserModeMain` remains as a legacy local-only mode for debugging and standalone play.
@@ -24,7 +30,7 @@ This repository is web-first. `PublicWebMain` is the primary production entry, w
 - Primary runtime entry: `com.xiangqi.web.PublicWebMain`
 - Local startup script: `run_web.bat`
 - Go engine helper: `run_go_engine.bat`
-- Historical `render.yaml` and `Dockerfile` remain in the repository, but the current public publishing path is `Cloudflare DNS + Cloudflare Tunnel + local source machine`
+- Historical `render.yaml` and `Dockerfile` remain in the repository, but the current public publishing path is `Cloudflare Worker front door + fixed Java origin`
 
 ## Run Locally
 

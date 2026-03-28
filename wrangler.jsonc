@@ -1,0 +1,12 @@
+{
+  "$schema": "./deploy/cloudflare-java-proxy/node_modules/wrangler/config-schema.json",
+  "name": "chinese-chess",
+  "main": "deploy/cloudflare-java-proxy/src/index.js",
+  "compatibility_date": "2026-03-28",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "STATIC_CACHE_TTL_SEC": "86400"
+  }
+}
