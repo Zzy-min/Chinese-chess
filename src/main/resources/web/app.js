@@ -191,7 +191,7 @@ const shell=document.getElementById('appShell');
 const landingStatus=document.getElementById('landingStatus');
 const backToLanding=document.getElementById('backToLanding');
 const entryButtons=Array.from(document.querySelectorAll('[data-entry-game]'));
-let hasEntrySelection=false;
+let hasEntrySelection=location.pathname === '/home-ai';
 
 function setView(view){
   if(!shell)return;
@@ -262,7 +262,7 @@ if(baseNewGameBtn){
   });
 }
 
-setView('landing');
+setView(hasEntrySelection?'game':'landing');
 updateLandingStatus();
 })();
 

@@ -26,6 +26,7 @@ class LegacyHomepageResourceContractTest {
         assertTrue(onlineJs.contains("window.location.href = '/home-ai';"));
         assertTrue(onlineJs.contains("xiangqiReviewBoard"));
         assertTrue(js.contains("function applyOptimisticPracticeMove"));
+        assertTrue(js.contains("location.pathname==='\\/home-ai'") || js.contains("location.pathname === '/home-ai'"));
     }
 
     private String readResource(String path) throws IOException {
