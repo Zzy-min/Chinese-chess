@@ -548,8 +548,13 @@ function renderXiangqiBoard(game) {
 
 function renderStaticXiangqiBoard(board) {
   const rows = normalizeBoard(board);
-  return `<div class="xiangqiBoard">
-    ${rows.map(row => row.map(cell => `<button class="xiangqiCell ${cell && !isRedPiece(cell) ? 'is-black' : ''}" disabled>${cell || ''}</button>`).join('')).join('')}
+  return `<div class="xiangqiReviewBoard">
+    <div class="xiangqiReviewRiver">楚河　汉界</div>
+    <div class="xiangqiReviewPalace xiangqiReviewPalace--top"></div>
+    <div class="xiangqiReviewPalace xiangqiReviewPalace--bottom"></div>
+    <div class="xiangqiReviewGrid">
+      ${rows.map(row => row.map(cell => `<button class="xiangqiReviewCell ${cell && !isRedPiece(cell) ? 'is-black' : ''}" disabled>${cell || ''}</button>`).join('')).join('')}
+    </div>
   </div>`;
 }
 
@@ -591,7 +596,7 @@ function bindCommon(route) {
   }));
   document.querySelectorAll('[data-learn-field]').forEach(el => el.addEventListener('change', event => updateLearnConfig(event.currentTarget)));
   on('[data-action="logout"]', logout);
-  on('[data-action="go-home-ai"]', () => { window.location.href = '/'; });
+  on('[data-action="go-home-ai"]', () => { window.location.href = '/home-ai'; });
   on('[data-action="submit-auth"]', submitAuth);
   on('[data-action="create-room"]', createRoom);
   on('[data-action="join-by-code"]', joinByCode);

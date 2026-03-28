@@ -15,6 +15,7 @@ class LegacyHomepageResourceContractTest {
         String html = readResource("/web/index.html");
         String js = readResource("/web/app.js");
         String css = readResource("/web/app.css");
+        String onlineJs = readResource("/online/app.js");
 
         assertTrue(html.contains("data-board-face=\"XIANGQI\""));
         assertTrue(html.contains("data-board-face=\"GOMOKU\""));
@@ -22,6 +23,8 @@ class LegacyHomepageResourceContractTest {
         assertTrue(js.contains("flipStage.dataset.game"));
         assertTrue(css.contains(".flipStage.gomokuFace [data-board-face=\"GOMOKU\"]"));
         assertTrue(css.contains(".flipStage:not(.gomokuFace) [data-board-face=\"XIANGQI\"]"));
+        assertTrue(onlineJs.contains("window.location.href = '/home-ai';"));
+        assertTrue(onlineJs.contains("xiangqiReviewBoard"));
     }
 
     private String readResource(String path) throws IOException {

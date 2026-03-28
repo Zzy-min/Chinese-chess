@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PublicSiteServerTest {
 
     @Test
-    void servesLegacyHomepageAtRootAndOnlineSiteUnderPrefix() throws Exception {
+    void redirectsRootToOnlineHomeAndKeepsLegacyHomepageOnDedicatedPath() throws Exception {
         OnlineStore store = newStore();
         PublicSiteServer server = new PublicSiteServer(store);
         int port = findFreePort();
@@ -27,11 +27,15 @@ class PublicSiteServerTest {
 
             HttpClient client = HttpClient.newHttpClient();
             HttpResponse<String> root = client.send(request(port, "/"), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> legacy = client.send(request(port, "/home-ai"), HttpResponse.BodyHandlers.ofString());
             HttpResponse<String> online = client.send(request(port, "/online"), HttpResponse.BodyHandlers.ofString());
             HttpResponse<String> onlineBootstrap = client.send(request(port, "/online/api/site/bootstrap"), HttpResponse.BodyHandlers.ofString());
 
-            assertEquals(200, root.statusCode());
-            assertTrue(root.body().contains("/assets/ui/app.js"));
+            assertEquals(302, root.statusCode());
+            assertEquals("/online#/home", root.headers().firstValue("Location").orElse(""));
+
+            assertEquals(200, legacy.statusCode());
+            assertTrue(legacy.body().contains("/assets/ui/app.js"));
 
             assertEquals(200, online.statusCode());
             assertTrue(online.body().contains("/online/assets/site/app.js"));

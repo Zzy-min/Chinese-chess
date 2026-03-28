@@ -79,7 +79,8 @@ public final class PublicSiteServer {
             return;
         }
         RoutingHandler routes = Handlers.routing(false)
-            .get("/", this::handleLegacyIndex)
+            .get("/", this::handleRootRedirect)
+            .get("/home-ai", this::handleLegacyIndex)
             .get("/assets/ui/app.css", this::handleLegacyCss)
             .get("/assets/ui/app.js", this::handleLegacyJs)
             .get("/assets/audio/move.wav", this::handleMoveAudio)
@@ -149,6 +150,12 @@ public final class PublicSiteServer {
 
     private void handleLegacyIndex(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/web/index.html", "text/html; charset=UTF-8");
+    }
+
+    private void handleRootRedirect(HttpServerExchange exchange) {
+        exchange.setStatusCode(StatusCodes.FOUND);
+        exchange.getResponseHeaders().put(Headers.LOCATION, "/online#/home");
+        exchange.endExchange();
     }
 
     private void handleLegacyCss(HttpServerExchange exchange) throws IOException {

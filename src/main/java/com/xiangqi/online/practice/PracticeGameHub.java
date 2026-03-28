@@ -23,8 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 public final class PracticeGameHub {
+    private static final Logger LOG = Logger.getLogger(PracticeGameHub.class.getName());
     private final ConcurrentHashMap<String, ActivePracticeGame> gamesById = new ConcurrentHashMap<String, ActivePracticeGame>();
     private final OnlineStore store;
 
@@ -92,6 +94,13 @@ public final class PracticeGameHub {
         game.currentTurn = game.match.currentTurnKey();
         gamesById.put(game.gameId, game);
         store.createGameRecord(game.gameId, "", snapshot(game, user));
+        LOG.info(() -> "practice.create gameId=" + game.gameId
+            + " type=" + game.gameType
+            + " difficulty=" + game.difficulty
+            + " human=" + user.username()
+            + " humanSide=" + game.humanSide
+            + " aiSide=" + game.aiSide
+            + " enginePref=" + game.enginePreference);
 
         if (game.aiSide.equals(game.currentTurn)) {
             applyAiMove(game);
@@ -128,6 +137,10 @@ public final class PracticeGameHub {
         synchronized (game) {
             ensureHumanParticipant(game, actor);
             ensurePlayable(game);
+            LOG.info(() -> "practice.move.request gameId=" + game.gameId
+                + " actor=" + actor.username()
+                + " side=" + game.humanSide
+                + " payload=" + payload);
             MatchEvent preview = game.match.previewMove(actor.id(), payload);
             if (!preview.accepted()) {
                 throw new IllegalArgumentException(preview.message());
@@ -159,6 +172,7 @@ public final class PracticeGameHub {
         if ("FINISHED".equals(game.status)) {
             return;
         }
+        long startedAt = System.nanoTime();
         Map<String, Object> payload = nextAiPayload(game);
         if (payload.isEmpty()) {
             finalizeGame(game, game.humanSide, "AI has no legal move", "AI_NO_MOVE");
@@ -171,6 +185,12 @@ public final class PracticeGameHub {
         }
         syncStateFromMatch(game);
         appendLatestMove(game, game.aiUser.id(), payloadWithSide(payload, game.aiSide));
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        LOG.info(() -> "practice.move.ai gameId=" + game.gameId
+            + " side=" + game.aiSide
+            + " engine=" + aiEngineId(game)
+            + " payload=" + payload
+            + " elapsedMs=" + elapsedMs);
         refreshOutcome(game);
     }
 
@@ -217,6 +237,10 @@ public final class PracticeGameHub {
         game.updatedAt = Instant.now();
         store.updateGameRecord(snapshot(game, null));
         closeEngines(game);
+        LOG.info(() -> "practice.finish gameId=" + game.gameId
+            + " winner=" + game.winnerSide
+            + " reason=" + game.terminationReason
+            + " result=" + game.resultText);
     }
 
     private void syncStateFromMatch(ActivePracticeGame game) {

@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyHomeSessionHubTest {
@@ -51,9 +52,12 @@ class LegacyHomeSessionHubTest {
         Map<String, Object> review = hub.reviewStart("sid-home", user);
         assertTrue(asBoolean(review.get("reviewMode")));
         assertEquals(0, review.get("reviewMoveIndex"));
+        assertEquals("帅", cell(review, 9, 4).get("name"));
+        assertEquals("BLACK", cell(review, 0, 4).get("color"));
 
         Map<String, Object> reviewNext = hub.reviewNext("sid-home", user);
         assertEquals(1, reviewNext.get("reviewMoveIndex"));
+        assertNotNull(cell(reviewNext, 5, 0));
 
         Map<String, Object> reviewExit = hub.reviewExit("sid-home", user);
         assertFalse(asBoolean(reviewExit.get("reviewMode")));
