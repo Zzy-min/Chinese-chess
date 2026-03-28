@@ -461,6 +461,45 @@ body:not([data-theme="imperial"]) .palaceFrame{display:none;}
   pointer-events:none;
   z-index:9;
 }
+.endgameOverlay{
+  position:absolute;
+  inset:26px;
+  z-index:10;
+  display:grid;
+  place-items:center;
+  background:rgba(16,12,8,.34);
+  border-radius:18px;
+}
+.endgameOverlay[hidden]{display:none;}
+.endgameOverlayCard{
+  width:min(420px,calc(100% - 24px));
+  padding:18px 18px 16px;
+  border-radius:18px;
+  border:1px solid rgba(255,230,190,.54);
+  background:linear-gradient(180deg,rgba(255,250,240,.96),rgba(247,236,217,.96));
+  box-shadow:0 20px 34px rgba(18,10,4,.24);
+  text-align:center;
+}
+.endgameOverlayCard h2{
+  margin:6px 0 8px;
+  font-size:28px;
+  line-height:1.15;
+}
+.endgameOverlayCard p{
+  margin:0;
+  color:var(--muted);
+  line-height:1.55;
+}
+.endgameOverlayActions{
+  margin-top:16px;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  align-items:stretch;
+}
+.endgameOverlayActions .menuBtn{
+  width:100%;
+}
 
 .actionBar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;}
 .actionBar button{
@@ -583,6 +622,8 @@ body:not([data-theme="imperial"]) .palaceFrame{display:none;}
   .actionBar button{min-height:64px;padding:9px 10px;}
   .boardShell{padding:10px;}
   .boardCard{min-height:320px;}
+  .endgameOverlay{inset:14px;}
+  .endgameOverlayActions{grid-template-columns:1fr;}
   .side{top:10px;right:10px;bottom:10px;width:calc(100vw - 20px);}
   .egGrid{grid-template-columns:1fr;}
 }

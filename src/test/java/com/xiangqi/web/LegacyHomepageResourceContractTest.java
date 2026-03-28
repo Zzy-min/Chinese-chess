@@ -28,11 +28,15 @@ class LegacyHomepageResourceContractTest {
     void legacyHomepageUsesLobbyPaletteAndHomeReturnLink() throws Exception {
         String html = readResource("/web/index.html");
         String css = readResource("/web/app.css");
+        String js = readResource("/web/app.js");
 
         assertTrue(html.contains("href=\"/\">首页</a>"));
         assertTrue(css.contains("--brand:#2f5f4a;"));
         assertTrue(css.contains("--accent:#b66a2a;"));
         assertTrue(css.contains("background:linear-gradient(180deg,#f8f4ec 0,#f2ede2 100%)"));
+        assertTrue(html.contains("id=\"endgameOverlay\""));
+        assertTrue(js.contains("function playMateCeremony(){"));
+        assertTrue(js.contains("function syncEndgamePresentation(){"));
     }
 
     private String readResource(String path) throws IOException {

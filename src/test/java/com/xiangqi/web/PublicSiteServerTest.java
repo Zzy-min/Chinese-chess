@@ -31,7 +31,7 @@ class PublicSiteServerTest {
             HttpResponse<String> onlineBootstrap = client.send(request(port, "/online/api/site/bootstrap"), HttpResponse.BodyHandlers.ofString());
 
             assertEquals(200, root.statusCode());
-            assertTrue(root.body().contains("/assets/ui/app.js"));
+            assertTrue(root.body().contains("/online/assets/site/app.js"));
 
             assertEquals(200, online.statusCode());
             assertTrue(online.body().contains("/online/assets/site/app.js"));
