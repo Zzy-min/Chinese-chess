@@ -8,6 +8,7 @@ const state = {
   analysis: null,
   analysisStep: 0,
   authMode: 'login',
+  authDialogOpen: false,
   authError: '',
   status: '',
   selectedFrom: null,
@@ -26,9 +27,20 @@ const WS_BASE = '/online/ws';
 
 const app = document.getElementById('app');
 const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me'];
+const moveAudio = new Audio('/assets/audio/move.wav');
+const resultAudio = new Audio('/assets/audio/mate.wav');
+moveAudio.preload = 'auto';
+resultAudio.preload = 'auto';
+moveAudio.volume = 0.72;
+resultAudio.volume = 0.92;
+let audioUnlocked = false;
+let soundEnabled = (localStorage.getItem('xq_online_sound_enabled') ?? '1') !== '0';
+let lastMoveSoundKey = '';
+let lastResultSoundKey = '';
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
+document.addEventListener('pointerdown', unlockAudio, { once: true });
 window.setInterval(() => {
   const route = currentRoute();
   if ((route.page === 'game' || route.page === 'practice') && state.game) {
@@ -68,11 +80,12 @@ function render() {
       <main class="shell">
         ${renderPage(route)}
       </main>
-      ${state.me ? '' : renderAuthOverlay()}
+      ${shouldShowAuthOverlay(route) ? renderAuthOverlay(route.page === 'home') : ''}
     </div>
   `;
   bindCommon(route);
   syncRealtime(route);
+  syncAudioFeedback();
 }
 
 function renderTopbar(active) {
@@ -83,7 +96,7 @@ function renderTopbar(active) {
         <div class="brandMark">棋</div>
         <div class="brandText">
           <strong>轻棋局</strong>
-          <span>首页 / 在线对局入口</span>
+          <span>线上对弈、AI 棋桌与复盘分析</span>
         </div>
       </div>
       <nav class="nav">
@@ -96,6 +109,7 @@ function renderTopbar(active) {
       </nav>
       <div class="userBar">
         <span class="muted">${me ? `@${me.username}` : '未登录'}</span>
+        <button class="ghost" data-action="toggle-sound">${soundEnabled ? '音效开启' : '音效关闭'}</button>
         ${me ? '<button class="ghost" data-action="logout">退出</button>' : '<button class="btn" data-action="show-auth">登录 / 注册</button>'}
       </div>
     </header>
@@ -104,6 +118,11 @@ function renderTopbar(active) {
 
 function navLink(page, label, active) {
   return `<a class="${active === page ? 'is-active' : ''}" href="#/${page}">${label}</a>`;
+}
+
+function shouldShowAuthOverlay(route) {
+  if (state.me) return false;
+  return route.page === 'home' ? state.authDialogOpen : true;
 }
 
 function renderPage(route) {
@@ -138,29 +157,50 @@ function renderHome() {
   const activeGame = activity.game;
   return `
     <section class="hero">
-      <div class="meta">首页入口</div>
-      <h1>首页承接 AI 对局与在线对局两条入口</h1>
-      <p>这里沿用偏米色大厅语言承接总站入口。AI 对局回到根首页的大棋盘桌面，在线对局继续从这里进入房间、联机、分析与归档流程。</p>
-      <div class="grid cards">
-        <div class="card"><div class="meta">Rooms</div><h3>${b.activeRooms}</h3><p>当前活动在线房间</p></div>
-        <div class="card"><div class="meta">Players</div><h3>${b.totalUsers}</h3><p>已注册棋手</p></div>
-        <div class="card"><div class="meta">Games</div><h3>${b.totalGames}</h3><p>已归档在线局与练习局</p></div>
+      <div class="meta">现在开始下棋</div>
+      <h1>轻棋局，把 AI 对局、在线对局和复盘放到同一个首页。</h1>
+      <p>先开一局，还是直接进入房间对战，都可以从这里开始。首页只负责把模式讲清楚，把下一步做得直接。</p>
+      <div class="grid cards heroStats">
+        <div class="card"><div class="meta">在线房间</div><h3>${b.activeRooms}</h3><p>此刻可进入的实时对局</p></div>
+        <div class="card"><div class="meta">棋手</div><h3>${b.totalUsers}</h3><p>已创建账号的玩家</p></div>
+        <div class="card"><div class="meta">归档棋局</div><h3>${b.totalGames}</h3><p>结束后可直接回放与复盘</p></div>
       </div>
+      ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
     </section>
-    <div class="split">
+    <div class="split homeSplit">
       <section class="panel">
-        <h2 class="sectionTitle">首页入口</h2>
-        <div class="grid cards">
-          <div class="card"><h3>AI 对局</h3><p>回到根首页，使用大棋盘桌面直接开局、复盘并继续人机练习。</p><button class="ghost" data-action="go-home-ai">回到首页</button></div>
-          <div class="card"><h3>在线对局</h3><p>创建房间、分享邀请码、实时对战，支持棋钟、求和、认输与局后分析。</p><button class="btn" data-nav="play">进入大厅</button></div>
-          <div class="card"><h3>围棋</h3><p>围棋入口仍保留在总站层级，在线对局与 AI 练习后续继续补齐。</p><button class="ghost" disabled>即将开放</button></div>
+        <div class="sectionHead">
+          <h2 class="sectionTitle">选择模式</h2>
+          <p class="muted">AI 对局放在第一位，在线对局作为另一种模式放在首页，进入后再决定棋种和玩法细节。</p>
         </div>
-        ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
+        <div class="grid cards modeCards">
+          <div class="card modeCard modeCardPrimary">
+            <div class="meta">Mode 01</div>
+            <h3>AI 对局</h3>
+            <p>进入专属棋桌后再选中国象棋或五子棋，支持难度、先后手、复盘和结果播报。</p>
+            <button class="btn" data-action="go-home-ai">进入 AI 棋桌</button>
+          </div>
+          <div class="card modeCard">
+            <div class="meta">Mode 02</div>
+            <h3>在线对局</h3>
+            <p>创建房间、输入邀请码或加入公开房间，支持棋钟、求和、认输与局后分析。</p>
+            <button class="ghost" data-nav="play">进入在线大厅</button>
+          </div>
+          <div class="card modeCard">
+            <div class="meta">More</div>
+            <h3>观战与学习</h3>
+            <p>观战、学习和社区继续保留在导航里，保持统一入口，不在首页占太大篇幅。</p>
+            <button class="ghost" data-nav="learn">查看学习内容</button>
+          </div>
+        </div>
       </section>
       <section class="panel">
-        <h2 class="sectionTitle">最近归档</h2>
+        <div class="sectionHead">
+          <h2 class="sectionTitle">最近归档</h2>
+          <p class="muted">刚结束的棋局会立刻进入可分析状态，首页可以直接回看。</p>
+        </div>
         <div class="moves">
-          ${(b.recentGames || []).length ? b.recentGames.map(renderRecentGameCard).join('') : '<div class="banner">还没有归档对局，先去大厅或首页开始一局。</div>'}
+          ${(b.recentGames || []).length ? b.recentGames.map(renderRecentGameCard).join('') : '<div class="banner">还没有归档对局，先开始一局 AI 对局或进入在线大厅。</div>'}
         </div>
       </section>
     </div>
@@ -171,22 +211,22 @@ function renderLearn() {
   return `
     <section class="hero">
       <div class="meta">Learn</div>
-      <h1>学习页仍保留在首页体系下</h1>
-      <p>AI 对局已经回到根首页桌面，这里继续保留学习能力的位置。围棋、观战和社区的边界暂不变化，但视觉语言仍跟随米色大厅。</p>
+      <h1>学习与复盘内容会继续补齐。</h1>
+      <p>现在可以先从首页进入 AI 对局或在线对局；这里继续承载训练专题、残局题和复盘建议。</p>
     </section>
     <div class="split">
       <section class="panel">
-        <h2 class="sectionTitle">当前入口调整</h2>
+        <h2 class="sectionTitle">当前可用入口</h2>
         <div class="stack">
-          <div class="banner">首页已经接管 AI 对局入口，并继续使用原有大棋盘与复盘交互。</div>
-          <button class="btn" data-action="go-home-ai">回到首页开始 AI 对局</button>
+          <div class="banner">首页已经整合 AI 对局、在线大厅和归档入口，学习页不再承担模式分流。</div>
+          <button class="btn" data-action="go-home-main">返回首页</button>
         </div>
       </section>
       <section class="panel">
-        <h2 class="sectionTitle">后续预留</h2>
+        <h2 class="sectionTitle">后续内容</h2>
         <div class="moves">
-          <div class="move"><div><strong>学习内容位</strong><div class="muted">指定走法训练、残局题与复盘建议仍会继续放在这里。</div></div></div>
-          <div class="move"><div><strong>统一分析入口</strong><div class="muted">无论在线局还是练习局，分析页仍复用同一套回放数据。</div></div></div>
+          <div class="move"><div><strong>训练专题</strong><div class="muted">指定走法训练、残局题与复盘建议会继续放在这里。</div></div></div>
+          <div class="move"><div><strong>统一分析入口</strong><div class="muted">无论在线局还是 AI 对局，分析页继续复用同一套回放数据。</div></div></div>
         </div>
       </section>
     </div>
@@ -304,6 +344,7 @@ function renderOnlineGameView(game) {
   const viewerSide = game.viewerSide || inferViewerSide(game);
   const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
   const canOfferDraw = game.status === 'PLAYING' && !drawOffer;
+  const finished = game.status !== 'PLAYING';
   return `
     <div class="split">
       <section class="boardWrap">
@@ -317,15 +358,17 @@ function renderOnlineGameView(game) {
           ${renderClockCard(game, 'first')}
           ${renderClockCard(game, 'second')}
         </div>
-        <div class="status">${game.resultText || '在线对局进行中'}</div>
+        ${finished ? renderFinishedBanner(game, true) : `<div class="status">${game.resultText || '在线对局进行中'}</div>`}
         ${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}
         ${board}
-        <div class="roomRow">
-          <button class="ghost" data-nav="room/${game.roomId}">回到房间</button>
-          <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
-          ${canOfferDraw ? '<button class="ghost" data-action="offer-draw">求和</button>' : ''}
-          ${game.status === 'PLAYING' ? '<button class="danger" data-action="resign">认输</button>' : ''}
-        </div>
+        ${finished ? renderFinishedActions(game, true) : `
+          <div class="roomRow">
+            <button class="ghost" data-nav="room/${game.roomId}">回到房间</button>
+            <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
+            ${canOfferDraw ? '<button class="ghost" data-action="offer-draw">求和</button>' : ''}
+            <button class="danger" data-action="resign">认输</button>
+          </div>
+        `}
       </section>
       <section class="panel">
         <h2 class="sectionTitle">走子记录</h2>
@@ -340,6 +383,7 @@ function renderOnlineGameView(game) {
 function renderPracticeView(game) {
   const board = game.gameType === 'GOMOKU' ? renderGomokuBoard(game) : renderXiangqiBoard(game);
   const ai = practiceAiMeta(game);
+  const finished = game.status !== 'PLAYING';
   return `
     <div class="split">
       <section class="boardWrap">
@@ -354,13 +398,15 @@ function renderPracticeView(game) {
           <div class="card"><div class="meta">AI</div><h3>${ai.engineText}</h3><p>${ai.engineId} · ${ai.difficulty}</p></div>
           <div class="card"><div class="meta">对手</div><h3>${practiceOpponent(game)}</h3><p>${game.aiSide || ai.side || '-'}</p></div>
         </div>
-        <div class="status">${game.resultText || '轮到你落子后，后端会立刻返回 AI 应手。'}</div>
+        ${finished ? renderFinishedBanner(game, false) : `<div class="status">${game.resultText || '轮到你落子后，后端会立刻返回 AI 应手。'}</div>`}
         ${board}
-        <div class="roomRow">
-          <button class="ghost" data-nav="learn">返回学习页</button>
-          <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
-          ${game.status === 'PLAYING' ? '<button class="danger" data-action="resign">认输</button>' : '<button class="btn" data-nav="learn">再开一局</button>'}
-        </div>
+        ${finished ? renderFinishedActions(game, false) : `
+          <div class="roomRow">
+            <button class="ghost" data-nav="home">返回首页</button>
+            <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
+            <button class="danger" data-action="resign">认输</button>
+          </div>
+        `}
       </section>
       <section class="panel">
         <h2 class="sectionTitle">练习记录</h2>
@@ -368,6 +414,38 @@ function renderPracticeView(game) {
           ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
         </div>
       </section>
+    </div>
+  `;
+}
+
+function renderFinishedBanner(game, isOnline) {
+  return `
+    <div class="banner endgameBanner">
+      <div>
+        <strong>${isOnline ? '在线对局结束' : 'AI 对局结束'}</strong>
+        <div class="muted">${game.resultText || game.terminationReason || '本局已结束'}</div>
+      </div>
+      <span class="pill">${game.status}</span>
+    </div>
+  `;
+}
+
+function renderFinishedActions(game, isOnline) {
+  if (isOnline) {
+    return `
+      <div class="roomRow endgameActions">
+        <button class="btn" data-action="play-online-again">再来一局</button>
+        <button class="ghost" data-nav="analysis/${game.gameId}">复盘分析</button>
+        <button class="ghost" data-nav="room/${game.roomId}">回到房间</button>
+        <button class="ghost" data-nav="home">返回首页</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="roomRow endgameActions">
+      <button class="btn" data-action="play-practice-again">再来一局</button>
+      <button class="ghost" data-nav="analysis/${game.gameId}">复盘分析</button>
+      <button class="ghost" data-nav="home">返回首页</button>
     </div>
   `;
 }
@@ -512,12 +590,13 @@ function renderPlaceholder(title, desc) {
   return `<section class="placeholder"><h2>${title}</h2><p>${desc}</p></section>`;
 }
 
-function renderAuthOverlay() {
+function renderAuthOverlay(dismissible) {
   return `
     <div class="authOverlay">
       <div class="authCard">
         <div class="meta">Authentication</div>
         <h2 class="sectionTitle">登录后才能创建或加入在线房间</h2>
+        ${dismissible ? '<button class="ghost authClose" data-action="close-auth">稍后再说</button>' : ''}
         <div class="authTabs">
           <button class="${state.authMode === 'login' ? 'btn' : 'ghost'}" data-auth-mode="login">登录</button>
           <button class="${state.authMode === 'register' ? 'btn' : 'ghost'}" data-auth-mode="register">注册</button>
@@ -606,14 +685,20 @@ function bindCommon(route) {
     render();
   }));
   document.querySelectorAll('[data-learn-field]').forEach(el => el.addEventListener('change', event => updateLearnConfig(event.currentTarget)));
+  on('[data-action="toggle-sound"]', toggleSound);
+  on('[data-action="show-auth"]', showAuthDialog);
+  on('[data-action="close-auth"]', closeAuthDialog);
   on('[data-action="logout"]', logout);
-  on('[data-action="go-home-ai"]', () => { window.location.href = '/'; });
+  on('[data-action="go-home-main"]', () => navTo('home'));
+  on('[data-action="go-home-ai"]', () => { window.location.href = '/ai'; });
   on('[data-action="submit-auth"]', submitAuth);
   on('[data-action="create-room"]', createRoom);
   on('[data-action="join-by-code"]', joinByCode);
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
   on('[data-action="create-practice"]', createPracticeGame);
+  on('[data-action="play-practice-again"]', playPracticeAgain);
+  on('[data-action="play-online-again"]', playOnlineAgain);
   on('[data-action="offer-draw"]', offerDraw);
   on('[data-action="accept-draw"]', () => respondDraw(true));
   on('[data-action="reject-draw"]', () => respondDraw(false));
@@ -626,6 +711,55 @@ function bindCommon(route) {
   }));
   if (route.page === 'play' && !state.lobby) {
     loadLobby();
+  }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('xq_online_sound_enabled', soundEnabled ? '1' : '0');
+  render();
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  [moveAudio, resultAudio].forEach(audio => {
+    const pending = audio.play();
+    if (pending && pending.catch) {
+      pending.then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }).catch(() => {});
+    } else {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  });
+}
+
+function playSound(audio) {
+  if (!soundEnabled || !audioUnlocked) return;
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+    const pending = audio.play();
+    if (pending && pending.catch) pending.catch(() => {});
+  } catch (_error) {}
+}
+
+function syncAudioFeedback() {
+  const game = state.game;
+  if (!game) return;
+  const moveCount = Array.isArray(game.moves) ? game.moves.length : 0;
+  const moveKey = `${game.gameId || ''}:${moveCount}:${game.status}`;
+  if (moveCount > 0 && game.status === 'PLAYING' && moveKey !== lastMoveSoundKey) {
+    lastMoveSoundKey = moveKey;
+    playSound(moveAudio);
+  }
+  const resultKey = `${game.gameId || ''}:${game.status}:${game.resultText || ''}:${game.terminationReason || ''}`;
+  if (game.status !== 'PLAYING' && resultKey !== lastResultSoundKey) {
+    lastResultSoundKey = resultKey;
+    playSound(resultAudio);
   }
 }
 
@@ -654,6 +788,16 @@ function on(selector, handler) {
   }
 }
 
+function showAuthDialog() {
+  state.authDialogOpen = true;
+  render();
+}
+
+function closeAuthDialog() {
+  state.authDialogOpen = false;
+  render();
+}
+
 async function submitAuth() {
   const username = document.getElementById('authUsername').value.trim();
   const password = document.getElementById('authPassword').value;
@@ -662,6 +806,7 @@ async function submitAuth() {
     const url = state.authMode === 'login' ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
     const data = await fetchJson(url, { method: 'POST', body: JSON.stringify({ username, password }) });
     state.me = data.user;
+    state.authDialogOpen = false;
     await refreshBootstrapAndProfile();
     render();
   } catch (error) {
@@ -718,6 +863,26 @@ async function createPracticeGame() {
     state.status = error.message;
     render();
   }
+}
+
+async function playPracticeAgain() {
+  if (state.game) {
+    state.learnConfig = {
+      gameType: state.game.gameType || 'XIANGQI',
+      difficulty: state.game.difficulty || 'MEDIUM',
+      humanFirst: (state.game.viewerSide || inferViewerSide(state.game) || 'RED') === (state.game.gameType === 'GOMOKU' ? 'BLACK' : 'RED'),
+      preferredEngine: state.game.aiEngine || 'BUILTIN'
+    };
+  }
+  await createPracticeGame();
+}
+
+function playOnlineAgain() {
+  if (state.game && state.game.roomId) {
+    navTo(`room/${state.game.roomId}`);
+    return;
+  }
+  navTo('play');
 }
 
 async function joinByCode() {

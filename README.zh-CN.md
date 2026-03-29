@@ -5,7 +5,13 @@
 ## 在线入口
 
 - 正式域名：`https://www.xiangqiarena.com/`
-- Cloudflare 部署说明：[`docs/deployment/cloudflare-tunnel.md`](docs/deployment/cloudflare-tunnel.md)
+- Cloudflare Worker 前门部署说明：[`docs/deployment/cloudflare-java-proxy.md`](docs/deployment/cloudflare-java-proxy.md)
+- Cloudflare Tunnel 部署说明：[`docs/deployment/cloudflare-tunnel.md`](docs/deployment/cloudflare-tunnel.md)
+
+Worker 部署兼容说明：
+
+- 真正的 Worker 项目位于 `deploy/cloudflare-java-proxy/`
+- 仓库根目录保留一份兼容用 `wrangler.jsonc`，目的是即使 Cloudflare 误从仓库根执行 `npx wrangler deploy`，也仍然会部署同一套 Java 代理 Worker，而不是再次因为项目根目录错误而失败
 - 仓库首页：[`README.md`](./README.md)
 
 当前仓库以 Web 为主，不再把 Swing 桌面端作为主叙事。主站入口为 `PublicWebMain`，旧本地浏览器模式 `BrowserModeMain` 仅保留为本机体验与调试路径。
@@ -25,7 +31,7 @@
 - 主站运行入口：`com.xiangqi.web.PublicWebMain`
 - 本地启动脚本：`run_web.bat` / `运行游戏.bat`
 - 围棋引擎脚本：`run_go_engine.bat`
-- 历史 `render.yaml` / `Dockerfile` 仍保留在仓库中，但当前主要公开发布路径改为 `Cloudflare DNS + Cloudflare Tunnel + 本机源站`
+- 历史 `render.yaml` / `Dockerfile` 仍保留在仓库中，但当前主要公开发布路径改为 `Cloudflare Worker 前门 + 固定 Java 源站`
 
 ## 本地运行
 

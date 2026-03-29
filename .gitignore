@@ -17,6 +17,10 @@ Thumbs.db
 *.log
 __pycache__/
 *.pyc
+node_modules/
+.wrangler/
+.dev.vars
+.env.local
 services/go-engine/.katago/
 
 # Local online-site database fallback

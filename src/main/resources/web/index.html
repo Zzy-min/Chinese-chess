@@ -14,9 +14,9 @@
       <section id="landingView" class="landingView">
         <div class="landingFrame">
           <div class="landingHead">
-            <p class="landingEyebrow">首页入口 · 米色大厅</p>
-            <h1 class="landingTitle">首页承接 AI 对局与在线对局两条入口</h1>
-            <p class="landingDesc">沿用偏米色大厅语言组织入口。中国象棋与五子棋的人机对局留在首页，联机、房间和分析继续从在线大厅进入。</p>
+            <p class="landingEyebrow">AI 棋桌</p>
+            <h1 class="landingTitle">选择棋种，直接开始 AI 对局。</h1>
+            <p class="landingDesc">中国象棋与五子棋都可以从这里进入专属棋桌。想和真人对战时，直接前往在线大厅。</p>
             <div class="landingActions">
               <div id="authSummary" class="landingStatus">账号状态：检查中...</div>
               <div class="landingButtons">
@@ -39,7 +39,7 @@
             <button class="entryCard" type="button" data-entry-game="GOMOKU">
               <span class="entryMeta">首页棋桌</span>
               <strong>五子棋</strong>
-              <span>同一套大厅气质下切换棋种，继续走首页 AI 练习链路。</span>
+              <span>切换到五子棋棋桌，继续进行 AI 对局与复盘。</span>
             </button>
           </div>
           <div id="landingStatus" class="landingStatus">系统状态：加载中</div>
@@ -67,7 +67,7 @@
         <section class="pageLead">
           <div>
             <h1 id="leadTitle">登录后即可从首页进入 AI 对局</h1>
-            <div id="currentChoiceSummary" class="leadSummary">中国象棋 · AI 对局 · 中等 · 米杏大厅</div>
+            <div id="currentChoiceSummary" class="leadSummary">中国象棋 · AI 对局 · 中等 · 米杏</div>
           </div>
           <div id="info" class="log infoBanner">等待数据...</div>
         </section>
@@ -80,7 +80,7 @@
           </article>
           <article class="setupCard emphasis">
             <div class="cardTitle">AI 对局</div>
-            <div class="cardHint">首页只负责 AI 对局；需要房间、联机和观战时进入在线大厅。</div>
+            <div class="cardHint">这里专注 AI 对局；想与真人对战时进入在线大厅。</div>
             <div class="row"><select id="mode"><option value="pvc" selected>AI 对局</option></select><select id="difficulty"><option value="EASY">简单</option><option value="MEDIUM" selected>中等</option><option value="HARD">困难</option></select></div>
           </article>
           <article class="setupCard">
@@ -157,6 +157,18 @@
                     <div class="boardFace boardFaceBack" data-board-face="GOMOKU"><canvas id="boardGK" width="800" height="900"></canvas></div>
                   </div>
                 </div>
+                <div id="endgameOverlay" class="endgameOverlay" hidden>
+                  <div class="endgameOverlayCard">
+                    <div class="cardTitle small">对局结果</div>
+                    <h2 id="endgameOverlayTitle">本局结束</h2>
+                    <p id="endgameSummary">结果确认中...</p>
+                    <div class="endgameOverlayActions">
+                      <button id="endgameReplay" class="primary" type="button">再来一局</button>
+                      <button id="endgameReview" type="button">进入复盘</button>
+                      <a class="menuBtn ghostBtn" href="/">返回首页</a>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -173,7 +185,7 @@
             <div class="sideHead">
               <div>
                 <div class="title">设置与复盘</div>
-                <div class="sideHint">首页保留大棋盘与复盘入口；在线对局、房间和分析由米色大厅统一承接。</div>
+                <div class="sideHint">这里保留大棋盘、设置与复盘入口；真人对战与房间功能在在线大厅。</div>
               </div>
               <button id="closeDrawer" class="menuBtn closeBtn" type="button">关闭</button>
             </div>
@@ -187,11 +199,11 @@
               <div class="row"><select id="gomokuEngine"><option value="BUILTIN" selected>五子棋引擎: 内置AI</option><option value="RAPFI">五子棋引擎: Rapfi</option><option value="ALPHAGOMOKU">五子棋引擎: AlphaGomoku</option></select></div>
               <div class="cardTitle small">皮肤库</div>
               <div class="skinButtons compact">
-                <button class="skinBtn is-active" data-theme="minimal" type="button">米杏大厅</button>
-                <button class="skinBtn" data-theme="ink" type="button">墨青大厅</button>
-                <button class="skinBtn" data-theme="imperial" type="button">御案金厅</button>
+                <button class="skinBtn is-active" data-theme="minimal" type="button">米杏</button>
+                <button class="skinBtn" data-theme="ink" type="button">墨青</button>
+                <button class="skinBtn" data-theme="imperial" type="button">鎏金</button>
               </div>
-              <div id="themeNote" class="themeNote">当前大厅皮肤：米杏大厅 · 可随时切换</div>
+              <div id="themeNote" class="themeNote">当前主题：米杏 · 可随时切换</div>
               <div class="drawerStatusCard">
                 <div class="cardTitle small">局内状态</div>
                 <div id="drawerModeTag" class="tag compact">模式: -</div>

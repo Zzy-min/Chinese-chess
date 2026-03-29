@@ -79,7 +79,8 @@ public final class PublicSiteServer {
             return;
         }
         RoutingHandler routes = Handlers.routing(false)
-            .get("/", this::handleLegacyIndex)
+            .get("/", this::handleOnlineIndex)
+            .get("/ai", this::handleLegacyIndex)
             .get("/assets/ui/app.css", this::handleLegacyCss)
             .get("/assets/ui/app.js", this::handleLegacyJs)
             .get("/assets/audio/move.wav", this::handleMoveAudio)
