@@ -2,6 +2,7 @@ package com.xiangqi.online.practice;
 
 import com.xiangqi.ai.ConfigurableXiangqiEngine;
 import com.xiangqi.ai.MinimaxAI;
+import com.xiangqi.model.Board;
 import com.xiangqi.model.Move;
 import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
@@ -120,6 +121,16 @@ public final class PracticeGameHub {
         }
         synchronized (game) {
             return snapshot(game, null);
+        }
+    }
+
+    public Board xiangqiBoard(String gameId) {
+        ActivePracticeGame game = gamesById.get(gameId);
+        if (game == null || !(game.match instanceof XiangqiMatch)) {
+            return null;
+        }
+        synchronized (game) {
+            return ((XiangqiMatch) game.match).boardState();
         }
     }
 

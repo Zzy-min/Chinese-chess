@@ -500,6 +500,27 @@ body:not([data-theme="imperial"]) .palaceFrame{display:none;}
 .endgameOverlayActions .menuBtn{
   width:100%;
 }
+.endgameOverlayCard[data-winner="RED"]{
+  border-color:rgba(198,64,60,.6);
+  background:linear-gradient(180deg,rgba(255,250,240,.96),rgba(252,235,230,.96));
+}
+.endgameOverlayCard[data-winner="RED"] h2{
+  color:#c43d36;
+}
+.endgameOverlayCard[data-winner="BLACK"]{
+  border-color:rgba(40,40,40,.5);
+  background:linear-gradient(180deg,rgba(255,250,240,.96),rgba(240,240,238,.96));
+}
+.endgameOverlayCard[data-winner="BLACK"] h2{
+  color:#1e1e1e;
+}
+.endgameOverlayCard[data-winner="WHITE"]{
+  border-color:rgba(40,40,40,.5);
+  background:linear-gradient(180deg,rgba(255,250,240,.96),rgba(240,240,238,.96));
+}
+.endgameOverlayCard[data-winner="WHITE"] h2{
+  color:#1e1e1e;
+}
 
 .actionBar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;}
 .actionBar button{

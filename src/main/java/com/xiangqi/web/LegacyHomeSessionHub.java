@@ -2,7 +2,9 @@ package com.xiangqi.web;
 
 import com.xiangqi.ai.ConfigurableXiangqiEngine;
 import com.xiangqi.ai.MinimaxAI;
+import com.xiangqi.model.Board;
 import com.xiangqi.model.PieceType;
+import com.xiangqi.model.TacticDetector;
 import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
 import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.game.GameType;
@@ -65,6 +67,8 @@ public final class LegacyHomeSessionHub {
             session.selectedRow = -1;
             session.selectedCol = -1;
             session.endgameLabel = "标准开局";
+            session.tacticText = "";
+            session.tacticSeq = 0;
             return buildState(session, user);
         }
     }
@@ -208,8 +212,11 @@ public final class LegacyHomeSessionHub {
         state.put("stepRemainSec", -1);
         state.put("redTotalSec", -1);
         state.put("blackTotalSec", -1);
-        state.put("tacticText", "");
-        state.put("tacticSeq", 0);
+        if (!session.reviewMode && isStarted(game) && !asBoolean(game.get("gameOver"))) {
+            updateTactic(session);
+        }
+        state.put("tacticText", session.tacticText);
+        state.put("tacticSeq", session.tacticSeq);
         state.put("recentMoves", recentMoves(analysis, session.reviewMode ? reviewIndex : reviewMaxMove));
         if (GAME_GOMOKU.equals(session.gameType)) {
             state.put("gomoku", gomokuMeta(game));
@@ -578,6 +585,29 @@ public final class LegacyHomeSessionHub {
         }
     }
 
+    private void updateTactic(LegacySession session) {
+        if (!GAME_XIANGQI.equals(session.gameType) || session.gameId.isEmpty()) {
+            return;
+        }
+        Map<String, Object> analysis = currentAnalysis(session);
+        int mc = moveCount(analysis);
+        if (mc == session.lastTacticMoveCount && !session.tacticText.isEmpty()) {
+            return;
+        }
+        session.lastTacticMoveCount = mc;
+        Board board = practiceHub.xiangqiBoard(session.gameId);
+        if (board == null) return;
+        String t = TacticDetector.detect(board);
+        if (t != null && !t.isEmpty()) {
+            if (!t.equals(session.tacticText)) {
+                session.tacticText = t;
+                session.tacticSeq++;
+            }
+        } else {
+            session.tacticText = "";
+        }
+    }
+
     private static final class LegacySession {
         private final AtomicLong seq = new AtomicLong();
         private String gameId = "";
@@ -590,5 +620,8 @@ public final class LegacyHomeSessionHub {
         private int selectedRow = -1;
         private int selectedCol = -1;
         private String endgameLabel = "标准开局";
+        private String tacticText = "";
+        private long tacticSeq = 0L;
+        private int lastTacticMoveCount = 0;
     }
 }

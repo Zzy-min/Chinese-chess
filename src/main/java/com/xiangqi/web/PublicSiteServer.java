@@ -85,6 +85,8 @@ public final class PublicSiteServer {
             .get("/assets/ui/app.js", this::handleLegacyJs)
             .get("/assets/audio/move.wav", this::handleMoveAudio)
             .get("/assets/audio/mate.wav", this::handleMateAudio)
+            .get("/assets/audio/capture.wav", this::handleCaptureAudio)
+            .get("/assets/audio/check.wav", this::handleCheckAudio)
             .get("/api/state", this::handleLegacyState)
             .get("/api/new", this::handleLegacyNewGame)
             .get("/api/endgame", this::handleLegacyEndgame)
@@ -166,6 +168,14 @@ public final class PublicSiteServer {
 
     private void handleMateAudio(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/audio/mate.wav", "audio/wav");
+    }
+
+    private void handleCaptureAudio(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/audio/capture.wav", "audio/wav");
+    }
+
+    private void handleCheckAudio(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/audio/check.wav", "audio/wav");
     }
 
     private void handleLegacyState(HttpServerExchange exchange) {
