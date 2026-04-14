@@ -439,6 +439,10 @@ body:not([data-theme="imperial"]) .palaceFrame{display:none;}
   background:linear-gradient(180deg,#22326e,#1a244f);
   box-shadow:0 10px 18px rgba(11,7,3,.22), inset 0 0 22px rgba(17,10,4,.25);
   touch-action:none;
+}
+.boardCard.gomokuMode .palaceFrame{
+  display:none;
+}
   image-rendering:auto;
 }
 .courtBanner{
