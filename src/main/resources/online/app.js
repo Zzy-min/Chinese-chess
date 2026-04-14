@@ -29,7 +29,7 @@ const API_BASE = '/online/api';
 const WS_BASE = '/online/ws';
 
 const app = document.getElementById('app');
-const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me'];
+const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'ai', 'watch', 'community', 'me'];
 const moveAudio = new Audio('/assets/audio/move.wav');
 const resultAudio = new Audio('/assets/audio/mate.wav');
 moveAudio.preload = 'auto';
@@ -105,6 +105,7 @@ function renderTopbar(active) {
       <nav class="nav">
         ${navLink('home', '首页', active)}
         ${navLink('play', '在线大厅', active)}
+        ${navLink('ai', 'AI 棋桌', active)}
         ${navLink('learn', '学习', active)}
         ${navLink('watch', '观战', active)}
         ${navLink('community', '社区', active)}
@@ -142,6 +143,8 @@ function renderPage(route) {
       return renderAnalysis(route.id);
     case 'learn':
       return renderLearn();
+    case 'ai':
+      return renderAiSetup();
     case 'watch':
       return renderPlaceholder('观战', '首版仅保留结构，实时观战与旁观者模式暂未接入。');
     case 'community':
@@ -207,6 +210,53 @@ function renderHome() {
         </div>
       </section>
     </div>
+  `;
+}
+
+function renderAiSetup() {
+  const cfg = state.learnConfig;
+  const engines = engineOptions(cfg.gameType);
+  return `
+    <section class="hero">
+      <div class="meta">AI 对局</div>
+      <h1>AI 棋桌</h1>
+      <p>选择棋种、难度和先后手，后端会自动匹配合适的 AI 引擎。练完直接复盘，练习局会自动归档到最近对局。</p>
+    </section>
+    <section class="panel">
+      <h2 class="sectionTitle">配置对局</h2>
+      <div class="stack">
+        <div class="field">
+          <label>棋种</label>
+          <select data-learn-field="gameType">
+            <option value="XIANGQI" ${cfg.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
+            <option value="GOMOKU" ${cfg.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>难度</label>
+          <select data-learn-field="difficulty">
+            <option value="EASY" ${cfg.difficulty === 'EASY' ? 'selected' : ''}>简单</option>
+            <option value="MEDIUM" ${cfg.difficulty === 'MEDIUM' ? 'selected' : ''}>中等</option>
+            <option value="HARD" ${cfg.difficulty === 'HARD' ? 'selected' : ''}>困难</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>先后手</label>
+          <select data-learn-field="humanFirst">
+            <option value="true" ${cfg.humanFirst ? 'selected' : ''}>我先手（红方 / 黑方）</option>
+            <option value="false" ${!cfg.humanFirst ? 'selected' : ''}>AI 先手</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>AI 引擎</label>
+          <select data-learn-field="preferredEngine">
+            ${engines.map(e => `<option value="${e.value}" ${cfg.preferredEngine === e.value ? 'selected' : ''}>${e.label}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn" data-action="create-practice">开始对局</button>
+        <div class="status">${state.status || ''}</div>
+      </div>
+    </section>
   `;
 }
 
@@ -789,7 +839,7 @@ function bindCommon(route) {
   on('[data-action="close-auth"]', closeAuthDialog);
   on('[data-action="logout"]', logout);
   on('[data-action="go-home-main"]', () => navTo('home'));
-  on('[data-action="go-home-ai"]', () => { window.location.href = '/ai'; });
+  on('[data-action="go-home-ai"]', () => navTo('ai'));
   on('[data-action="submit-auth"]', submitAuth);
   on('[data-action="create-room"]', createRoom);
   on('[data-action="join-by-code"]', joinByCode);

@@ -115,7 +115,7 @@ button.move{width:100%;text-align:left;cursor:pointer}
 @keyframes hintPulse{0%,100%{box-shadow:inset 0 0 0 3px currentColor}50%{box-shadow:inset 0 0 0 5px currentColor}}
 .is-hint-from{color:#2196f3}
 .is-hint-to{color:#4caf50}
-.learnCard-solved{border-color:#a5d6a7}
+.learnCard-solved{border-color:#66bb6a!important;background:linear-gradient(135deg,#f0faf0,#f8fbf8)}
 .learnSolvedBadge{background:#e8f5e9;color:#2e7d32;font-size:11px}
 .puzzleWinBanner{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#66bb6a}
 .puzzleWinBanner strong{color:#2e7d32}
