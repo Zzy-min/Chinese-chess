@@ -684,6 +684,7 @@ function renderProfile() {
       <div class="card"><div class="meta">Wins</div><h3>${summary.wins || 0}</h3><p>胜局</p></div>
       <div class="card"><div class="meta">Draws</div><h3>${summary.draws || 0}</h3><p>和局</p></div>
       <div class="card"><div class="meta">Losses</div><h3>${summary.losses || 0}</h3><p>负局</p></div>
+      <div class="card"><div class="meta">Puzzles</div><h3>${(state.profile.puzzleStats || {}).totalSolved || 0}</h3><p>残局破解</p></div>
     </div>
     ${activity.room || activity.game ? renderActivityBanner(activity.room, activity.game) : ''}
     <section class="panel" style="margin-top:18px">

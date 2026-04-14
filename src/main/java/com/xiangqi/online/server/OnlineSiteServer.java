@@ -205,6 +205,7 @@ public final class OnlineSiteServer {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("user", userMap(user.get()));
         body.put("summary", store.profileSummary(user.get().id()));
+        body.put("puzzleStats", store.getUserPuzzleStats(user.get().id()));
         body.put("recentGames", store.recentGamesForUser(user.get().id(), 10));
         body.put("activity", roomHub.activityForUser(user.get().id()));
         sendJson(exchange, body);
