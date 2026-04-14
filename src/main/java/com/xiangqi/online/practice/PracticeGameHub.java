@@ -276,7 +276,7 @@ public final class PracticeGameHub {
         if (game.endgameId != null && !game.endgameId.isEmpty()
             && winnerSide != null && winnerSide.equals(game.humanSide)) {
             try {
-                store.recordPuzzleCompletion(game.human.id(), game.endgameId, game.moves.size(), game.hintUsed);
+                store.recordPuzzleCompletion(game.human.id(), game.endgameId, game.moves.size(), game.hintUsed, game.difficulty.name());
             } catch (Exception e) {
                 // Non-critical: don't let puzzle recording failure break game finalization
             }

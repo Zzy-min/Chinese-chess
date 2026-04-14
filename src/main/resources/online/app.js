@@ -639,7 +639,7 @@ function renderAnalysis(gameId) {
           <span class="pill">${analysis.status}</span>
           <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
         </div>
-        <div class="status">${analysis.isTraining ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
+        <div class="status">${(analysis.isTraining || analysis.aiEngine) ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
         ${renderReadonlyBoard(analysis.gameType, board)}
         <div class="roomRow">
           <button class="ghost" data-analysis-step="0">开局</button>
@@ -684,7 +684,7 @@ function renderProfile() {
       <div class="card"><div class="meta">Wins</div><h3>${summary.wins || 0}</h3><p>胜局</p></div>
       <div class="card"><div class="meta">Draws</div><h3>${summary.draws || 0}</h3><p>和局</p></div>
       <div class="card"><div class="meta">Losses</div><h3>${summary.losses || 0}</h3><p>负局</p></div>
-      <div class="card"><div class="meta">Puzzles</div><h3>${(state.profile.puzzleStats || {}).totalSolved || 0}</h3><p>残局破解</p></div>
+      <div class="card"><div class="meta">Puzzles</div><h3>${(state.profile.puzzleStats || {}).totalSolved || 0}</h3><p>残局破解</p>${Object.keys((state.profile.puzzleStats || {}).byDifficulty || {}).length ? `<div class="muted">${Object.entries((state.profile.puzzleStats || {}).byDifficulty || {}).map(([k,v]) => `${k}: ${v}`).join(' · ')}</div>` : ''}</div>
     </div>
     ${activity.room || activity.game ? renderActivityBanner(activity.room, activity.game) : ''}
     <section class="panel" style="margin-top:18px">

@@ -128,7 +128,7 @@ set -e
 cd {quoted_dir}
 echo "BEFORE_HEAD=$(git rev-parse --short HEAD)"
 git fetch origin {quoted_branch}
-git pull --ff-only origin {quoted_branch}
+git reset --hard origin/{quoted_branch}
 echo "AFTER_HEAD=$(git rev-parse --short HEAD)"
 docker compose build app
 docker compose up -d app

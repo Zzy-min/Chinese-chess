@@ -351,16 +351,17 @@ public final class OnlineStore {
         }
     }
 
-    public void recordPuzzleCompletion(String userId, String endgameId, int moveCount, int hintsUsed) {
+    public void recordPuzzleCompletion(String userId, String endgameId, int moveCount, int hintsUsed, String difficulty) {
         String id = userId + ":" + endgameId;
-        String sql = "merge into puzzle_completions (id, user_id, endgame_id, move_count, hints_used, solved_at) "
-            + "key (user_id, endgame_id) values (?, ?, ?, ?, ?, current_timestamp)";
+        String sql = "merge into puzzle_completions (id, user_id, endgame_id, difficulty, move_count, hints_used, solved_at) "
+            + "key (user_id, endgame_id) values (?, ?, ?, ?, ?, ?, current_timestamp)";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, id);
             ps.setString(2, userId);
             ps.setString(3, endgameId);
-            ps.setInt(4, moveCount);
-            ps.setInt(5, hintsUsed);
+            ps.setString(4, difficulty);
+            ps.setInt(5, moveCount);
+            ps.setInt(6, hintsUsed);
             ps.executeUpdate();
         } catch (SQLException e) {
             // Ignore duplicate key — already solved
@@ -369,16 +370,30 @@ public final class OnlineStore {
 
     public Map<String, Object> getUserPuzzleStats(String userId) {
         Map<String, Object> stats = new LinkedHashMap<String, Object>();
-        String sql = "select count(*) as total_solved from puzzle_completions where user_id = ?";
-        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    stats.put("totalSolved", rs.getInt("total_solved"));
+        String totalSql = "select count(*) as total_solved from puzzle_completions where user_id = ?";
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement ps = connection.prepareStatement(totalSql)) {
+                ps.setString(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        stats.put("totalSolved", rs.getInt("total_solved"));
+                    }
                 }
             }
+            Map<String, Integer> byDifficulty = new LinkedHashMap<String, Integer>();
+            String byDiffSql = "select difficulty, count(*) as cnt from puzzle_completions where user_id = ? group by difficulty";
+            try (PreparedStatement ps = connection.prepareStatement(byDiffSql)) {
+                ps.setString(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        byDifficulty.put(rs.getString("difficulty"), rs.getInt("cnt"));
+                    }
+                }
+            }
+            stats.put("byDifficulty", byDifficulty);
         } catch (SQLException e) {
             stats.put("totalSolved", 0);
+            stats.put("byDifficulty", new LinkedHashMap<String, Integer>());
         }
         return stats;
     }
