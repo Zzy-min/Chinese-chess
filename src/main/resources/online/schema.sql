@@ -12,6 +12,9 @@ create table if not exists auth_sessions (
   created_at timestamp not null
 );
 
+create index if not exists idx_auth_sessions_user_id on auth_sessions(user_id);
+create index if not exists idx_auth_sessions_expires_at on auth_sessions(expires_at);
+
 create table if not exists games (
   id varchar(64) primary key,
   room_id varchar(64) not null,
@@ -51,6 +54,8 @@ create table if not exists game_moves (
   payload_json text not null,
   created_at timestamp not null
 );
+
+create index if not exists idx_game_moves_game_id on game_moves(game_id);
 
 alter table games add column if not exists initial_time_seconds int not null default 0;
 alter table games add column if not exists first_remaining_seconds int not null default 0;

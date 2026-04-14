@@ -24,6 +24,7 @@ import io.undertow.util.StatusCodes;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
+import io.undertow.websockets.core.CloseMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
@@ -93,6 +94,22 @@ public final class OnlineSiteServer {
             .addExactPath("/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
                 public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
+                    String token = extractWsCookie(exchange, AUTH_COOKIE);
+                    Optional<AuthUser> user = (token != null && !token.isEmpty())
+                        ? store.findUserByToken(token) : Optional.empty();
+                    if (user.isEmpty()) {
+                        try {
+                            WebSockets.sendClose(CloseMessage.NORMAL_CLOSURE, "not authenticated", channel, null);
+                        } catch (Exception ignored) {
+                        }
+                        try {
+                            channel.close();
+                        } catch (IOException ignored) {
+                        }
+                        return;
+                    }
+                    channel.setAttribute("userId", user.get().id());
+                    channel.setAttribute("username", user.get().username());
                     wsHub.onConnect(channel);
                 }
             }))
@@ -207,7 +224,9 @@ public final class OnlineSiteServer {
             setAuthCookie(exchange, session);
             sendJson(exchange, sessionBody(session));
         } catch (Exception ex) {
-            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+            int status = (ex.getMessage() != null && ex.getMessage().contains("invalid credentials"))
+                ? StatusCodes.UNAUTHORIZED : StatusCodes.BAD_REQUEST;
+            sendError(exchange, status, ex.getMessage());
         }
     }
 
@@ -427,8 +446,21 @@ public final class OnlineSiteServer {
         CookieImpl cookie = new CookieImpl(AUTH_COOKIE, session.token());
         cookie.setPath("/");
         cookie.setHttpOnly(true);
+        cookie.setSameSiteMode("Lax");
         cookie.setMaxAge(14 * 24 * 3600);
         exchange.setResponseCookie(cookie);
+    }
+
+    private String extractWsCookie(WebSocketHttpExchange exchange, String name) {
+        String header = exchange.getRequestHeader("Cookie");
+        if (header == null || header.isEmpty()) return null;
+        for (String part : header.split(";")) {
+            String trimmed = part.trim();
+            if (trimmed.startsWith(name + "=")) {
+                return trimmed.substring(name.length() + 1);
+            }
+        }
+        return null;
     }
 
     private Map<String, Object> sessionBody(UserSession session) {
@@ -587,6 +619,16 @@ public final class OnlineSiteServer {
         private void subscribe(WebSocketChannel channel, String roomId) {
             unsubscribe(channel);
             if (roomId == null || roomId.trim().isEmpty()) {
+                return;
+            }
+            // TODO: BUG-004 — IDOR: any authenticated user can subscribe to any room.
+            // Room model does not yet support visibility/access-control, so we only
+            // verify the room exists before allowing subscription. Once the room
+            // model supports visibility (e.g. public/private/invite-only), enforce
+            // authorization here.
+            try {
+                roomHub.roomSnapshotById(roomId);
+            } catch (Exception ex) {
                 return;
             }
             byRoom.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(channel);
