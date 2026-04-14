@@ -7,12 +7,20 @@ public final class CreatePracticeGameRequest {
     private final String difficulty;
     private final boolean humanFirst;
     private final String preferredEngine;
+    private final String fen;
+    private final String endgameName;
 
     public CreatePracticeGameRequest(GameType gameType, String difficulty, boolean humanFirst, String preferredEngine) {
+        this(gameType, difficulty, humanFirst, preferredEngine, null, null);
+    }
+
+    public CreatePracticeGameRequest(GameType gameType, String difficulty, boolean humanFirst, String preferredEngine, String fen, String endgameName) {
         this.gameType = gameType;
         this.difficulty = difficulty;
         this.humanFirst = humanFirst;
         this.preferredEngine = preferredEngine;
+        this.fen = fen;
+        this.endgameName = endgameName;
     }
 
     public GameType gameType() {
@@ -29,5 +37,13 @@ public final class CreatePracticeGameRequest {
 
     public String preferredEngine() {
         return preferredEngine;
+    }
+
+    public String fen() {
+        return fen;
+    }
+
+    public String endgameName() {
+        return endgameName;
     }
 }

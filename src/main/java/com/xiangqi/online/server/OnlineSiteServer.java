@@ -8,6 +8,7 @@ import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.auth.PasswordHasher;
 import com.xiangqi.online.auth.UserSession;
 import com.xiangqi.online.game.GameType;
+import com.xiangqi.online.learn.EndgameCatalog;
 import com.xiangqi.online.practice.CreatePracticeGameRequest;
 import com.xiangqi.online.practice.PracticeGameHub;
 import com.xiangqi.online.room.CreateRoomRequest;
@@ -48,6 +49,7 @@ public final class OnlineSiteServer {
     private final AuthService authService;
     private final OnlineRoomHub roomHub;
     private final PracticeGameHub practiceHub;
+    private final EndgameCatalog endgameCatalog = new EndgameCatalog();
     private final WsHub wsHub;
     private Undertow server;
 
@@ -74,6 +76,7 @@ public final class OnlineSiteServer {
             .get("/api/rooms/{roomId}", this::handleRoomById)
             .get("/api/games/{gameId}", this::handleGameById)
             .get("/api/games/{gameId}/analysis", this::handleGameAnalysis)
+            .get("/api/learn/endgames", this::handleListEndgames)
             .get("/api/learn/practice-games/{gameId}", this::handlePracticeGameById)
             .get("/api/profile/summary", this::handleProfileSummary)
             .post("/api/auth/register", this::handleRegister)
@@ -393,12 +396,23 @@ public final class OnlineSiteServer {
                 GameType.valueOf(asString(payload.get("gameType"))),
                 asString(payload.get("difficulty")),
                 asBoolean(payload.get("humanFirst")),
-                asString(payload.get("preferredEngine"))
+                asString(payload.get("preferredEngine")),
+                asString(payload.get("fen")),
+                asString(payload.get("endgameName"))
             ));
             sendJson(exchange, game);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
+    }
+
+    private void handleListEndgames(HttpServerExchange exchange) {
+        String difficulty = exchange.getQueryParameters().get("difficulty") != null
+            ? exchange.getQueryParameters().get("difficulty").getFirst() : null;
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("endgames", endgameCatalog.byDifficulty(difficulty));
+        body.put("total", endgameCatalog.all().size());
+        sendJson(exchange, body);
     }
 
     private void handlePracticeMove(HttpServerExchange exchange) {

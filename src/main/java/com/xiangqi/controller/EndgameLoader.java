@@ -75,7 +75,7 @@ public class EndgameLoader {
         board.setCurrentTurn(PieceColor.RED);
     }
 
-    private static void loadFromFen(Board board, String fen) {
+    public static void loadFromFen(Board board, String fen) {
         String[] parts = fen.trim().split("\\s+");
         if (parts.length == 0) {
             return;

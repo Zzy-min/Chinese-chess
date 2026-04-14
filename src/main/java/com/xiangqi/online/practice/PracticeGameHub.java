@@ -15,6 +15,7 @@ import com.xiangqi.online.game.MatchPlayer;
 import com.xiangqi.online.game.OnlineMatchEngine;
 import com.xiangqi.online.game.PlayerSide;
 import com.xiangqi.online.game.XiangqiMatch;
+import com.xiangqi.controller.EndgameLoader;
 import com.xiangqi.online.server.OnlineStore;
 
 import java.time.Instant;
@@ -71,20 +72,40 @@ public final class PracticeGameHub {
             game.gomokuEngine = new ConfigurableGomokuEngine();
             game.gomokuEngine.setPreferredEngine(game.enginePreference);
         } else {
+            Board customBoard = null;
+            if (request.fen() != null && !request.fen().isBlank()) {
+                customBoard = new Board();
+                customBoard.initializeBoard();
+                for (int r = 0; r < Board.ROWS; r++) {
+                    for (int c = 0; c < Board.COLS; c++) {
+                        customBoard.setPiece(r, c, null);
+                    }
+                }
+                EndgameLoader.loadFromFen(customBoard, request.fen());
+                game.endgameName = request.endgameName();
+            }
             if (request.humanFirst()) {
                 game.humanSide = "RED";
                 game.aiSide = "BLACK";
-                game.match = new XiangqiMatch(
-                    new MatchPlayer(user.id(), user.username(), PlayerSide.RED),
-                    new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.BLACK)
-                );
+                game.match = customBoard != null
+                    ? new XiangqiMatch(
+                        new MatchPlayer(user.id(), user.username(), PlayerSide.RED),
+                        new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.BLACK),
+                        customBoard)
+                    : new XiangqiMatch(
+                        new MatchPlayer(user.id(), user.username(), PlayerSide.RED),
+                        new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.BLACK));
             } else {
                 game.humanSide = "BLACK";
                 game.aiSide = "RED";
-                game.match = new XiangqiMatch(
-                    new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.RED),
-                    new MatchPlayer(user.id(), user.username(), PlayerSide.BLACK)
-                );
+                game.match = customBoard != null
+                    ? new XiangqiMatch(
+                        new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.RED),
+                        new MatchPlayer(user.id(), user.username(), PlayerSide.BLACK),
+                        customBoard)
+                    : new XiangqiMatch(
+                        new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.RED),
+                        new MatchPlayer(user.id(), user.username(), PlayerSide.BLACK));
             }
             game.xiangqiEngine = new ConfigurableXiangqiEngine();
             game.xiangqiEngine.setPreferredEngine(game.enginePreference);
@@ -307,6 +328,9 @@ public final class PracticeGameHub {
         snapshot.put("updatedAt", game.updatedAt.toString());
         snapshot.put("isTraining", true);
         snapshot.put("opponentType", game.opponentType);
+        if (game.endgameName != null && !game.endgameName.isEmpty()) {
+            snapshot.put("endgameName", game.endgameName);
+        }
         snapshot.put("aiEngine", aiEngineId(game));
         snapshot.put("difficulty", game.difficulty.name());
         snapshot.put("ai", aiMap(game));
@@ -475,6 +499,7 @@ public final class PracticeGameHub {
         private String resultText;
         private String terminationReason;
         private String opponentType;
+        private String endgameName;
         private Instant updatedAt;
         private final List<Map<String, Object>> moves = new ArrayList<Map<String, Object>>();
     }

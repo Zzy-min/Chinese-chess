@@ -7,6 +7,8 @@ const state = {
   profile: null,
   analysis: null,
   analysisStep: 0,
+  endgames: null,
+  endgamesLoaded: false,
   authMode: 'login',
   authDialogOpen: false,
   authError: '',
@@ -208,29 +210,95 @@ function renderHome() {
 }
 
 function renderLearn() {
+  if (!state.endgamesLoaded) {
+    loadEndgames();
+  }
+  const endgames = state.endgames || [];
+  const groups = { beginner: [], intermediate: [], advanced: [] };
+  endgames.forEach(eg => {
+    const d = (eg.difficulty || 'beginner').toLowerCase();
+    if (groups[d]) groups[d].push(eg);
+  });
+  const labels = { beginner: '入门', intermediate: '进阶', advanced: '高级' };
+  const icons = { beginner: '♟', intermediate: '♞', advanced: '♛' };
+  const total = endgames.length;
   return `
     <section class="hero">
-      <div class="meta">Learn</div>
-      <h1>学习与复盘内容会继续补齐。</h1>
-      <p>现在可以先从首页进入 AI 对局或在线对局；这里继续承载训练专题、残局题和复盘建议。</p>
+      <div class="meta">残局练习</div>
+      <h1>残局训练场</h1>
+      <p>精选 ${total} 道残局题，从基本杀法到经典江湖残局，逐步提升你的棋力。点击任意残局即可开始练习。</p>
     </section>
-    <div class="split">
-      <section class="panel">
-        <h2 class="sectionTitle">当前可用入口</h2>
-        <div class="stack">
-          <div class="banner">首页已经整合 AI 对局、在线大厅和归档入口，学习页不再承担模式分流。</div>
-          <button class="btn" data-action="go-home-main">返回首页</button>
+    <section class="panel learnPanel">
+      <div class="learnFilter">
+        <span class="muted">难度筛选：</span>
+        <button class="ghost learnFilterBtn is-active" data-filter="all">全部 (${total})</button>
+        <button class="ghost learnFilterBtn" data-filter="beginner">入门 (${groups.beginner.length})</button>
+        <button class="ghost learnFilterBtn" data-filter="intermediate">进阶 (${groups.intermediate.length})</button>
+        <button class="ghost learnFilterBtn" data-filter="advanced">高级 (${groups.advanced.length})</button>
+      </div>
+      ${['beginner', 'intermediate', 'advanced'].map(diff => `
+        <div class="learnGroup" data-difficulty="${diff}">
+          <div class="learnGroupHead">
+            <span class="learnGroupIcon">${icons[diff]}</span>
+            <h2>${labels[diff]}</h2>
+            <span class="muted">${groups[diff].length} 题</span>
+          </div>
+          <div class="grid cards learnCards">
+            ${groups[diff].map(eg => `
+              <div class="card learnCard" data-endgame-id="${eg.id}">
+                <div class="learnCardMeta">
+                  <span class="pill learnDifficulty learnDifficulty-${diff}">${labels[diff]}</span>
+                  <span class="muted">${eg.category || '残局'}</span>
+                </div>
+                <h3>${eg.name}</h3>
+                <p>${eg.description || ''}</p>
+                <div class="learnCardSource muted">${eg.source || ''}</div>
+              </div>
+            `).join('')}
+          </div>
         </div>
-      </section>
-      <section class="panel">
-        <h2 class="sectionTitle">后续内容</h2>
-        <div class="moves">
-          <div class="move"><div><strong>训练专题</strong><div class="muted">指定走法训练、残局题与复盘建议会继续放在这里。</div></div></div>
-          <div class="move"><div><strong>统一分析入口</strong><div class="muted">无论在线局还是 AI 对局，分析页继续复用同一套回放数据。</div></div></div>
-        </div>
-      </section>
-    </div>
+      `).join('')}
+    </section>
   `;
+}
+
+async function loadEndgames() {
+  if (state.endgamesLoaded) return;
+  state.endgamesLoaded = true;
+  try {
+    const data = await fetchJson(`${API_BASE}/learn/endgames`);
+    state.endgames = data.endgames || [];
+  } catch (_e) {
+    state.endgames = [];
+  }
+  render();
+}
+
+async function startEndgamePractice(endgameId) {
+  try {
+    state.status = '';
+    const data = await fetchJson(`${API_BASE}/learn/endgames`);
+    const eg = (data.endgames || []).find(e => e.id === endgameId);
+    if (!eg) { state.status = '残局不存在'; render(); return; }
+    const config = {
+      gameType: 'XIANGQI',
+      difficulty: 'MEDIUM',
+      humanFirst: true,
+      preferredEngine: 'BUILTIN',
+      fen: eg.fen,
+      endgameName: eg.name
+    };
+    const game = await fetchJson(`${API_BASE}/learn/practice-games`, {
+      method: 'POST',
+      body: JSON.stringify(config)
+    });
+    state.game = enrichGame(game);
+    await refreshBootstrapAndProfile();
+    navTo(`practice/${game.gameId}`);
+  } catch (error) {
+    state.status = error.message;
+    render();
+  }
 }
 
 function renderActivityBanner(room, game) {
@@ -389,6 +457,7 @@ function renderPracticeView(game) {
       <section class="boardWrap">
         <div class="gameMetaRow">
           <span class="pill">AI 练习</span>
+          ${game.endgameName ? `<span class="pill pill-endgame">${game.endgameName}</span>` : ''}
           <span class="pill">${game.gameType}</span>
           <span class="pill">${game.viewerSide || inferViewerSide(game)}</span>
           <span class="pill">轮到 ${game.currentTurn || '-'}</span>
@@ -444,6 +513,7 @@ function renderFinishedActions(game, isOnline) {
   return `
     <div class="roomRow endgameActions">
       <button class="btn" data-action="play-practice-again">再来一局</button>
+      ${game.endgameName ? '<button class="ghost" data-nav="learn">返回残局列表</button>' : ''}
       <button class="ghost" data-nav="analysis/${game.gameId}">复盘分析</button>
       <button class="ghost" data-nav="home">返回首页</button>
     </div>
@@ -697,6 +767,18 @@ function bindCommon(route) {
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
   on('[data-action="create-practice"]', createPracticeGame);
+  document.querySelectorAll('[data-endgame-id]').forEach(el => {
+    el.addEventListener('click', () => startEndgamePractice(el.getAttribute('data-endgame-id')));
+  });
+  document.querySelectorAll('.learnFilterBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filter = btn.getAttribute('data-filter');
+      document.querySelectorAll('.learnGroup').forEach(g => {
+        g.style.display = (filter === 'all' || g.getAttribute('data-difficulty') === filter) ? '' : 'none';
+      });
+      document.querySelectorAll('.learnFilterBtn').forEach(b => b.classList.toggle('is-active', b === btn));
+    });
+  });
   on('[data-action="play-practice-again"]', playPracticeAgain);
   on('[data-action="play-online-again"]', playOnlineAgain);
   on('[data-action="offer-draw"]', offerDraw);

@@ -1,0 +1,254 @@
+[
+  {
+    "id": "qixing_juhui",
+    "name": "七星聚会",
+    "fen": "4rk3/3P5/4bP3/9/9/8P/9/1p2p2C1/3p1p3/4K1RR1 w",
+    "difficulty": "advanced",
+    "category": "经典残局",
+    "description": "双方各有兵卒互相牵制，红方先行。流传最广的江湖残局之一。",
+    "source": "百局象棋谱"
+  },
+  {
+    "id": "qiuyin_xianglong",
+    "name": "蚯蚓降龙",
+    "fen": "2rak4/4a4/b8/9/2p6/1RC5r/8P/6p2/4p4/5K2R w",
+    "difficulty": "advanced",
+    "category": "经典残局",
+    "description": "红方双车一兵对黑方双车一卒，红方先行。以弱胜强的经典。",
+    "source": "百局象棋谱"
+  },
+  {
+    "id": "qianli_duxing",
+    "name": "千里独行",
+    "fen": "4k4/9/3aP3b/p8/9/6n2/2P3p2/4R4/3p1p3/4K4 w",
+    "difficulty": "advanced",
+    "category": "经典残局",
+    "description": "红方单车兵对黑方多子，红方先行。以少打多的经典范例。",
+    "source": "百局象棋谱"
+  },
+  {
+    "id": "yema_caotian",
+    "name": "野马操田",
+    "fen": "2bak4/4a4/4b4/9/6NRR/2B6/1rP1P3N/3pB4/4p4/3K5 w",
+    "difficulty": "advanced",
+    "category": "经典残局",
+    "description": "红方双马双车对黑方车马炮，红方先行。马步灵活运用的典范。",
+    "source": "百局象棋谱"
+  },
+  {
+    "id": "meihua_pu",
+    "name": "梅花谱",
+    "fen": "4k4/3a1a3/6n2/4p4/9/4P4/3C5/7N1/4A4/4K4 w",
+    "difficulty": "intermediate",
+    "category": "经典残局",
+    "description": "红方马炮兵对黑方马卒，红方先行。取自《梅花谱》经典开局残局。",
+    "source": "梅花谱"
+  },
+  {
+    "id": "baiju_xiangqi_pu",
+    "name": "百局象棋谱",
+    "fen": "4ka3/4a4/9/6b2/9/3rR3C/5N3/6B2/3K1A3/9 w",
+    "difficulty": "intermediate",
+    "category": "经典残局",
+    "description": "红方车马炮对黑方车象士，红方先行。取自《百局象棋谱》精选局。",
+    "source": "百局象棋谱"
+  },
+  {
+    "id": "shiqing_yaqu",
+    "name": "适情雅趣",
+    "fen": "2baka3/4a4/4b4/9/9/7R1/4B4/4A4/3pN4/3K5 w",
+    "difficulty": "intermediate",
+    "category": "经典残局",
+    "description": "红方车马炮相士对黑方车马炮士象，红方先行。取自《适情雅趣》。",
+    "source": "适情雅趣"
+  },
+  {
+    "id": "lanke_shenji",
+    "name": "烂柯神机",
+    "fen": "4k4/3Pa4/4ba3/9/9/8N/9/9/5R3/3K5 b",
+    "difficulty": "intermediate",
+    "category": "经典残局",
+    "description": "黑方先行。红方车马兵联攻，取自《烂柯神机》。",
+    "source": "烂柯神机"
+  },
+  {
+    "id": "mengru_shenji",
+    "name": "梦入神机",
+    "fen": "3aka3/5c3/4b4/4p4/5r3/9/9/9/4N4/4KA3 w",
+    "difficulty": "intermediate",
+    "category": "经典残局",
+    "description": "红方马对黑方炮车卒，红方先行。取自《梦入神机》。",
+    "source": "梦入神机"
+  },
+  {
+    "id": "taolue_yuanji",
+    "name": "韬略元机",
+    "fen": "2ba5/4a4/4bk3/r8/9/6B2/9/4B4/4A4/5K3 b",
+    "difficulty": "intermediate",
+    "category": "经典残局",
+    "description": "黑方先行。红方双相对黑方车，取自《韬略元机》。",
+    "source": "韬略元机"
+  },
+  {
+    "id": "tie_ban_tonggui",
+    "name": "铁板铜琶",
+    "fen": "4k4/4a4/3b5/9/9/9/9/4C4/4A4/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方单车对黑方士象全，红方先行。学习单车破士象的基本技巧。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "shuang_che_jiao",
+    "name": "双车错杀",
+    "fen": "4k4/4a4/9/9/9/9/9/4R4/4R4/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方双车对黑方单将单士，红方先行。学习双车交替将杀的方法。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "ma_hou_pao",
+    "name": "马后炮杀",
+    "fen": "4k4/4a4/8N/9/9/9/9/4C4/9/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方马炮对黑方单将，红方先行。经典马后炮杀法练习。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "chong_bing_zhao_jiang",
+    "name": "冲兵照将",
+    "fen": "4k4/9/9/9/9/9/9/4P4/9/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方兵对黑方将，红方先行。最简单的兵的杀法练习。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "chong_che_jiao",
+    "name": "重车杀",
+    "fen": "3ak4/4a4/9/9/9/9/9/4R4/4R4/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方双车在同一列上，红方先行。学习重车（同列双车）的杀法。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "dian_che_jiao",
+    "name": "钓鱼马杀",
+    "fen": "4k4/4a4/8N/9/9/9/4R4/9/9/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方车马对黑方将士，红方先行。钓鱼马配合车杀的经典局面。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "paotai_jiao",
+    "name": "海底捞月",
+    "fen": "1r1k5/9/9/9/9/9/9/4R4/4A4/4K4 w",
+    "difficulty": "intermediate",
+    "category": "实用残局",
+    "description": "红方车对黑方车卒，红方先行。利用海底捞月战术取胜。",
+    "source": "实用残局"
+  },
+  {
+    "id": "pao_du_he_jiao",
+    "name": "炮打隔子",
+    "fen": "4k4/4a4/3N5/9/9/4C4/9/9/4A4/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方马炮对黑方将士，红方先行。学习炮隔子攻击配合马将军。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "shuang_ma_jiao",
+    "name": "双马饮泉",
+    "fen": "4k4/4a4/8N/9/9/9/8N/9/4A4/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方双马对黑方将士，红方先行。经典双马饮泉杀法练习。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "tian_jiang_shen_bing",
+    "name": "天降神兵",
+    "fen": "3ak4/4a4/4b4/9/4P4/9/9/9/9/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方兵对黑方士象全，红方先行。兵的巧妙运用，借力取胜。",
+    "source": "基础杀法"
+  },
+  {
+    "id": "long_wang_hou",
+    "name": "龙王献宝",
+    "fen": "3ak4/4a4/4b4/9/9/9/4R4/4P4/9/4K4 w",
+    "difficulty": "intermediate",
+    "category": "实用残局",
+    "description": "红方车兵对黑方士象全，红方先行。车兵配合破士象的实用技巧。",
+    "source": "实用残局"
+  },
+  {
+    "id": "sancha_sha",
+    "name": "三车闹士",
+    "fen": "3ak4/4a4/3b5/9/9/4R4/9/4R4/4R4/4K4 w",
+    "difficulty": "intermediate",
+    "category": "实用残局",
+    "description": "红方三车对黑方士象全，红方先行。三车联攻的经典局面。",
+    "source": "实用残局"
+  },
+  {
+    "id": "yiti_dao_di",
+    "name": "一剑到底",
+    "fen": "4k4/4a4/4b4/4p4/9/9/9/9/4C4/4K4 w",
+    "difficulty": "intermediate",
+    "category": "实用残局",
+    "description": "红方炮对黑方士象全卒，红方先行。炮的残局运用技巧。",
+    "source": "实用残局"
+  },
+  {
+    "id": "tuo_bi_xiang_yang",
+    "name": "脱袍解围",
+    "fen": "4k4/4a4/4b4/4p4/9/9/4C4/4B4/4A4/4K4 w",
+    "difficulty": "intermediate",
+    "category": "实用残局",
+    "description": "红方炮相对黑方卒，红方先行。运用弃子战术解围取胜。",
+    "source": "实用残局"
+  },
+  {
+    "id": "shen_bing_tian_jiang",
+    "name": "神兵天降",
+    "fen": "2bak4/4a4/4b4/9/9/9/4R4/4R4/4P4/4K4 w",
+    "difficulty": "advanced",
+    "category": "经典残局",
+    "description": "红方双车兵对黑方士象全，红方先行。多子联攻的复杂局面。",
+    "source": "经典残局集"
+  },
+  {
+    "id": "mian_li_cang_zhen",
+    "name": "绵里藏针",
+    "fen": "4k4/4a4/3b5/3p5/9/4N4/9/4C4/4A4/4K4 w",
+    "difficulty": "advanced",
+    "category": "经典残局",
+    "description": "红方马炮对黑方马卒象，红方先行。隐藏杀机的精妙残局。",
+    "source": "经典残局集"
+  },
+  {
+    "id": "hai_di_lao_yue",
+    "name": "海底捞月二",
+    "fen": "2r1k4/4a4/9/9/9/9/4R4/4P4/9/4K4 w",
+    "difficulty": "intermediate",
+    "category": "实用残局",
+    "description": "红方车兵对黑方车士，红方先行。车兵配合的实战残局。",
+    "source": "实用残局"
+  },
+  {
+    "id": "lao_jiang_chu_ma",
+    "name": "老将出马",
+    "fen": "4k4/4a4/4b4/9/9/9/9/4N4/4P4/4K4 w",
+    "difficulty": "beginner",
+    "category": "基本杀法",
+    "description": "红方马兵对黑方士象，红方先行。马兵联攻的基本练习。",
+    "source": "基础杀法"
+  }
+]
