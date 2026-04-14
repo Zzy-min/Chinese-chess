@@ -9,6 +9,7 @@ const state = {
   analysisStep: 0,
   endgames: null,
   endgamesLoaded: false,
+  hintHighlight: null,
   authMode: 'login',
   authDialogOpen: false,
   authError: '',
@@ -245,9 +246,10 @@ function renderLearn() {
           </div>
           <div class="grid cards learnCards">
             ${groups[diff].map(eg => `
-              <div class="card learnCard" data-endgame-id="${eg.id}">
+              <div class="card learnCard ${eg.solved === 'true' ? 'learnCard-solved' : ''}" data-endgame-id="${eg.id}">
                 <div class="learnCardMeta">
                   <span class="pill learnDifficulty learnDifficulty-${diff}">${labels[diff]}</span>
+                  ${eg.solved === 'true' ? '<span class="pill learnSolvedBadge">已破解</span>' : ''}
                   <span class="muted">${eg.category || '残局'}</span>
                 </div>
                 <h3>${eg.name}</h3>
@@ -274,9 +276,24 @@ async function loadEndgames() {
   render();
 }
 
+async function requestHint() {
+  const game = state.game;
+  if (!game || game.status === 'FINISHED' || !game.endgameName) return;
+  try {
+    const hint = await fetchJson(`${API_BASE}/learn/practice-games/${game.gameId}/hint`, { method: 'POST' });
+    state.hintHighlight = { fromRow: hint.fromRow, fromCol: hint.fromCol, toRow: hint.toRow, toCol: hint.toCol };
+    state.game = enrichGame({ ...game, hintUsed: hint.hintUsed });
+    render();
+  } catch (error) {
+    state.status = error.message;
+    render();
+  }
+}
+
 async function startEndgamePractice(endgameId) {
   try {
     state.status = '';
+    state.hintHighlight = null;
     const data = await fetchJson(`${API_BASE}/learn/endgames`);
     const eg = (data.endgames || []).find(e => e.id === endgameId);
     if (!eg) { state.status = '残局不存在'; render(); return; }
@@ -286,6 +303,7 @@ async function startEndgamePractice(endgameId) {
       humanFirst: true,
       preferredEngine: 'BUILTIN',
       fen: eg.fen,
+      endgameId: eg.id,
       endgameName: eg.name
     };
     const game = await fetchJson(`${API_BASE}/learn/practice-games`, {
@@ -467,12 +485,16 @@ function renderPracticeView(game) {
           <div class="card"><div class="meta">AI</div><h3>${ai.engineText}</h3><p>${ai.engineId} · ${ai.difficulty}</p></div>
           <div class="card"><div class="meta">对手</div><h3>${practiceOpponent(game)}</h3><p>${game.aiSide || ai.side || '-'}</p></div>
         </div>
-        ${finished ? renderFinishedBanner(game, false) : `<div class="status">${game.resultText || '轮到你落子后，后端会立刻返回 AI 应手。'}</div>`}
+        ${finished ? renderFinishedBanner(game, false) : `
+          <div class="status">${game.resultText || '轮到你落子后，后端会立刻返回 AI 应手。'}</div>
+          ${game.endgameName ? `<div class="hintRow"><button class="ghost" data-action="request-hint">提示</button>${game.hintUsed ? `<span class="hintCount muted">已用 ${game.hintUsed} 次提示</span>` : ''}</div>` : ''}
+        `}
         ${board}
         ${finished ? renderFinishedActions(game, false) : `
           <div class="roomRow">
             <button class="ghost" data-nav="home">返回首页</button>
             <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
+            ${game.endgameName ? '<button class="ghost" data-action="request-hint">提示</button>' : ''}
             <button class="danger" data-action="resign">认输</button>
           </div>
         `}
@@ -488,11 +510,12 @@ function renderPracticeView(game) {
 }
 
 function renderFinishedBanner(game, isOnline) {
+  const isPuzzleWin = !isOnline && game.endgameName && game.winnerSide && game.winnerSide === (game.viewerSide || inferViewerSide(game));
   return `
-    <div class="banner endgameBanner">
+    <div class="banner endgameBanner ${isPuzzleWin ? 'puzzleWinBanner' : ''}">
       <div>
-        <strong>${isOnline ? '在线对局结束' : 'AI 对局结束'}</strong>
-        <div class="muted">${game.resultText || game.terminationReason || '本局已结束'}</div>
+        <strong>${isPuzzleWin ? '残局破解成功！' : isOnline ? '在线对局结束' : 'AI 对局结束'}</strong>
+        <div class="muted">${game.resultText || game.terminationReason || '本局已结束'}${game.hintUsed ? ` · 用了 ${game.hintUsed} 次提示` : ''} · 共 ${game.moveCount || 0} 步</div>
       </div>
       <span class="pill">${game.status}</span>
     </div>
@@ -686,7 +709,9 @@ function renderXiangqiBoard(game) {
   return renderXiangqiBoardState(game.board || [], {
     interactive: true,
     disabled: !canInteractWithBoard(game),
-    selectedFrom: state.selectedFrom
+    selectedFrom: state.selectedFrom,
+    hintFrom: state.hintHighlight,
+    hintTo: state.hintHighlight
   });
 }
 
@@ -708,11 +733,15 @@ function renderXiangqiBoardState(board, options = {}) {
   const interactive = options.interactive === true;
   const disabled = options.disabled === true;
   const selectedFrom = options.selectedFrom || null;
+  const hintFrom = options.hintFrom || null;
+  const hintTo = options.hintTo || null;
   return `<div class="xiangqiBoard">
     ${rows.map((row, r) => row.map((cell, c) => {
       const cls = ['xiangqiCell'];
       if (cell && !isRedPiece(cell)) cls.push('is-black');
       if (selectedFrom && selectedFrom.row === r && selectedFrom.col === c) cls.push('is-selected');
+      if (hintFrom && hintFrom.fromRow === r && hintFrom.fromCol === c) cls.push('is-hint-from');
+      if (hintTo && hintTo.toRow === r && hintTo.toCol === c) cls.push('is-hint-to');
       const attrs = interactive
         ? ` data-board="xiangqi" data-row="${r}" data-col="${c}"${disabled ? ' disabled' : ''}`
         : '';
@@ -767,6 +796,7 @@ function bindCommon(route) {
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
   on('[data-action="create-practice"]', createPracticeGame);
+  on('[data-action="request-hint"]', requestHint);
   document.querySelectorAll('[data-endgame-id]').forEach(el => {
     el.addEventListener('click', () => startEndgamePractice(el.getAttribute('data-endgame-id')));
   });
@@ -1081,6 +1111,7 @@ async function refreshBootstrapAndProfile() {
 
 function onXiangqiCellClick(event) {
   if (!canInteractWithBoard(state.game)) return;
+  state.hintHighlight = null;
   const row = Number(event.currentTarget.dataset.row);
   const col = Number(event.currentTarget.dataset.col);
   if (!state.selectedFrom) {

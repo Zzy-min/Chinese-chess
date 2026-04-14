@@ -108,6 +108,17 @@ button.move{width:100%;text-align:left;cursor:pointer}
 .learnCard p{margin:0;line-height:1.5;font-size:13px}
 .learnCardSource{margin-top:8px;font-size:11px}
 .pill-endgame{background:linear-gradient(135deg,#f6efe1,#fbf8f1);border-color:#dcc39d;color:#623f1d}
+.hintRow{display:flex;align-items:center;gap:10px;margin:6px 0}
+.hintCount{font-size:13px}
+.is-hint-from{box-shadow:inset 0 0 0 3px #2196f3;animation:hintPulse 1.2s ease-in-out infinite}
+.is-hint-to{box-shadow:inset 0 0 0 3px #4caf50;animation:hintPulse 1.2s ease-in-out infinite}
+@keyframes hintPulse{0%,100%{box-shadow:inset 0 0 0 3px currentColor}50%{box-shadow:inset 0 0 0 5px currentColor}}
+.is-hint-from{color:#2196f3}
+.is-hint-to{color:#4caf50}
+.learnCard-solved{border-color:#a5d6a7}
+.learnSolvedBadge{background:#e8f5e9;color:#2e7d32;font-size:11px}
+.puzzleWinBanner{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border-color:#66bb6a}
+.puzzleWinBanner strong{color:#2e7d32}
 @media (max-width:980px){
   .split{grid-template-columns:1fr}
   .clockGrid{grid-template-columns:1fr}

@@ -92,7 +92,8 @@ public final class OnlineSiteServer {
             .post("/api/games/{gameId}/draw-response", this::handleDrawResponse)
             .post("/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
-            .post("/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign);
+            .post("/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
+            .post("/api/learn/practice-games/{gameId}/hint", this::handlePracticeHint);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
             .addExactPath("/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
@@ -398,6 +399,7 @@ public final class OnlineSiteServer {
                 asBoolean(payload.get("humanFirst")),
                 asString(payload.get("preferredEngine")),
                 asString(payload.get("fen")),
+                asString(payload.get("endgameId")),
                 asString(payload.get("endgameName"))
             ));
             sendJson(exchange, game);
@@ -410,7 +412,22 @@ public final class OnlineSiteServer {
         String difficulty = exchange.getQueryParameters().get("difficulty") != null
             ? exchange.getQueryParameters().get("difficulty").getFirst() : null;
         Map<String, Object> body = new LinkedHashMap<String, Object>();
-        body.put("endgames", endgameCatalog.byDifficulty(difficulty));
+        java.util.List<java.util.Map<String, String>> endgames = endgameCatalog.byDifficulty(difficulty);
+        // Attach solved status for logged-in users
+        Optional<AuthUser> user = currentUser(exchange);
+        if (user.isPresent()) {
+            java.util.List<String> solvedIds = store.getSolvedEndgameIds(user.get().id());
+            java.util.Set<String> solvedSet = new java.util.HashSet<String>(solvedIds);
+            java.util.List<java.util.Map<String, String>> enriched = new java.util.ArrayList<java.util.Map<String, String>>();
+            for (java.util.Map<String, String> eg : endgames) {
+                java.util.Map<String, String> copy = new java.util.LinkedHashMap<String, String>(eg);
+                copy.put("solved", solvedSet.contains(eg.get("id")) ? "true" : "false");
+                enriched.add(copy);
+            }
+            body.put("endgames", enriched);
+        } else {
+            body.put("endgames", endgames);
+        }
         body.put("total", endgameCatalog.all().size());
         sendJson(exchange, body);
     }
@@ -436,6 +453,19 @@ public final class OnlineSiteServer {
         }
         try {
             sendJson(exchange, practiceHub.resign(pathParam(exchange, "gameId"), user.get()));
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handlePracticeHint(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            sendJson(exchange, practiceHub.getHint(pathParam(exchange, "gameId"), user.get()));
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }

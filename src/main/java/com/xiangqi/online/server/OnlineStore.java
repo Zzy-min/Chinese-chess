@@ -351,6 +351,56 @@ public final class OnlineStore {
         }
     }
 
+    public void recordPuzzleCompletion(String userId, String endgameId, int moveCount, int hintsUsed) {
+        String id = userId + ":" + endgameId;
+        String sql = "merge into puzzle_completions (id, user_id, endgame_id, move_count, hints_used, solved_at) "
+            + "key (user_id, endgame_id) values (?, ?, ?, ?, ?, current_timestamp)";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, id);
+            ps.setString(2, userId);
+            ps.setString(3, endgameId);
+            ps.setInt(4, moveCount);
+            ps.setInt(5, hintsUsed);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            // Ignore duplicate key — already solved
+        }
+    }
+
+    public Map<String, Object> getUserPuzzleStats(String userId) {
+        Map<String, Object> stats = new LinkedHashMap<String, Object>();
+        String sql = "select count(*) as total_solved from puzzle_completions where user_id = ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    stats.put("totalSolved", rs.getInt("total_solved"));
+                }
+            }
+        } catch (SQLException e) {
+            stats.put("totalSolved", 0);
+        }
+        return stats;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> getSolvedEndgameIds(String userId) {
+        List<String> ids = new ArrayList<String>();
+        if (userId == null || userId.isEmpty()) return ids;
+        String sql = "select endgame_id from puzzle_completions where user_id = ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString("endgame_id"));
+                }
+            }
+        } catch (SQLException e) {
+            // Return empty
+        }
+        return ids;
+    }
+
     private static String readSchemaSql() throws IOException {
         try (InputStream input = OnlineStore.class.getResourceAsStream("/online/schema.sql")) {
             if (input == null) {

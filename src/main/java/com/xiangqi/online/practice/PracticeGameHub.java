@@ -82,6 +82,7 @@ public final class PracticeGameHub {
                     }
                 }
                 EndgameLoader.loadFromFen(customBoard, request.fen());
+                game.endgameId = request.endgameId();
                 game.endgameName = request.endgameName();
             }
             if (request.humanFirst()) {
@@ -187,6 +188,31 @@ public final class PracticeGameHub {
         }
     }
 
+    public Map<String, Object> getHint(String gameId, AuthUser actor) {
+        ActivePracticeGame game = game(gameId);
+        synchronized (game) {
+            ensureHumanParticipant(game, actor);
+            ensurePlayable(game);
+            if (game.gameType != GameType.XIANGQI) {
+                throw new IllegalArgumentException("hints only available for xiangqi puzzles");
+            }
+            XiangqiMatch match = (XiangqiMatch) game.match;
+            PieceColor humanColor = "RED".equals(game.humanSide) ? PieceColor.RED : PieceColor.BLACK;
+            Move move = game.xiangqiEngine.findBestMove(match.boardState(), humanColor, game.difficulty);
+            if (move == null) {
+                throw new IllegalArgumentException("no hint available");
+            }
+            game.hintUsed++;
+            Map<String, Object> hint = new LinkedHashMap<String, Object>();
+            hint.put("fromRow", move.getFromRow());
+            hint.put("fromCol", move.getFromCol());
+            hint.put("toRow", move.getToRow());
+            hint.put("toCol", move.getToCol());
+            hint.put("hintUsed", game.hintUsed);
+            return hint;
+        }
+    }
+
     private void applyAiMove(ActivePracticeGame game) {
         if ("FINISHED".equals(game.status)) {
             return;
@@ -247,6 +273,14 @@ public final class PracticeGameHub {
         game.resultText = resultText == null ? "" : resultText;
         game.terminationReason = terminationReason == null ? "" : terminationReason;
         game.updatedAt = Instant.now();
+        if (game.endgameId != null && !game.endgameId.isEmpty()
+            && winnerSide != null && winnerSide.equals(game.humanSide)) {
+            try {
+                store.recordPuzzleCompletion(game.human.id(), game.endgameId, game.moves.size(), game.hintUsed);
+            } catch (Exception e) {
+                // Non-critical: don't let puzzle recording failure break game finalization
+            }
+        }
         store.updateGameRecord(snapshot(game, null));
         closeEngines(game);
     }
@@ -330,6 +364,9 @@ public final class PracticeGameHub {
         snapshot.put("opponentType", game.opponentType);
         if (game.endgameName != null && !game.endgameName.isEmpty()) {
             snapshot.put("endgameName", game.endgameName);
+        }
+        if (game.hintUsed > 0) {
+            snapshot.put("hintUsed", game.hintUsed);
         }
         snapshot.put("aiEngine", aiEngineId(game));
         snapshot.put("difficulty", game.difficulty.name());
@@ -499,7 +536,9 @@ public final class PracticeGameHub {
         private String resultText;
         private String terminationReason;
         private String opponentType;
+        private String endgameId;
         private String endgameName;
+        private int hintUsed;
         private Instant updatedAt;
         private final List<Map<String, Object>> moves = new ArrayList<Map<String, Object>>();
     }

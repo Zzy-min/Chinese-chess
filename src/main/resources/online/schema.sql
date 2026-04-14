@@ -57,6 +57,17 @@ create table if not exists game_moves (
 
 create index if not exists idx_game_moves_game_id on game_moves(game_id);
 
+create table if not exists puzzle_completions (
+  id varchar(128) primary key,
+  user_id varchar(64) not null,
+  endgame_id varchar(128) not null,
+  move_count int,
+  hints_used int default 0,
+  solved_at timestamp default current_timestamp,
+  constraint uk_puzzle_user_endgame unique (user_id, endgame_id)
+);
+create index if not exists idx_puzzle_completions_user on puzzle_completions(user_id);
+
 alter table games add column if not exists initial_time_seconds int not null default 0;
 alter table games add column if not exists first_remaining_seconds int not null default 0;
 alter table games add column if not exists second_remaining_seconds int not null default 0;
