@@ -31,6 +31,8 @@ import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
 
+import com.xiangqi.online.server.RateLimiter;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -52,6 +54,8 @@ public final class PublicSiteServer {
     private final PracticeGameHub practiceHub;
     private final LegacyHomeSessionHub legacyHomeHub;
     private final WsHub wsHub = new WsHub();
+    private final RateLimiter authLimiter = new RateLimiter(5, 60_000);
+    private final RateLimiter createRoomLimiter = new RateLimiter(3, 60_000);
     private Undertow server;
 
     public PublicSiteServer() throws Exception {
@@ -109,6 +113,7 @@ public final class PublicSiteServer {
             .get("/online", this::handleOnlineIndex)
             .get("/online/assets/site/app.css", this::handleOnlineCss)
             .get("/online/assets/site/app.js", this::handleOnlineJs)
+            .get("/online/assets/site/board.js", this::handleOnlineBoardJs)
             .get("/online/api/site/bootstrap", this::handleBootstrap)
             .get("/online/api/auth/me", this::handleMe)
             .get("/online/api/lobby/overview", this::handleLobby)
@@ -130,7 +135,8 @@ public final class PublicSiteServer {
             .post("/online/api/games/{gameId}/draw-response", this::handleDrawResponse)
             .post("/online/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/online/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
-            .post("/online/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign);
+            .post("/online/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
+            .post("/online/api/learn/practice-games/{gameId}/hint", this::handlePracticeHint);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
             .addExactPath("/online/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
@@ -290,6 +296,10 @@ public final class PublicSiteServer {
         sendResource(exchange, "/online/app.js", "application/javascript; charset=UTF-8");
     }
 
+    private void handleOnlineBoardJs(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/online/board.js", "application/javascript; charset=UTF-8");
+    }
+
     private void handleBootstrap(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         Map<String, Object> body = new LinkedHashMap<String, Object>();
@@ -367,6 +377,11 @@ public final class PublicSiteServer {
     }
 
     private void handleRegister(HttpServerExchange exchange) {
+        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
+        if (!authLimiter.allow(ip)) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.register(asString(payload.get("username")), asString(payload.get("password")));
@@ -378,6 +393,11 @@ public final class PublicSiteServer {
     }
 
     private void handleLogin(HttpServerExchange exchange) {
+        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
+        if (!authLimiter.allow(ip)) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.login(asString(payload.get("username")), asString(payload.get("password")));
@@ -577,6 +597,19 @@ public final class PublicSiteServer {
         }
         try {
             sendJson(exchange, practiceHub.resign(pathParam(exchange, "gameId"), user.get()));
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handlePracticeHint(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            sendJson(exchange, practiceHub.getHint(pathParam(exchange, "gameId"), user.get()));
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
@@ -791,13 +824,20 @@ public final class PublicSiteServer {
             if (roomId == null || roomId.trim().isEmpty()) {
                 return;
             }
-            // TODO: BUG-004 — IDOR: any authenticated user can subscribe to any room.
-            // Room model does not yet support visibility/access-control, so we only
-            // verify the room exists before allowing subscription. Once the room
-            // model supports visibility (e.g. public/private/invite-only), enforce
-            // authorization here.
             try {
-                roomHub.roomSnapshotById(roomId);
+                Map<String, Object> room = roomHub.roomSnapshotById(roomId);
+                // 权限检查：只有房间成员或公开房间才能订阅
+                String userId = (String) channel.getAttribute("userId");
+                Map<String, Object> host = (Map<String, Object>) room.get("host");
+                Map<String, Object> guest = (Map<String, Object>) room.get("guest");
+                boolean isPlayer = userId != null && (
+                    userId.equals(host != null ? host.get("id") : null) ||
+                    (guest != null && userId.equals(guest.get("id")))
+                );
+                boolean isPublic = !"false".equals(String.valueOf(room.get("isPublic")));
+                if (!isPlayer && !isPublic) {
+                    return;
+                }
             } catch (Exception ex) {
                 return;
             }
