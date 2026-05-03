@@ -1,0 +1,4605 @@
+﻿{
+  "tutorials": [
+    {
+      "id": "xq-opening-basics",
+      "gameType": "XIANGQI",
+      "title": "象棋开局三步稳固结构",
+      "summary": "理解中炮、屏风马与兵线推进的基本思路。",
+      "difficulty": "BEGINNER",
+      "minutes": 8,
+      "objective": "学会开局前三回合如何兼顾出子速度与将帅安全。",
+      "keyPoints": [
+        "中路炮优先打开火力线，先争中心后争边路。",
+        "马位要互相照应，避免单马过河被兑子。",
+        "兵线推进遵循“先通路，后压制”，不要盲目前压。"
+      ],
+      "exampleLine": [
+        "红：炮二平五",
+        "黑：马8进7",
+        "红：马二进三",
+        "黑：车9平8",
+        "红：车一平二"
+      ],
+      "practiceChecklist": [
+        "开局 6 步内至少出动 1 炮 1 马",
+        "不让己方将门形成连续将军隐患",
+        "记录本局第 8 回合时的子力协调情况"
+      ]
+    },
+    {
+      "id": "xq-endgame-king-safety",
+      "gameType": "XIANGQI",
+      "title": "将帅安全与九宫防守",
+      "summary": "学习九宫内防守要点和常见将杀威胁。",
+      "difficulty": "BEGINNER",
+      "minutes": 10,
+      "objective": "掌握残局阶段九宫防守与子力回防的先后顺序。",
+      "keyPoints": [
+        "优先封堵中路将军线路，再考虑边线逃位。",
+        "士相完整时，尽量保持将帅在九宫中心点附近。",
+        "车炮联手将军时，先拆“炮架”再走将。"
+      ],
+      "exampleLine": [
+        "黑车将军后，红先用士进中宫挡线",
+        "红再以车回防，形成车士联防",
+        "最后通过兑车把局面转入和棋"
+      ],
+      "practiceChecklist": [
+        "每次被将军时先判断“将军来源子”",
+        "回看复盘中是否出现“走将送将”",
+        "至少完成 2 局九宫防守练习"
+      ]
+    },
+    {
+      "id": "gomoku-threat-reading",
+      "gameType": "GOMOKU",
+      "title": "五子棋威胁阅读",
+      "summary": "识别活三、冲四与连续进攻节奏。",
+      "difficulty": "BEGINNER",
+      "minutes": 7,
+      "objective": "能在 3 手内判断当前局面是进攻优先还是防守优先。",
+      "keyPoints": [
+        "活三 > 冲四 > 眠三，优先级要记清。",
+        "当对手形成双活三时，必须先防，不可贪攻。",
+        "中心位（天元附近）更容易形成双向延展。"
+      ],
+      "exampleLine": [
+        "黑先在天元旁形成活三",
+        "白补点封一路，黑转向另一翼形成冲四",
+        "白若误防，黑可在下一手成五"
+      ],
+      "practiceChecklist": [
+        "练习时每手都口述“本手威胁类型”",
+        "统计 10 手内成功防守冲四次数",
+        "复盘标注至少 2 处可提前防守点"
+      ]
+    }
+  ],
+  "puzzles": [
+    {
+      "id": "xq-puzzle-fork-001",
+      "gameType": "XIANGQI",
+      "title": "双车牵制",
+      "summary": "通过双车协调制造先手牵制并扩大子力优势。",
+      "difficulty": "EASY",
+      "theme": "TACTIC",
+      "position": "红先，红方双车在中后场，黑方将位受限且一车离将较远。",
+      "goal": "3 步内形成持续先手，将黑方车将分离。",
+      "hints": [
+        "先手将军不一定要马上得子，先逼位。",
+        "观察黑将可走格数，先封最短逃线。"
+      ],
+      "solution": [
+        "红车平中将军，逼黑将入角。",
+        "另一车切断退路，形成双车同线压制。",
+        "黑若兑车，红可转入多兵优势残局。"
+      ]
+    },
+    {
+      "id": "xq-puzzle-mate-net-002",
+      "gameType": "XIANGQI",
+      "title": "中路杀网",
+      "summary": "利用中炮与车马配合形成连续将军。",
+      "difficulty": "MEDIUM",
+      "theme": "MATE",
+      "position": "红先，黑将位于中宫偏后，红方车炮马均可在中路发力。",
+      "goal": "构建连续将军网，迫使黑方只能被动应手。",
+      "hints": [
+        "先固定黑将落点，再考虑重子跟进。",
+        "马的跳点要与炮架形成一前一后。"
+      ],
+      "solution": [
+        "红先车将，黑将平移。",
+        "红炮打中线形成二次将军，黑被迫上士。",
+        "红马跳将封宫门，黑方无解。"
+      ]
+    },
+    {
+      "id": "gomoku-puzzle-center-001",
+      "gameType": "GOMOKU",
+      "title": "中心争夺",
+      "summary": "通过中心落点构建双向威胁。",
+      "difficulty": "EASY",
+      "theme": "POSITION",
+      "position": "黑先，中心附近已有两条三连雏形，白子分布偏边。",
+      "goal": "2 手内形成至少一个冲四与一个活三的联动威胁。",
+      "hints": [
+        "优先找“同时连两边”的落点。",
+        "别急着成冲四，先制造双重选择题。"
+      ],
+      "solution": [
+        "黑在中心斜线上补点，形成双活三雏形。",
+        "白只能单线防守后，黑再补另一端成冲四。"
+      ]
+    },
+    {
+      "id": "xqbase-fen-001",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第1局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1n2/3p1n3/2rNK4/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1n2/3p1n3/2rNK4/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-002",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第2局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：KA3/4A4/4n4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "KA3/4A4/4n4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-003",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第3局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/1N5n1/2R3r2/3p1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/1N5n1/2R3r2/3p1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-004",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第4局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：n1/3K1A3/2p3n2/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "n1/3K1A3/2p3n2/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-005",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第5局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/9/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/9/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-006",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第6局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：5N1/9/1n5r1/9/3p1K3/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "5N1/9/1n5r1/9/3p1K3/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-007",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第7局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：9/9/3a1k3/9/1N5N1/4R4/1n5r1/9/3K1p3/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "9/9/3a1k3/9/1N5N1/4R4/1n5r1/9/3K1p3/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-008",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第8局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：r3/9/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "r3/9/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-009",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第9局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-010",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第10局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/4Apr2/4KA3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/4Apr2/4KA3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-011",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第11局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：7/r8/9/2n6/3p1r3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "7/r8/9/2n6/3p1r3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-012",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第12局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：6/9/9/9/9/9/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "6/9/9/9/9/9/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-013",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第13局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/3a1r3/9/9/9/9/2R6/7p1/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/3a1r3/9/9/9/9/2R6/7p1/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-014",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第14局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/8r/9/2R6/3n5/4p4/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/8r/9/2R6/3n5/4p4/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-015",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第15局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/6R2/9/3p1n3/4p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/6R2/9/3p1n3/4p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-016",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第16局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：6/2p1p1r2/1R3K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "6/2p1p1r2/1R3K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-017",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第17局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-018",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第18局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/1rp1p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/1rp1p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-019",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第19局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：5/9/4p4/9/4p4/3p1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "5/9/4p4/9/4p4/3p1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-020",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第20局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-021",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第21局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/5n3/1r2p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/5n3/1r2p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-022",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第22局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/7n1/9/3p1pp2/3nK4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/7n1/9/3p1pp2/3nK4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-023",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第23局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：rBK5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "rBK5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-024",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第24局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2K1p2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2K1p2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-025",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第25局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/4p1r2/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/4p1r2/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-026",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第26局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：6/2n6/2p1Ap3/3AK2p1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "6/2n6/2p1Ap3/3AK2p1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-027",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第27局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1p2/9/9/1p2B1r2/4r1n2/3K2B2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1p2/9/9/1p2B1r2/4r1n2/3K2B2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-028",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第28局: 双驹夺刍</font></td>\r",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3p2p1/1rB2K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3p2p1/1rB2K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-029",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第31局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：N5/2nR5/9/4n4/9/4p4/5K1p1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "N5/2nR5/9/4n4/9/4p4/5K1p1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-030",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第32局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/9/4RK3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/9/4RK3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-031",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第33局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-032",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第34局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-033",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第35局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/9/9/2r2p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/9/9/2r2p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-034",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第36局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/9/4R4/9/5p3/3p1p3/1p2K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/9/4R4/9/5p3/3p1p3/1p2K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-035",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第37局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：KR3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "KR3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-036",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第38局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-037",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第39局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-038",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第40局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/3Rb4/6R2/9/N8/9/4p4/2p1pp3/3K2p2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/3Rb4/6R2/9/N8/9/4p4/2p1pp3/3K2p2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-039",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第41局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/2b6/9/9/9/9/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/2b6/9/9/9/9/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-040",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第42局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/RR1N5/9/2n6/3p5/4p2r1/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/RR1N5/9/2n6/3p5/4p2r1/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-041",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第43局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2N/9/9/9/2rr5/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2N/9/9/9/2rr5/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-042",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第44局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：6/5r3/9/4rA3/5K3/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "6/5r3/9/4rA3/5K3/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-043",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第45局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/3R5/9/9/9/2p6/4r4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/3R5/9/9/9/2p6/4r4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-044",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第46局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1p4/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1p4/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-045",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第47局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-046",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第48局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：n2/9/9/8n/9/4p4/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "n2/9/9/8n/9/4p4/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-047",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第49局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/b5N2/9/9/9/9/9/5r3/2R1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/b5N2/9/9/9/9/9/5r3/2R1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-048",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第50局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：B2K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "B2K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-049",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第51局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/5K3/4r4/3n5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/5K3/4r4/3n5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-050",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第52局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：rRKA3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "rRKA3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-051",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第53局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：n1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "n1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-052",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第54局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/9/3p5/4r4/3K1p3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/9/3p5/4r4/3K1p3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-053",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第55局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/2N1n4/9/2N6/9/9/5n3/2pRp4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/2N1n4/9/2N6/9/9/5n3/2pRp4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-054",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第56局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1N2/2b6/9/9/9/3p2p2/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1N2/2b6/9/9/9/3p2p2/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-055",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第57局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-056",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第58局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/1rn2p3/9/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/1rn2p3/9/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-057",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第59局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2a4/1n7/2n6/9/9/5R3/4R4/2r2p1r1/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2a4/1n7/2n6/9/9/5R3/4R4/2r2p1r1/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-058",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第61局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-059",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第62局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3p2/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3p2/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-060",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第63局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/R8/9/3p5/2p1r4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/R8/9/3p5/2p1r4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-061",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第64局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3k5/9/b8/9/9/rpp6/6R2/3ABA3/2r6/3K2R2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3k5/9/b8/9/9/rpp6/6R2/3ABA3/2r6/3K2R2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-062",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第65局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/4r3R w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/4r3R w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-063",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第66局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1k3/3a1a3/9/9/6B2/9/B1r6/5p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1k3/3a1a3/9/9/6B2/9/B1r6/5p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-064",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第67局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/9/9/4B4/9/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/9/9/4B4/9/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-065",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第68局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2B/2n6/5KBr1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2B/2n6/5KBr1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-066",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第69局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：N1/9/5r2N/9/5r3/2p1p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "N1/9/5r2N/9/5r3/2p1p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-067",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第70局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/4p4/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/4p4/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-068",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第71局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/9/9/1p2pp3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/9/9/1p2pp3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-069",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第72局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2ba1abR1/9/4k4/7N1/4r4/9/9/1p3p3/6p2/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2ba1abR1/9/4k4/7N1/4r4/9/9/1p3p3/6p2/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-070",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第73局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-071",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第74局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-072",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第75局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：7/6r2/5K3/4r4/3n5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "7/6r2/5K3/4r4/3n5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-073",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第76局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-074",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第77局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "EASY",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/2b3p2/9/9/9/3p1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/2b3p2/9/9/9/3p1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-075",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第78局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/4n4/9/9/9/9/4p4/3K1p3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/4n4/9/9/9/9/4p4/3K1p3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-076",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第79局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/2p1p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/2p1p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-077",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第80局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/9/4K4/r1p2r3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/9/4K4/r1p2r3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-078",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第81局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：p2K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "p2K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-079",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第82局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/2BKnrrpp w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/2BKnrrpp w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-080",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第83局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/6p2/4R4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/6p2/4R4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-081",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第84局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2R3/4r4/3k5/9/9/9/9/9/5K3/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2R3/4r4/3k5/9/9/9/9/9/5K3/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-082",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第85局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/2p1p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/2p1p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-083",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第86局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/1p2A4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/1p2A4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-084",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第87局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：Rp1p4/3K5/1r7/5n3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "Rp1p4/3K5/1r7/5n3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-085",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第88局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/9/9/2pp2p2/4K2p1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/9/9/2pp2p2/4K2p1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-086",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第91局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/6N2/9/9/9/9/3r1p3/2p1K1p2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/6N2/9/9/9/9/3r1p3/2p1K1p2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-087",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第92局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/9/9/1p2p3R/5p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/9/9/1p2p3R/5p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-088",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第93局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2p1p3/2p1K1n1r w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2p1p3/2p1K1n1r w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-089",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第94局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-090",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第95局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4R1/3nb4/4n4/9/9/9/7r1/3r1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4R1/3nb4/4n4/9/9/9/7r1/3r1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-091",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第96局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2B1n w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2B1n w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-092",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第97局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-093",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第98局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/3K5/2rpp4/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/3K5/2rpp4/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-094",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第99局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3KA3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3KA3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-095",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第100局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/4r4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/4r4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-096",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第101局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-097",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第102局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/5a3/6N2/9/9/9/2r3R2/3p1pp2/4K1B2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/5a3/6N2/9/9/9/2r3R2/3p1pp2/4K1B2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-098",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第103局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-099",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第104局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：N2/9/9/4p2r1/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "N2/9/9/4p2r1/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-100",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第105局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/4p2r1/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/4p2r1/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-101",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第106局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：8/9/6n2/3r1r3/2p1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "8/9/6n2/3r1r3/2p1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-102",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第107局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/r2AB4/2r6/3K4R w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/r2AB4/2r6/3K4R w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-103",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第108局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/2p1pp3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/2p1pp3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-104",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第109局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：8/2pr2pr1/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "8/2pr2pr1/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-105",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第110局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/r2p1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/r2p1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-106",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第111局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：8/9/9/6p2/3n5/4p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "8/9/9/6p2/3n5/4p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-107",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第112局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-108",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第113局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2aNk3/9/9/9/9/9/2p1p2r1/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2aNk3/9/9/9/9/9/2p1p2r1/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-109",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第114局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/9/9/9/1p2pp3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/9/9/9/1p2pp3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-110",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第115局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3k5/9/9/2p6/9/4N4/9/9/9/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3k5/9/9/2p6/9/4N4/9/9/9/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-111",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第116局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2pA4/1R2K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2pA4/1R2K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-112",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第117局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-113",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第118局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/9/3r5/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/9/3r5/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-114",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第119局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-115",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第121局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：a4/5a3/8N/9/9/7p1/9/4K4/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "a4/5a3/8N/9/9/7p1/9/4K4/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-116",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第122局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2pn3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2pn3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-117",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第123局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：r w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "r w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-118",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第124局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2A5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2A5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-119",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第125局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-120",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第126局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-121",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第127局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-122",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第128局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/4p1r2/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/4p1r2/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-123",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第129局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：5R/4r1r2/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "5R/4r1r2/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-124",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第130局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/2p1K1p2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/2p1K1p2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-125",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第131局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-126",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第132局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-127",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第133局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-128",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第134局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/4p1r2/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/4p1r2/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-129",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第135局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：ak3/4ba3/9/2b6/9/5p3/9/3pr2p1/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "ak3/4ba3/9/2b6/9/5p3/9/3pr2p1/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-130",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第136局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-131",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第137局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：5/9/9/9/9/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "5/9/9/9/9/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-132",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第138局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：r w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "r w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-133",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第139局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-134",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第140局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-135",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第141局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-136",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第142局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：r2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "r2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-137",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第143局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/9/pr2pp3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/9/pr2pp3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-138",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第144局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：N1/2p6/8p/p8/9/9/3p5/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "N1/2p6/8p/p8/9/9/3p5/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-139",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第151局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/5n3/5p3/R1r1p3r/3R1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/5n3/5p3/R1r1p3r/3R1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-140",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第152局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1r w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1r w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-141",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第153局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/9/2n6/3p3r1/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/9/2n6/3p3r1/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-142",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第154局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/2N6/9/9/9/9/9/9/3p2p2/4K3n w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/2N6/9/9/9/9/9/9/3p2p2/4K3n w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-143",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第155局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-144",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第156局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1rRK4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1rRK4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-145",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第157局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/2rrN4/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/2rrN4/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-146",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第158局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-147",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第159局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/4K1n2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/4K1n2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-148",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第160局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "MEDIUM",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：K2p/6p2/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "K2p/6p2/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-149",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第161局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1rr2ab2/2RRak3/9/1N7/9/9/9/9/2p1p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1rr2ab2/2RRak3/9/1N7/9/9/9/9/2p1p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-150",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第162局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/3RK1pr1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/3RK1pr1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-151",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第163局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/9/9/9/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/9/9/9/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-152",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第164局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-153",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第165局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/2p1p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/2p1p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-154",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第166局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3ak1b2/4a4/4b4/1r7/4R3R/9/9/4B4/4A4/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3ak1b2/4a4/4b4/1r7/4R3R/9/9/4B4/4A4/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-155",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第167局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/9/5r3/9/5p3/3nr4/3p1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/9/5r3/9/5p3/3nr4/3p1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-156",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第168局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3p/3p1p3/2p1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3p/3p1p3/2p1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-157",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第169局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：p4/7R1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "p4/7R1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-158",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第170局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：pAK4/3rAp3/2n6 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "pAK4/3rAp3/2n6 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-159",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第171局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3k5/9/9/8p/9/2R3B1r/9/4BA3/6r2/2R2K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3k5/9/9/8p/9/2R3B1r/9/4BA3/6r2/2R2K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-160",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第172局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3rn3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3rn3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-161",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第173局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/9/R2K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/9/R2K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-162",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第174局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/9/9/r2p1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/9/9/r2p1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-163",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第175局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/4p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/4p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-164",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第176局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1R1p1pn1/2p2K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1R1p1pn1/2p2K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-165",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第177局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-166",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第178局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1p1R1/3p1r3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1p1R1/3p1r3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-167",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第181局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/6B1R/9/4B4/3pr2p1/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/6B1R/9/4B4/3pr2p1/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-168",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第182局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/2nr1p3/2p1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/2nr1p3/2p1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-169",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第183局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：R/3n5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "R/3n5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-170",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第184局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4kab2/4a4/8b/9/9/9/9/9/9/4K1R2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4kab2/4a4/8b/9/9/9/9/9/9/4K1R2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-171",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第185局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：a4/5a3/9/8N/7p1/9/9/5K3/9 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "a4/5a3/9/8N/7p1/9/9/5K3/9 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-172",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第186局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-173",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第187局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-174",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第188局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3N1/9/2pp1K1pp/7rr/7n1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3N1/9/2pp1K1pp/7rr/7n1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-175",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第189局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：6/3p1K3/4p4/6r2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "6/3p1K3/4p4/6r2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-176",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第190局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-177",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第191局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/4r4/4p4/1p1Np2R1/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/4r4/4p4/1p1Np2R1/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-178",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第192局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-179",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第193局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/3p1p3/4KAr2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/3p1p3/4KAr2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-180",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第194局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：R3/4p4/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "R3/4p4/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-181",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第195局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-182",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第196局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：KBr1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "KBr1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-183",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第197局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-184",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第198局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/6r2/9/9/6p2/4p4/5K1R1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/6r2/9/9/6p2/4p4/5K1R1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-185",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第199局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：8 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "8 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-186",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第200局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：8/9/2r1r4/3K1p3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "8/9/2r1r4/3K1p3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-187",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第201局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：7/R8/4pp3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "7/R8/4pp3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-188",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第202局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/2B1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/2B1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-189",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第203局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2p/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2p/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-190",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第204局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-191",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第205局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/9/9/9/4p4/3K1p3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/9/9/9/4p4/3K1p3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-192",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第206局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1nr1p3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1nr1p3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-193",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第207局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：BA1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "BA1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-194",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第208局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/9/9/9/r2p1r3/4KR3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/9/9/9/r2p1r3/4KR3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-195",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第209局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：5/3n5/9/3p5/4p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "5/3n5/9/3p5/4p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-196",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第211局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-197",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第212局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：/3R5/3R5/9/9/9/3n5/5r3/3K5/2r6 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "/3R5/3R5/9/9/9/3n5/5r3/3K5/2r6 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-198",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第213局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/b3b1N2/9/9/9/9/4K1R2/3r1r3/5n3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/b3b1N2/9/9/9/9/4K1R2/3r1r3/5n3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-199",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第214局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1R/9/r8/6n2/3p1r3/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1R/9/r8/6n2/3p1r3/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-200",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第215局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/9/4B1r2/5p3/3AK2n1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/9/4B1r2/5p3/3AK2n1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-201",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第216局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：8 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "8 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-202",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第217局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/9/8N/9/4R1p2/3p1p3/2p1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/9/8N/9/4R1p2/3p1p3/2p1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-203",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第218局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/9/9/9/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/9/9/9/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-204",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第219局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3/1R7/9/9/4r4/3A5/6pp1/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3/1R7/9/9/4r4/3A5/6pp1/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-205",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第220局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/3p1p3/1pB1K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/3p1p3/1pB1K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-206",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第221局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/3A3p1/4Ar3/4K1B2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/3A3p1/4Ar3/4K1B2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-207",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第222局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/4p4/9/9/2r6/5r3/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/4p4/9/9/2r6/5r3/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-208",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第223局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1R2/5RN2/9/9/3n5/3r2r2/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1R2/5RN2/9/9/3n5/3r2r2/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-209",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第224局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1/7p1/4r4/5K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1/7p1/4r4/5K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-210",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第225局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：b/8p/9/9/9/9/1p5p1/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "b/8p/9/9/9/9/1p5p1/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-211",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第226局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-212",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第227局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：R/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "R/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-213",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第228局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-214",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第229局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4r/2BK3R1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4r/2BK3R1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-215",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第230局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：5/4r4/3p1K3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "5/4r4/3p1K3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-216",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第231局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1rnp2 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1rnp2 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-217",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第232局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：KR3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "KR3 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-218",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第233局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2ba1k3/4a4/n3N4/9/9/9/9/3RB1r2/2p2r3/3AK2R1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2ba1k3/4a4/n3N4/9/9/9/9/3RB1r2/2p2r3/3AK2R1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-219",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第234局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：1 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "1 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-220",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第235局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：4/2p3b2/8p/9/9/4p4/3K5 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "4/2p3b2/8p/9/9/4p4/3K5 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-221",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第236局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：2/9/9/9/9/4K4 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "2/9/9/9/9/4K4 w - - 0 1",
+      "source": "xqbase.com"
+    },
+    {
+      "id": "xqbase-fen-222",
+      "gameType": "XIANGQI",
+      "title": "xqbase残局 第237局",
+      "summary": "来源于 xqbase 抓取题库，可用于残局思路训练。",
+      "difficulty": "HARD",
+      "theme": "ENDGAME_FEN",
+      "position": "原始FEN局面：3 w - - 0 1",
+      "goal": "尝试在该局面下找到先手优势方案或和棋防守路径。",
+      "hints": [
+        "先判断将帅安全，再比较双方强子活跃度。",
+        "优先检查将军、得子、兑子三类强制手。"
+      ],
+      "solution": [
+        "本题来自外部题库，当前版本未附官方标准答案。",
+        "建议点击“直接进入 AI 对局”后复现同类局面进行复盘。"
+      ],
+      "fen": "3 w - - 0 1",
+      "source": "xqbase.com"
+    }
+  ],
+  "recommendedPractice": [
+    {
+      "id": "practice-xq-medium",
+      "title": "象棋中等强度对练",
+      "description": "适合日常复盘节奏，优先稳定中盘计算。",
+      "gameType": "XIANGQI",
+      "difficulty": "MEDIUM",
+      "humanFirst": true,
+      "preferredEngine": "BUILTIN"
+    },
+    {
+      "id": "practice-xq-hard",
+      "title": "象棋高强度挑战",
+      "description": "提高残局转换与先手进攻能力。",
+      "gameType": "XIANGQI",
+      "difficulty": "HARD",
+      "humanFirst": true,
+      "preferredEngine": "BUILTIN"
+    },
+    {
+      "id": "practice-gmk-medium",
+      "title": "五子棋中等对练",
+      "description": "聚焦威胁识别和防守反击。",
+      "gameType": "GOMOKU",
+      "difficulty": "MEDIUM",
+      "humanFirst": true,
+      "preferredEngine": "BUILTIN"
+    }
+  ]
+}

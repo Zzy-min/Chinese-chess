@@ -21,24 +21,25 @@ import io.undertow.server.RoutingHandler;
 import io.undertow.server.handlers.BlockingHandler;
 import io.undertow.server.handlers.CookieImpl;
 import io.undertow.util.Headers;
+import io.undertow.util.Methods;
 import io.undertow.util.PathTemplateMatch;
 import io.undertow.util.StatusCodes;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
-import io.undertow.websockets.core.CloseMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
-
-import com.xiangqi.online.server.RateLimiter;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -54,8 +55,6 @@ public final class PublicSiteServer {
     private final PracticeGameHub practiceHub;
     private final LegacyHomeSessionHub legacyHomeHub;
     private final WsHub wsHub = new WsHub();
-    private final RateLimiter authLimiter = new RateLimiter(5, 60_000);
-    private final RateLimiter createRoomLimiter = new RateLimiter(3, 60_000);
     private Undertow server;
 
     public PublicSiteServer() throws Exception {
@@ -84,15 +83,13 @@ public final class PublicSiteServer {
             return;
         }
         RoutingHandler routes = Handlers.routing(false)
-            .get("/", this::handleOnlineIndex)
-            .get("/ai", this::handleLegacyIndex)
+            .get("/", this::handleRootRedirect)
+            .add(Methods.HEAD, "/", this::handleRootRedirect)
             .get("/home-ai", this::handleLegacyIndex)
             .get("/assets/ui/app.css", this::handleLegacyCss)
             .get("/assets/ui/app.js", this::handleLegacyJs)
             .get("/assets/audio/move.wav", this::handleMoveAudio)
             .get("/assets/audio/mate.wav", this::handleMateAudio)
-            .get("/assets/audio/capture.wav", this::handleCaptureAudio)
-            .get("/assets/audio/check.wav", this::handleCheckAudio)
             .get("/api/state", this::handleLegacyState)
             .get("/api/new", this::handleLegacyNewGame)
             .get("/api/endgame", this::handleLegacyEndgame)
@@ -112,9 +109,9 @@ public final class PublicSiteServer {
             .post("/api/auth/login", this::handleLogin)
             .post("/api/auth/logout", this::handleLogout)
             .get("/online", this::handleOnlineIndex)
+            .add(Methods.HEAD, "/online", this::handleOnlineIndex)
             .get("/online/assets/site/app.css", this::handleOnlineCss)
             .get("/online/assets/site/app.js", this::handleOnlineJs)
-            .get("/online/assets/site/board.js", this::handleOnlineBoardJs)
             .get("/online/api/site/bootstrap", this::handleBootstrap)
             .get("/online/api/auth/me", this::handleMe)
             .get("/online/api/lobby/overview", this::handleLobby)
@@ -122,6 +119,10 @@ public final class PublicSiteServer {
             .get("/online/api/games/{gameId}", this::handleGameById)
             .get("/online/api/games/{gameId}/analysis", this::handleGameAnalysis)
             .get("/online/api/learn/practice-games/{gameId}", this::handlePracticeGameById)
+            .get("/online/api/learn/content", this::handleLearnContent)
+            .get("/online/api/learn/progress", this::handleLearnProgress)
+            .get("/online/api/watch/overview", this::handleWatchOverview)
+            .get("/online/api/community/leaderboard", this::handleCommunityLeaderboard)
             .get("/online/api/profile/summary", this::handleProfileSummary)
             .post("/online/api/auth/register", this::handleRegister)
             .post("/online/api/auth/login", this::handleLogin)
@@ -137,27 +138,13 @@ public final class PublicSiteServer {
             .post("/online/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/online/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
             .post("/online/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
-            .post("/online/api/learn/practice-games/{gameId}/hint", this::handlePracticeHint);
+            .post("/online/api/learn/practice-games/{gameId}/undo", this::handlePracticeUndo)
+            .post("/online/api/learn/puzzles/{id}/complete", this::handleCompletePuzzle)
+            .post("/online/api/learn/tutorials/{id}/complete", this::handleCompleteTutorial);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
             .addExactPath("/online/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
                 public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
-                    String token = extractWsCookie(exchange, AUTH_COOKIE);
-                    Optional<AuthUser> user = (token != null && !token.isEmpty())
-                        ? store.findUserByToken(token) : Optional.empty();
-                    if (user.isEmpty()) {
-                        try {
-                            WebSockets.sendClose(CloseMessage.NORMAL_CLOSURE, "not authenticated", channel, null);
-                        } catch (Exception ignored) {
-                        }
-                        try {
-                            channel.close();
-                        } catch (IOException ignored) {
-                        }
-                        return;
-                    }
-                    channel.setAttribute("userId", user.get().id());
-                    channel.setAttribute("username", user.get().username());
                     wsHub.onConnect(channel);
                 }
             }))
@@ -178,6 +165,12 @@ public final class PublicSiteServer {
         sendResource(exchange, "/web/index.html", "text/html; charset=UTF-8");
     }
 
+    private void handleRootRedirect(HttpServerExchange exchange) {
+        exchange.setStatusCode(StatusCodes.FOUND);
+        exchange.getResponseHeaders().put(Headers.LOCATION, "/online#/home");
+        exchange.endExchange();
+    }
+
     private void handleLegacyCss(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/web/app.css", "text/css; charset=UTF-8");
     }
@@ -192,14 +185,6 @@ public final class PublicSiteServer {
 
     private void handleMateAudio(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/audio/mate.wav", "audio/wav");
-    }
-
-    private void handleCaptureAudio(HttpServerExchange exchange) throws IOException {
-        sendResource(exchange, "/audio/capture.wav", "audio/wav");
-    }
-
-    private void handleCheckAudio(HttpServerExchange exchange) throws IOException {
-        sendResource(exchange, "/audio/check.wav", "audio/wav");
     }
 
     private void handleLegacyState(HttpServerExchange exchange) {
@@ -297,10 +282,6 @@ public final class PublicSiteServer {
         sendResource(exchange, "/online/app.js", "application/javascript; charset=UTF-8");
     }
 
-    private void handleOnlineBoardJs(HttpServerExchange exchange) throws IOException {
-        sendResource(exchange, "/online/board.js", "application/javascript; charset=UTF-8");
-    }
-
     private void handleBootstrap(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         Map<String, Object> body = new LinkedHashMap<String, Object>();
@@ -363,6 +344,89 @@ public final class PublicSiteServer {
         }
     }
 
+    private void handleLearnContent(HttpServerExchange exchange) {
+        sendJson(exchange, store.learnContent());
+    }
+
+    private void handleLearnProgress(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        sendJson(exchange, store.learnProgress(user.get().id()));
+    }
+
+    private void handleCompletePuzzle(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "PUZZLE");
+    }
+
+    private void handleCompleteTutorial(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "TUTORIAL");
+    }
+
+    private void completeLearnItem(HttpServerExchange exchange, String contentType) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            store.markLearnProgress(user.get().id(), contentType, pathParam(exchange, "id"));
+            Map<String, Object> body = new LinkedHashMap<String, Object>();
+            body.put("ok", true);
+            body.put("contentType", contentType);
+            body.put("contentId", pathParam(exchange, "id"));
+            sendJson(exchange, body);
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handleWatchOverview(HttpServerExchange exchange) {
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("publicRooms", watchPublicRooms());
+        body.put("archivedGames", store.watchableGames(limit));
+        body.put("generatedAt", Instant.now().toString());
+        sendJson(exchange, body);
+    }
+
+    private void handleCommunityLeaderboard(HttpServerExchange exchange) {
+        int windowDays = asInt(queryParam(exchange, "windowDays", "30"), 30);
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        sendJson(exchange, store.communityLeaderboard(windowDays, limit));
+    }
+
+    private List<Map<String, Object>> watchPublicRooms() {
+        List<Map<String, Object>> rooms = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> room : roomHub.publicRoomSummaries()) {
+            String gameType = asString(room.get("gameType"));
+            String hostSide = defaultHostSide(gameType);
+            String guestSide = defaultGuestSide(gameType);
+            String guestUsername = asString(room.get("guestUsername"));
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("roomId", asString(room.get("roomId")));
+            item.put("roomCode", asString(room.get("roomCode")));
+            item.put("gameId", asString(room.get("gameId")));
+            item.put("gameType", gameType);
+            item.put("status", asString(room.get("status")));
+            item.put("updatedAt", asString(room.get("updatedAt")));
+            Map<String, Object> players = new LinkedHashMap<String, Object>();
+            Map<String, Object> first = new LinkedHashMap<String, Object>();
+            first.put("username", asString(room.get("hostUsername")));
+            first.put("side", hostSide);
+            Map<String, Object> second = new LinkedHashMap<String, Object>();
+            second.put("username", guestUsername);
+            second.put("side", guestUsername.isEmpty() ? "" : guestSide);
+            players.put("first", first);
+            players.put("second", second);
+            item.put("players", players);
+            rooms.add(item);
+        }
+        return rooms;
+    }
+
     private void handleProfileSummary(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
@@ -378,11 +442,6 @@ public final class PublicSiteServer {
     }
 
     private void handleRegister(HttpServerExchange exchange) {
-        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
-        if (!authLimiter.allow(ip)) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
-            return;
-        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.register(asString(payload.get("username")), asString(payload.get("password")));
@@ -394,20 +453,13 @@ public final class PublicSiteServer {
     }
 
     private void handleLogin(HttpServerExchange exchange) {
-        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
-        if (!authLimiter.allow(ip)) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
-            return;
-        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.login(asString(payload.get("username")), asString(payload.get("password")));
             setAuthCookie(exchange, session);
             sendJson(exchange, sessionBody(session));
         } catch (Exception ex) {
-            int status = (ex.getMessage() != null && ex.getMessage().contains("invalid credentials"))
-                ? StatusCodes.UNAUTHORIZED : StatusCodes.BAD_REQUEST;
-            sendError(exchange, status, ex.getMessage());
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
     }
 
@@ -431,8 +483,9 @@ public final class PublicSiteServer {
         }
         try {
             Map<String, Object> payload = readJson(exchange);
+            GameType gameType = parseGameType(payload.get("gameType"));
             Map<String, Object> room = roomHub.createRoom(user.get(), new CreateRoomRequest(
-                GameType.valueOf(asString(payload.get("gameType"))),
+                gameType,
                 asInt(payload.get("initialTimeSeconds"), 600),
                 asBoolean(payload.get("isPublic"))
             ));
@@ -569,7 +622,8 @@ public final class PublicSiteServer {
                 GameType.valueOf(asString(payload.get("gameType"))),
                 asString(payload.get("difficulty")),
                 asBoolean(payload.get("humanFirst")),
-                asString(payload.get("preferredEngine"))
+                asString(payload.get("preferredEngine")),
+                asString(payload.get("initialFen"))
             ));
             sendJson(exchange, game);
         } catch (Exception ex) {
@@ -603,14 +657,14 @@ public final class PublicSiteServer {
         }
     }
 
-    private void handlePracticeHint(HttpServerExchange exchange) {
+    private void handlePracticeUndo(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
             sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
             return;
         }
         try {
-            sendJson(exchange, practiceHub.getHint(pathParam(exchange, "gameId"), user.get()));
+            sendJson(exchange, practiceHub.undo(pathParam(exchange, "gameId"), user.get()));
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
@@ -632,21 +686,8 @@ public final class PublicSiteServer {
         CookieImpl cookie = new CookieImpl(AUTH_COOKIE, session.token());
         cookie.setPath("/");
         cookie.setHttpOnly(true);
-        cookie.setSameSiteMode("Lax");
         cookie.setMaxAge(14 * 24 * 3600);
         exchange.setResponseCookie(cookie);
-    }
-
-    private String extractWsCookie(WebSocketHttpExchange exchange, String name) {
-        String header = exchange.getRequestHeader("Cookie");
-        if (header == null || header.isEmpty()) return null;
-        for (String part : header.split(";")) {
-            String trimmed = part.trim();
-            if (trimmed.startsWith(name + "=")) {
-                return trimmed.substring(name.length() + 1);
-            }
-        }
-        return null;
     }
 
     private Map<String, Object> sessionBody(UserSession session) {
@@ -753,6 +794,38 @@ public final class PublicSiteServer {
         return value == null ? "" : String.valueOf(value);
     }
 
+    private GameType parseGameType(Object raw) {
+        String normalized = asString(raw).trim().toUpperCase();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("gameType is required");
+        }
+        try {
+            return GameType.valueOf(normalized);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("unsupported gameType: " + normalized);
+        }
+    }
+
+    private String defaultHostSide(String gameType) {
+        if ("XIANGQI".equals(gameType)) {
+            return "RED";
+        }
+        if ("GOMOKU".equals(gameType)) {
+            return "BLACK";
+        }
+        return "";
+    }
+
+    private String defaultGuestSide(String gameType) {
+        if ("XIANGQI".equals(gameType)) {
+            return "BLACK";
+        }
+        if ("GOMOKU".equals(gameType)) {
+            return "WHITE";
+        }
+        return "";
+    }
+
     private int asInt(Object value, int fallback) {
         if (value instanceof Number) {
             return ((Number) value).intValue();
@@ -823,23 +896,6 @@ public final class PublicSiteServer {
         private void subscribe(WebSocketChannel channel, String roomId) {
             unsubscribe(channel);
             if (roomId == null || roomId.trim().isEmpty()) {
-                return;
-            }
-            try {
-                Map<String, Object> room = roomHub.roomSnapshotById(roomId);
-                // 权限检查：只有房间成员或公开房间才能订阅
-                String userId = (String) channel.getAttribute("userId");
-                Map<String, Object> host = (Map<String, Object>) room.get("host");
-                Map<String, Object> guest = (Map<String, Object>) room.get("guest");
-                boolean isPlayer = userId != null && (
-                    userId.equals(host != null ? host.get("id") : null) ||
-                    (guest != null && userId.equals(guest.get("id")))
-                );
-                boolean isPublic = !"false".equals(String.valueOf(room.get("isPublic")));
-                if (!isPlayer && !isPublic) {
-                    return;
-                }
-            } catch (Exception ex) {
                 return;
             }
             byRoom.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(channel);

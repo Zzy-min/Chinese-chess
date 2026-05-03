@@ -307,6 +307,7 @@ public final class OnlineRoomHub {
         Map<String, Object> item = new LinkedHashMap<String, Object>();
         item.put("roomId", room.roomId);
         item.put("roomCode", room.roomCode);
+        item.put("gameId", room.gameId == null ? "" : room.gameId);
         item.put("gameType", room.gameType.name());
         item.put("status", room.status);
         item.put("initialTimeSeconds", room.initialTimeSeconds);
@@ -335,7 +336,6 @@ public final class OnlineRoomHub {
         snapshot.put("board", game.engine.board());
         snapshot.put("moveCount", game.engine.moves().size());
         snapshot.put("moves", game.engine.moves());
-        snapshot.put("stateId", game.engine.stateId());
         attachReplayBoards(snapshot);
         snapshot.put("updatedAt", game.updatedAt.toString());
         Map<String, Object> players = new LinkedHashMap<String, Object>();

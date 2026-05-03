@@ -8,7 +8,6 @@ import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.auth.PasswordHasher;
 import com.xiangqi.online.auth.UserSession;
 import com.xiangqi.online.game.GameType;
-import com.xiangqi.online.learn.EndgameCatalog;
 import com.xiangqi.online.practice.CreatePracticeGameRequest;
 import com.xiangqi.online.practice.PracticeGameHub;
 import com.xiangqi.online.room.CreateRoomRequest;
@@ -25,7 +24,6 @@ import io.undertow.util.StatusCodes;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
-import io.undertow.websockets.core.CloseMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
@@ -34,8 +32,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,11 +50,7 @@ public final class OnlineSiteServer {
     private final AuthService authService;
     private final OnlineRoomHub roomHub;
     private final PracticeGameHub practiceHub;
-    private final EndgameCatalog endgameCatalog = new EndgameCatalog();
     private final WsHub wsHub;
-    private final RateLimiter authLimiter = new RateLimiter(5, 60_000);      // 登录/注册：5次/分钟
-    private final RateLimiter createRoomLimiter = new RateLimiter(3, 60_000); // 创建房间：3次/分钟
-    private final RateLimiter moveLimiter = new RateLimiter(60, 60_000);     // 走子：60次/分钟
     private Undertow server;
 
     public OnlineSiteServer() throws Exception {
@@ -73,15 +70,17 @@ public final class OnlineSiteServer {
             .get("/", this::handleIndex)
             .get("/assets/site/app.css", this::handleCss)
             .get("/assets/site/app.js", this::handleJs)
-            .get("/assets/site/board.js", this::handleBoardJs)
             .get("/api/site/bootstrap", this::handleBootstrap)
             .get("/api/auth/me", this::handleMe)
             .get("/api/lobby/overview", this::handleLobby)
             .get("/api/rooms/{roomId}", this::handleRoomById)
             .get("/api/games/{gameId}", this::handleGameById)
             .get("/api/games/{gameId}/analysis", this::handleGameAnalysis)
-            .get("/api/learn/endgames", this::handleListEndgames)
             .get("/api/learn/practice-games/{gameId}", this::handlePracticeGameById)
+            .get("/api/learn/content", this::handleLearnContent)
+            .get("/api/learn/progress", this::handleLearnProgress)
+            .get("/api/watch/overview", this::handleWatchOverview)
+            .get("/api/community/leaderboard", this::handleCommunityLeaderboard)
             .get("/api/profile/summary", this::handleProfileSummary)
             .post("/api/auth/register", this::handleRegister)
             .post("/api/auth/login", this::handleLogin)
@@ -97,27 +96,12 @@ public final class OnlineSiteServer {
             .post("/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
             .post("/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
-            .post("/api/learn/practice-games/{gameId}/hint", this::handlePracticeHint);
+            .post("/api/learn/puzzles/{id}/complete", this::handleCompletePuzzle)
+            .post("/api/learn/tutorials/{id}/complete", this::handleCompleteTutorial);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
             .addExactPath("/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
                 public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
-                    String token = extractWsCookie(exchange, AUTH_COOKIE);
-                    Optional<AuthUser> user = (token != null && !token.isEmpty())
-                        ? store.findUserByToken(token) : Optional.empty();
-                    if (user.isEmpty()) {
-                        try {
-                            WebSockets.sendClose(CloseMessage.NORMAL_CLOSURE, "not authenticated", channel, null);
-                        } catch (Exception ignored) {
-                        }
-                        try {
-                            channel.close();
-                        } catch (IOException ignored) {
-                        }
-                        return;
-                    }
-                    channel.setAttribute("userId", user.get().id());
-                    channel.setAttribute("username", user.get().username());
                     wsHub.onConnect(channel);
                 }
             }))
@@ -136,10 +120,6 @@ public final class OnlineSiteServer {
 
     private void handleJs(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/online/app.js", "application/javascript; charset=UTF-8");
-    }
-
-    private void handleBoardJs(HttpServerExchange exchange) throws IOException {
-        sendResource(exchange, "/online/board.js", "application/javascript; charset=UTF-8");
     }
 
     private void handleBootstrap(HttpServerExchange exchange) {
@@ -204,6 +184,85 @@ public final class OnlineSiteServer {
         }
     }
 
+    private void handleLearnContent(HttpServerExchange exchange) {
+        sendJson(exchange, store.learnContent());
+    }
+
+    private void handleLearnProgress(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        sendJson(exchange, store.learnProgress(user.get().id()));
+    }
+
+    private void handleCompletePuzzle(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "PUZZLE");
+    }
+
+    private void handleCompleteTutorial(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "TUTORIAL");
+    }
+
+    private void completeLearnItem(HttpServerExchange exchange, String contentType) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            store.markLearnProgress(user.get().id(), contentType, pathParam(exchange, "id"));
+            Map<String, Object> body = new LinkedHashMap<String, Object>();
+            body.put("ok", true);
+            body.put("contentType", contentType);
+            body.put("contentId", pathParam(exchange, "id"));
+            sendJson(exchange, body);
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handleWatchOverview(HttpServerExchange exchange) {
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("publicRooms", watchPublicRooms());
+        body.put("archivedGames", store.watchableGames(limit));
+        body.put("generatedAt", Instant.now().toString());
+        sendJson(exchange, body);
+    }
+
+    private void handleCommunityLeaderboard(HttpServerExchange exchange) {
+        int windowDays = asInt(queryParam(exchange, "windowDays", "30"), 30);
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        sendJson(exchange, store.communityLeaderboard(windowDays, limit));
+    }
+
+    private List<Map<String, Object>> watchPublicRooms() {
+        List<Map<String, Object>> rooms = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> room : roomHub.publicRoomSummaries()) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("roomId", asString(room.get("roomId")));
+            item.put("roomCode", asString(room.get("roomCode")));
+            item.put("gameId", asString(room.get("gameId")));
+            item.put("gameType", asString(room.get("gameType")));
+            item.put("status", asString(room.get("status")));
+            item.put("updatedAt", asString(room.get("updatedAt")));
+            Map<String, Object> players = new LinkedHashMap<String, Object>();
+            Map<String, Object> first = new LinkedHashMap<String, Object>();
+            first.put("username", asString(room.get("hostUsername")));
+            first.put("side", "");
+            Map<String, Object> second = new LinkedHashMap<String, Object>();
+            second.put("username", asString(room.get("guestUsername")));
+            second.put("side", "");
+            players.put("first", first);
+            players.put("second", second);
+            item.put("players", players);
+            rooms.add(item);
+        }
+        return rooms;
+    }
+
     private void handleProfileSummary(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
@@ -213,18 +272,12 @@ public final class OnlineSiteServer {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("user", userMap(user.get()));
         body.put("summary", store.profileSummary(user.get().id()));
-        body.put("puzzleStats", store.getUserPuzzleStats(user.get().id()));
         body.put("recentGames", store.recentGamesForUser(user.get().id(), 10));
         body.put("activity", roomHub.activityForUser(user.get().id()));
         sendJson(exchange, body);
     }
 
     private void handleRegister(HttpServerExchange exchange) {
-        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
-        if (!authLimiter.allow(ip)) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
-            return;
-        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.register(asString(payload.get("username")), asString(payload.get("password")));
@@ -236,20 +289,13 @@ public final class OnlineSiteServer {
     }
 
     private void handleLogin(HttpServerExchange exchange) {
-        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
-        if (!authLimiter.allow(ip)) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
-            return;
-        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.login(asString(payload.get("username")), asString(payload.get("password")));
             setAuthCookie(exchange, session);
             sendJson(exchange, sessionBody(session));
         } catch (Exception ex) {
-            int status = (ex.getMessage() != null && ex.getMessage().contains("invalid credentials"))
-                ? StatusCodes.UNAUTHORIZED : StatusCodes.BAD_REQUEST;
-            sendError(exchange, status, ex.getMessage());
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
     }
 
@@ -269,10 +315,6 @@ public final class OnlineSiteServer {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
             sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
-            return;
-        }
-        if (!createRoomLimiter.allow(user.get().id())) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
             return;
         }
         try {
@@ -421,38 +463,12 @@ public final class OnlineSiteServer {
                 asString(payload.get("difficulty")),
                 asBoolean(payload.get("humanFirst")),
                 asString(payload.get("preferredEngine")),
-                asString(payload.get("fen")),
-                asString(payload.get("endgameId")),
-                asString(payload.get("endgameName"))
+                asString(payload.get("initialFen"))
             ));
             sendJson(exchange, game);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
-    }
-
-    private void handleListEndgames(HttpServerExchange exchange) {
-        String difficulty = exchange.getQueryParameters().get("difficulty") != null
-            ? exchange.getQueryParameters().get("difficulty").getFirst() : null;
-        Map<String, Object> body = new LinkedHashMap<String, Object>();
-        java.util.List<java.util.Map<String, String>> endgames = endgameCatalog.byDifficulty(difficulty);
-        // Attach solved status for logged-in users
-        Optional<AuthUser> user = currentUser(exchange);
-        if (user.isPresent()) {
-            java.util.List<String> solvedIds = store.getSolvedEndgameIds(user.get().id());
-            java.util.Set<String> solvedSet = new java.util.HashSet<String>(solvedIds);
-            java.util.List<java.util.Map<String, String>> enriched = new java.util.ArrayList<java.util.Map<String, String>>();
-            for (java.util.Map<String, String> eg : endgames) {
-                java.util.Map<String, String> copy = new java.util.LinkedHashMap<String, String>(eg);
-                copy.put("solved", solvedSet.contains(eg.get("id")) ? "true" : "false");
-                enriched.add(copy);
-            }
-            body.put("endgames", enriched);
-        } else {
-            body.put("endgames", endgames);
-        }
-        body.put("total", endgameCatalog.all().size());
-        sendJson(exchange, body);
     }
 
     private void handlePracticeMove(HttpServerExchange exchange) {
@@ -481,19 +497,6 @@ public final class OnlineSiteServer {
         }
     }
 
-    private void handlePracticeHint(HttpServerExchange exchange) {
-        Optional<AuthUser> user = currentUser(exchange);
-        if (!user.isPresent()) {
-            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
-            return;
-        }
-        try {
-            sendJson(exchange, practiceHub.getHint(pathParam(exchange, "gameId"), user.get()));
-        } catch (Exception ex) {
-            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
-        }
-    }
-
     private Optional<AuthUser> currentUser(HttpServerExchange exchange) {
         String token = authToken(exchange);
         if (token.isEmpty()) {
@@ -513,21 +516,8 @@ public final class OnlineSiteServer {
         CookieImpl cookie = new CookieImpl(AUTH_COOKIE, session.token());
         cookie.setPath("/");
         cookie.setHttpOnly(true);
-        cookie.setSameSiteMode("Lax");
         cookie.setMaxAge(14 * 24 * 3600);
         exchange.setResponseCookie(cookie);
-    }
-
-    private String extractWsCookie(WebSocketHttpExchange exchange, String name) {
-        String header = exchange.getRequestHeader("Cookie");
-        if (header == null || header.isEmpty()) return null;
-        for (String part : header.split(";")) {
-            String trimmed = part.trim();
-            if (trimmed.startsWith(name + "=")) {
-                return trimmed.substring(name.length() + 1);
-            }
-        }
-        return null;
     }
 
     private Map<String, Object> sessionBody(UserSession session) {
@@ -616,6 +606,13 @@ public final class OnlineSiteServer {
         return value == null ? "" : String.valueOf(value);
     }
 
+    private String queryParam(HttpServerExchange exchange, String key, String fallback) {
+        if (!exchange.getQueryParameters().containsKey(key) || exchange.getQueryParameters().get(key).isEmpty()) {
+            return fallback;
+        }
+        return exchange.getQueryParameters().get(key).getFirst();
+    }
+
     private int asInt(Object value, int fallback) {
         if (value instanceof Number) {
             return ((Number) value).intValue();
@@ -686,32 +683,6 @@ public final class OnlineSiteServer {
         private void subscribe(WebSocketChannel channel, String roomId) {
             unsubscribe(channel);
             if (roomId == null || roomId.trim().isEmpty()) {
-                return;
-            }
-            // 访问控制：检查房间可见性和用户权限
-            Object userIdAttr = channel.getAttribute("userId");
-            String userId = userIdAttr != null ? userIdAttr.toString() : null;
-            try {
-                Map<String, Object> room = roomHub.roomSnapshotById(roomId);
-                if (room == null) return;
-
-                // 检查是否是房间玩家
-                boolean isPlayer = false;
-                if (userId != null) {
-                    Map<String, Object> host = (Map<String, Object>) room.get("host");
-                    Map<String, Object> guest = (Map<String, Object>) room.get("guest");
-                    isPlayer = (host != null && userId.equals(host.get("id")))
-                        || (guest != null && userId.equals(guest.get("id")));
-                }
-
-                // 检查房间是否公开
-                boolean isPublic = Boolean.TRUE.equals(room.get("isPublic"));
-
-                if (!isPlayer && !isPublic) {
-                    WebSockets.sendText("{\"error\":\"no access to this room\"}", channel, null);
-                    return;
-                }
-            } catch (Exception ex) {
                 return;
             }
             byRoom.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(channel);

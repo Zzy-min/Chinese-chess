@@ -2,9 +2,7 @@ package com.xiangqi.web;
 
 import com.xiangqi.ai.ConfigurableXiangqiEngine;
 import com.xiangqi.ai.MinimaxAI;
-import com.xiangqi.model.Board;
 import com.xiangqi.model.PieceType;
-import com.xiangqi.model.TacticDetector;
 import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
 import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.game.GameType;
@@ -55,7 +53,8 @@ public final class LegacyHomeSessionHub {
                 gameType,
                 difficulty,
                 humanFirst,
-                preferredEngine
+                preferredEngine,
+                ""
             ));
             session.gameId = asString(game.get("gameId"));
             session.gameType = normalizeGameType(gameType == null ? "" : gameType.name());
@@ -67,9 +66,7 @@ public final class LegacyHomeSessionHub {
             session.selectedRow = -1;
             session.selectedCol = -1;
             session.endgameLabel = "标准开局";
-            session.tacticText = "";
-            session.tacticSeq = 0;
-            return buildState(session, user);
+            return buildState(session, user, game);
         }
     }
 
@@ -90,10 +87,10 @@ public final class LegacyHomeSessionHub {
                 if (cellAt(live, row, col) != null) {
                     return buildState(session, user);
                 }
-                practiceHub.applyMove(session.gameId, user, gomokuPayload(row, col));
+                Map<String, Object> updated = practiceHub.applyMove(session.gameId, user, gomokuPayload(row, col));
                 session.selectedRow = -1;
                 session.selectedCol = -1;
-                return buildState(session, user);
+                return buildState(session, user, updated);
             }
             return clickXiangqi(session, user, live, row, col);
         }
@@ -106,7 +103,10 @@ public final class LegacyHomeSessionHub {
         LegacySession session = session(sessionId);
         synchronized (session) {
             if (!session.gameId.isEmpty()) {
-                practiceHub.resign(session.gameId, user);
+                Map<String, Object> updated = practiceHub.resign(session.gameId, user);
+                session.selectedRow = -1;
+                session.selectedCol = -1;
+                return buildState(session, user, updated);
             }
             session.selectedRow = -1;
             session.selectedCol = -1;
@@ -173,15 +173,18 @@ public final class LegacyHomeSessionHub {
             session.selectedCol = col;
             return buildState(session, user);
         }
-        practiceHub.applyMove(session.gameId, user, xiangqiPayload(session.selectedRow, session.selectedCol, row, col));
+        Map<String, Object> updated = practiceHub.applyMove(session.gameId, user, xiangqiPayload(session.selectedRow, session.selectedCol, row, col));
         session.selectedRow = -1;
         session.selectedCol = -1;
-        return buildState(session, user);
+        return buildState(session, user, updated);
     }
 
     private Map<String, Object> buildState(LegacySession session, AuthUser user) {
-        Map<String, Object> game = currentGame(session, user);
-        Map<String, Object> analysis = currentAnalysis(session);
+        return buildState(session, user, currentGame(session, user));
+    }
+
+    private Map<String, Object> buildState(LegacySession session, AuthUser user, Map<String, Object> game) {
+        Map<String, Object> analysis = session.gameId.isEmpty() ? Collections.<String, Object>emptyMap() : game;
         int reviewMaxMove = moveCount(analysis);
         int reviewIndex = session.reviewMode ? Math.max(0, Math.min(session.reviewMoveIndex, reviewMaxMove)) : 0;
         Map<String, Object> state = new LinkedHashMap<String, Object>();
@@ -200,6 +203,7 @@ public final class LegacyHomeSessionHub {
         state.put("endgame", session.endgameLabel);
         state.put("currentTurn", session.reviewMode ? reviewTurn(session.gameType, reviewIndex, reviewMaxMove, game) : asString(game.get("currentTurn")));
         state.put("gameOver", asBoolean(game.get("gameOver")));
+        state.put("aiPending", asBoolean(game.get("aiPending")));
         state.put("canDraw", false);
         state.put("result", asString(game.get("resultText")));
         state.put("drawReason", "");
@@ -212,11 +216,8 @@ public final class LegacyHomeSessionHub {
         state.put("stepRemainSec", -1);
         state.put("redTotalSec", -1);
         state.put("blackTotalSec", -1);
-        if (!session.reviewMode && isStarted(game) && !asBoolean(game.get("gameOver"))) {
-            updateTactic(session);
-        }
-        state.put("tacticText", session.tacticText);
-        state.put("tacticSeq", session.tacticSeq);
+        state.put("tacticText", "");
+        state.put("tacticSeq", 0);
         state.put("recentMoves", recentMoves(analysis, session.reviewMode ? reviewIndex : reviewMaxMove));
         if (GAME_GOMOKU.equals(session.gameType)) {
             state.put("gomoku", gomokuMeta(game));
@@ -585,29 +586,6 @@ public final class LegacyHomeSessionHub {
         }
     }
 
-    private void updateTactic(LegacySession session) {
-        if (!GAME_XIANGQI.equals(session.gameType) || session.gameId.isEmpty()) {
-            return;
-        }
-        Map<String, Object> analysis = currentAnalysis(session);
-        int mc = moveCount(analysis);
-        if (mc == session.lastTacticMoveCount && !session.tacticText.isEmpty()) {
-            return;
-        }
-        session.lastTacticMoveCount = mc;
-        Board board = practiceHub.xiangqiBoard(session.gameId);
-        if (board == null) return;
-        String t = TacticDetector.detect(board);
-        if (t != null && !t.isEmpty()) {
-            if (!t.equals(session.tacticText)) {
-                session.tacticText = t;
-                session.tacticSeq++;
-            }
-        } else {
-            session.tacticText = "";
-        }
-    }
-
     private static final class LegacySession {
         private final AtomicLong seq = new AtomicLong();
         private String gameId = "";
@@ -620,8 +598,5 @@ public final class LegacyHomeSessionHub {
         private int selectedRow = -1;
         private int selectedCol = -1;
         private String endgameLabel = "标准开局";
-        private String tacticText = "";
-        private long tacticSeq = 0L;
-        private int lastTacticMoveCount = 0;
     }
 }

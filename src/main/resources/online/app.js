@@ -7,16 +7,45 @@ const state = {
   profile: null,
   analysis: null,
   analysisStep: 0,
-  endgames: null,
-  endgamesLoaded: false,
-  hintHighlight: null,
+  learnContent: null,
+  learnProgress: null,
+  watchOverview: null,
+  communityLeaderboard: null,
+  watchFilters: {
+    gameType: 'ALL',
+    status: 'ALL'
+  },
+  communityTab: 'win',
+  watchUpdatedAt: 0,
   authMode: 'login',
-  authDialogOpen: false,
   authError: '',
+  showAuthModal: false,
   status: '',
   selectedFrom: null,
+  pendingMoveMarker: null,
+  pendingMoveGameId: '',
+  practiceBoardFitKey: '',
+  learnPuzzleTheme: 'ALL',
+  boardPaneTab: 'board',
+  moveInFlight: false,
+  moveRequestToken: 0,
+  aiMoveHintText: '',
+  aiMoveHintExpireAt: 0,
+  aiMoveHintGameId: '',
+  aiMoveHintMoveIndex: 0,
+  practicePollTimeout: null,
+  practicePollGameId: '',
+  practicePollStartedAtMs: 0,
+  practicePollInFlight: false,
   ws: null,
   wsRoomId: '',
+  endGameModal: null,
+  endGameModalShownKey: '',
+  soundEnabled: readOnlineSoundEnabled(),
+  audioUnlocked: false,
+  lastMoveSoundGameId: '',
+  lastMoveSoundIndex: 0,
+  lastFinishSoundKey: '',
   learnConfig: {
     gameType: 'XIANGQI',
     difficulty: 'MEDIUM',
@@ -27,31 +56,35 @@ const state = {
 
 const API_BASE = '/online/api';
 const WS_BASE = '/online/ws';
+const WATCH_POLL_INTERVAL_MS = 10000;
+const LEARN_SUB_ROUTES = ['tutorials', 'puzzles', 'practice'];
+const PUZZLE_THEMES = ['ALL', 'TACTIC', 'MATE', 'POSITION', 'ENDGAME_FEN'];
+const PRACTICE_POLL_FAST_MS = 250;
+const PRACTICE_POLL_SLOW_MS = 500;
+const PRACTICE_POLL_FAST_WINDOW_MS = 2000;
+const XIANGQI_ROWS = 10;
+const XIANGQI_COLS = 9;
+const GOMOKU_SIZE = 15;
+
+const onlineMoveAudio = createOnlineAudio('/assets/audio/move.wav');
+const onlineMateAudio = createOnlineAudio('/assets/audio/mate.wav');
 
 const app = document.getElementById('app');
-const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'ai', 'watch', 'community', 'me'];
-const moveAudio = new Audio('/assets/audio/move.wav');
-const resultAudio = new Audio('/assets/audio/mate.wav');
-moveAudio.preload = 'auto';
-resultAudio.preload = 'auto';
-moveAudio.volume = 0.72;
-resultAudio.volume = 0.92;
-let audioUnlocked = false;
-let soundEnabled = (localStorage.getItem('xq_online_sound_enabled') ?? '1') !== '0';
-let lastMoveSoundKey = '';
-let lastResultSoundKey = '';
+const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me'];
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
-document.addEventListener('pointerdown', unlockAudio, { once: true });
+window.addEventListener('resize', () => fitPracticeBoardToViewport(currentRoute(), true));
 window.setInterval(() => {
   const route = currentRoute();
-  if ((route.page === 'game' || route.page === 'practice') && state.game) {
-    render();
+  tickLiveGameClock(route);
+  if (route.page === 'watch') {
+    maybePollWatchOverview();
   }
-}, 1000);
+}, 250);
 
 async function boot() {
+  initOnlineAudio();
   await Promise.all([loadBootstrap(), loadMe()]);
   render();
 }
@@ -62,13 +95,61 @@ async function loadBootstrap() {
 
 async function loadMe() {
   state.me = await fetchJson(`${API_BASE}/auth/me`).catch(() => null);
+  if (!state.me) {
+    state.learnProgress = null;
+  }
+}
+
+async function loadLearnContent() {
+  state.learnContent = await fetchJson(`${API_BASE}/learn/content`).catch(() => ({ tutorials: [], puzzles: [], recommendedPractice: [] }));
+  render();
+}
+
+async function loadLearnProgress() {
+  if (!state.me) {
+    state.learnProgress = null;
+    render();
+    return;
+  }
+  state.learnProgress = await fetchJson(`${API_BASE}/learn/progress`).catch(() => ({ tutorialsCompleted: [], puzzlesCompleted: [] }));
+  render();
+}
+
+async function loadWatchOverview(renderAfter = true) {
+  state.watchOverview = await fetchJson(`${API_BASE}/watch/overview`).catch(() => ({ publicRooms: [], archivedGames: [] }));
+  state.watchUpdatedAt = Date.now();
+  if (renderAfter) {
+    render();
+  }
+}
+
+async function loadCommunityLeaderboard() {
+  state.communityLeaderboard = await fetchJson(`${API_BASE}/community/leaderboard`).catch(() => ({ winBoard: [], activityBoard: [] }));
+  render();
+}
+
+function maybePollWatchOverview() {
+  const now = Date.now();
+  if (now - (state.watchUpdatedAt || 0) < WATCH_POLL_INTERVAL_MS) {
+    return;
+  }
+  loadWatchOverview(true);
 }
 
 function currentRoute() {
   const raw = location.hash.replace(/^#\/?/, '');
-  if (!raw) return { page: 'home', id: '' };
+  if (!raw) return { page: 'home', id: '', leaf: '', learnTab: '', puzzleTheme: resolvePuzzleTheme(state.learnPuzzleTheme) };
   const parts = raw.split('/');
-  return { page: routes.includes(parts[0]) ? parts[0] : 'home', id: parts[1] || '' };
+  const page = routes.includes(parts[0]) ? parts[0] : 'home';
+  let id = parts[1] || '';
+  if (page === 'learn' && !id) {
+    id = 'puzzles';
+  }
+  const learnTab = page === 'learn' ? resolveLearnSubRoute(id || 'puzzles') : '';
+  const puzzleTheme = page === 'learn' && learnTab === 'puzzles'
+    ? resolvePuzzleTheme(parts[2] || 'ALL')
+    : resolvePuzzleTheme(state.learnPuzzleTheme);
+  return { page: page, id: id, leaf: parts[2] || '', learnTab: learnTab, puzzleTheme: puzzleTheme };
 }
 
 function navTo(path) {
@@ -77,18 +158,92 @@ function navTo(path) {
 
 function render() {
   const route = currentRoute();
+  const isBoardRoute = isBoardRoutePage(route.page);
+  if (!isBoardRoute && state.boardPaneTab !== 'board') {
+    state.boardPaneTab = 'board';
+  }
+  const siteClasses = ['site', `route-${route.page}`];
+  if (isBoardRoute) {
+    siteClasses.push('is-board-route', `mobile-pane-${state.boardPaneTab}`);
+  }
+  if (route.page === 'practice') {
+    siteClasses.push('route-practice-locked');
+  }
   app.innerHTML = `
-    <div class="site">
+    <div class="${siteClasses.join(' ')}">
       ${renderTopbar(route.page)}
       <main class="shell">
         ${renderPage(route)}
       </main>
-      ${shouldShowAuthOverlay(route) ? renderAuthOverlay(route.page === 'home') : ''}
+      ${renderGameEndModal()}
+      ${shouldShowAuthOverlay(route) ? renderAuthOverlay() : ''}
     </div>
   `;
   bindCommon(route);
   syncRealtime(route);
-  syncAudioFeedback();
+  syncPracticePolling(route);
+  fitPracticeBoardToViewport(route, false);
+}
+
+function fitPracticeBoardToViewport(route = currentRoute(), force = false) {
+  if (!route || route.page !== 'practice') {
+    state.practiceBoardFitKey = '';
+    return;
+  }
+  if (window.innerWidth > 980) {
+    state.practiceBoardFitKey = '';
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const pane = document.querySelector('.boardPane--practice');
+    const board = pane ? pane.querySelector('.xiangqiBoard, .gomokuBoard') : null;
+    if (!pane || !board) {
+      return;
+    }
+    const gameId = state.game && state.game.gameId ? state.game.gameId : '';
+    const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
+    const fitKey = `${gameId}|${boardType}|${window.innerWidth}x${window.innerHeight}`;
+    if (!force && fitKey === state.practiceBoardFitKey) {
+      return;
+    }
+    if (boardType === 'XIANGQI') {
+      fitXiangqiPracticeBoard(board, pane);
+      state.practiceBoardFitKey = fitKey;
+      return;
+    }
+    fitGomokuPracticeBoard(board, pane);
+    state.practiceBoardFitKey = fitKey;
+  });
+}
+
+function fitXiangqiPracticeBoard(board, pane) {
+  board.style.removeProperty('--xi-cell-size');
+  const parentRect = (pane || board.parentElement || board).getBoundingClientRect();
+  const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--xi-cell-size')) || 36;
+  const availableWidth = Math.max(0, Math.min(window.innerWidth, parentRect.width) - 20);
+  const byWidth = Math.floor((availableWidth - 32) / XIANGQI_COLS);
+  const byViewportHeight = Math.floor((window.innerHeight * 0.42) / XIANGQI_ROWS);
+  const byPaneHeight = Math.floor((Math.max(0, parentRect.height - 30)) / XIANGQI_ROWS);
+  const byHeight = Math.min(byViewportHeight, byPaneHeight);
+  const targetCell = Math.max(20, Math.min(Math.floor(baseCell), byHeight, byWidth));
+  if (targetCell > 0) {
+    board.style.setProperty('--xi-cell-size', `${targetCell}px`);
+  }
+}
+
+function fitGomokuPracticeBoard(board, pane) {
+  board.style.removeProperty('--go-cell-size');
+  const parentRect = (pane || board.parentElement || board).getBoundingClientRect();
+  const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--go-cell-size')) || 24;
+  const availableWidth = Math.max(0, Math.min(window.innerWidth, parentRect.width) - 20);
+  const byWidth = Math.floor((availableWidth - 26) / GOMOKU_SIZE);
+  const byViewportHeight = Math.floor((window.innerHeight * 0.56) / GOMOKU_SIZE);
+  const byPaneHeight = Math.floor((Math.max(0, parentRect.height - 24)) / GOMOKU_SIZE);
+  const byHeight = Math.min(byViewportHeight, byPaneHeight);
+  const targetCell = Math.max(14, Math.min(Math.floor(baseCell), byHeight, byWidth));
+  if (targetCell > 0) {
+    board.style.setProperty('--go-cell-size', `${targetCell}px`);
+  }
 }
 
 function renderTopbar(active) {
@@ -98,275 +253,698 @@ function renderTopbar(active) {
       <div class="brand">
         <div class="brandMark">棋</div>
         <div class="brandText">
-          <strong>轻棋局</strong>
-          <span>线上对弈、AI 棋桌与复盘分析</span>
+          <strong>轻棋局 Online</strong>
+          <span>在线房间对局大厅</span>
         </div>
       </div>
       <nav class="nav">
         ${navLink('home', '首页', active)}
-        ${navLink('play', '在线大厅', active)}
-        ${navLink('ai', 'AI 棋桌', active)}
+        ${navLink('play', '对局', active)}
         ${navLink('learn', '学习', active)}
         ${navLink('watch', '观战', active)}
         ${navLink('community', '社区', active)}
         ${navLink('me', '个人', active)}
       </nav>
       <div class="userBar">
+        <button class="ghost" data-action="toggle-sound">音效：${state.soundEnabled ? '开' : '关'}</button>
         <span class="muted">${me ? `@${me.username}` : '未登录'}</span>
-        <button class="ghost" data-action="toggle-sound">${soundEnabled ? '音效开启' : '音效关闭'}</button>
         ${me ? '<button class="ghost" data-action="logout">退出</button>' : '<button class="btn" data-action="show-auth">登录 / 注册</button>'}
       </div>
     </header>
   `;
 }
 
+function renderGameEndModal() {
+  const route = currentRoute();
+  if (!state.endGameModal || (route.page !== 'game' && route.page !== 'practice')) {
+    return '';
+  }
+  const modal = state.endGameModal;
+  const game = modal.game || {};
+  const isPractice = !!game.isTraining;
+  const winner = game.winnerSide ? sideLabel(game.gameType, game.winnerSide) : '无';
+  const resultText = escapeHtml(game.resultText || '-');
+  const reason = escapeHtml(game.terminationReason || '-');
+  const analysisHref = `analysis/${escapeHtml(game.gameId || '')}`;
+  const roomHref = `room/${escapeHtml(game.roomId || '')}`;
+  return `
+    <div class="endGameOverlay" data-action="close-end-modal">
+      <div class="endGameCard" role="dialog" aria-modal="true" aria-label="对局结束" data-end-game-card>
+        <h3>对局结束</h3>
+        <p class="muted">胜方：${escapeHtml(winner)}</p>
+        <p>${resultText}</p>
+        <p class="muted">结束原因：${reason}</p>
+        <div class="roomRow">
+          <button class="btn" data-nav="${analysisHref}">进入分析</button>
+          ${isPractice ? '<button class="ghost" data-action="practice-rematch">再开一局</button><button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : `<button class="ghost" data-nav="${roomHref}">回到房间</button>`}
+          <button class="ghost" data-action="close-end-modal">关闭</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function navLink(page, label, active) {
-  return `<a class="${active === page ? 'is-active' : ''}" href="#/${page}">${label}</a>`;
+  const href = page === 'learn'
+    ? `#/learn/puzzles/${resolvePuzzleTheme(state.learnPuzzleTheme)}`
+    : `#/${page}`;
+  return `<a class="${active === page ? 'is-active' : ''}" href="${href}">${label}</a>`;
+}
+
+const pageRegistry = {
+  home: renderHomePage,
+  play: route => renderPlay(route),
+  room: route => renderRoom(route.id),
+  game: route => renderGame(route.id),
+  practice: route => renderPractice(route.id),
+  analysis: route => renderAnalysis(route.id),
+  learn: route => renderLearnPage(route),
+  watch: renderWatchPage,
+  community: renderCommunityPage,
+  me: renderProfilePage
+};
+
+function renderPage(route) {
+  const renderer = pageRegistry[route.page] || pageRegistry.home;
+  return renderer(route);
+}
+
+function resolveLearnSubRoute(value) {
+  return LEARN_SUB_ROUTES.includes(value) ? value : 'puzzles';
+}
+
+function resolvePuzzleTheme(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  return PUZZLE_THEMES.includes(normalized) ? normalized : 'ALL';
+}
+
+function isBoardRoutePage(page) {
+  return page === 'game' || page === 'practice' || page === 'analysis';
+}
+
+function boardSizeByType(gameType) {
+  if (gameType === 'XIANGQI') {
+    return { rows: XIANGQI_ROWS, cols: XIANGQI_COLS };
+  }
+  return { rows: GOMOKU_SIZE, cols: GOMOKU_SIZE };
+}
+
+function shouldFlipOnlineBoardForViewer(game) {
+  if (!game || game.isTraining) {
+    return false;
+  }
+  const viewerSide = game.viewerSide || inferViewerSide(game);
+  if (!viewerSide) {
+    return false;
+  }
+  if (game.gameType === 'XIANGQI') {
+    return viewerSide === 'BLACK';
+  }
+  if (game.gameType === 'GOMOKU') {
+    return viewerSide === 'WHITE';
+  }
+  return false;
+}
+
+function mapDisplayToBoardPosition(gameType, displayRow, displayCol, flipped) {
+  if (!flipped) {
+    return { row: displayRow, col: displayCol };
+  }
+  const size = boardSizeByType(gameType);
+  return {
+    row: size.rows - 1 - displayRow,
+    col: size.cols - 1 - displayCol
+  };
+}
+
+function mapBoardToDisplayPosition(gameType, row, col, flipped) {
+  if (!flipped) {
+    return { row: row, col: col };
+  }
+  const size = boardSizeByType(gameType);
+  return {
+    row: size.rows - 1 - row,
+    col: size.cols - 1 - col
+  };
+}
+
+function resolveBoardRenderOptions(game, route) {
+  if (!game) {
+    return { flipped: false, riverText: '楚河　汉界' };
+  }
+  const page = route && route.page ? route.page : String(route || '');
+  const onlineGameRoute = page === 'game' && !game.isTraining;
+  const flipped = onlineGameRoute && shouldFlipOnlineBoardForViewer(game);
+  return {
+    flipped: !!flipped,
+    riverText: flipped ? '汉界　楚河' : '楚河　汉界'
+  };
+}
+
+function sideLabel(gameType, side) {
+  if (!side) {
+    return '-';
+  }
+  if (gameType === 'XIANGQI') {
+    if (side === 'RED') return '红棋';
+    if (side === 'BLACK') return '黑棋';
+  } else if (gameType === 'GOMOKU') {
+    if (side === 'BLACK') return '黑棋';
+    if (side === 'WHITE') return '白棋';
+  }
+  return side;
+}
+
+function resolveOpponentSide(game, viewerSide) {
+  if (!game || !viewerSide || !game.players) {
+    return '';
+  }
+  const first = game.players.first || {};
+  const second = game.players.second || {};
+  if (first.side === viewerSide) {
+    return second.side || '';
+  }
+  if (second.side === viewerSide) {
+    return first.side || '';
+  }
+  return '';
+}
+
+function turnTextForViewer(game, viewerSide) {
+  const turn = game ? game.currentTurn : '';
+  if (!turn) {
+    return '-';
+  }
+  const actor = viewerSide && turn === viewerSide ? '你' : '对手';
+  return `${actor}（${sideLabel(game.gameType, turn)}）`;
+}
+
+function onlineGameStatusText(game) {
+  if (state.status) {
+    return state.status;
+  }
+  return (game && game.resultText) || '在线对局进行中';
 }
 
 function shouldShowAuthOverlay(route) {
   if (state.me) return false;
-  return route.page === 'home' ? state.authDialogOpen : true;
+  if (state.showAuthModal) return true;
+  return ['play', 'room', 'game', 'practice', 'me'].includes(route.page);
 }
 
-function renderPage(route) {
-  switch (route.page) {
-    case 'play':
-      return renderPlay();
-    case 'room':
-      return renderRoom(route.id);
-    case 'game':
-      return renderGame(route.id);
-    case 'practice':
-      return renderPractice(route.id);
-    case 'analysis':
-      return renderAnalysis(route.id);
-    case 'learn':
-      return renderLearn();
-    case 'ai':
-      return renderAiSetup();
-    case 'watch':
-      return renderPlaceholder('观战', '首版仅保留结构，实时观战与旁观者模式暂未接入。');
-    case 'community':
-      return renderPlaceholder('社区', '排行榜、俱乐部和活动入口仍为壳层，后续再接真数据。');
-    case 'me':
-      return renderProfile();
-    default:
-      return renderHome();
-  }
-}
-
-function renderHome() {
+function renderHomePage() {
   const b = state.bootstrap || { recentGames: [], activeRooms: 0, totalUsers: 0, totalGames: 0, activity: {} };
   const activity = b.activity || {};
   const activeRoom = activity.room;
   const activeGame = activity.game;
   return `
     <section class="hero">
-      <div class="meta">现在开始下棋</div>
-      <h1>轻棋局，把 AI 对局、在线对局和复盘放到同一个首页。</h1>
-      <p>先开一局，还是直接进入房间对战，都可以从这里开始。首页只负责把模式讲清楚，把下一步做得直接。</p>
-      <div class="grid cards heroStats">
-        <div class="card"><div class="meta">在线房间</div><h3>${b.activeRooms}</h3><p>此刻可进入的实时对局</p></div>
-        <div class="card"><div class="meta">棋手</div><h3>${b.totalUsers}</h3><p>已创建账号的玩家</p></div>
-        <div class="card"><div class="meta">归档棋局</div><h3>${b.totalGames}</h3><p>结束后可直接回放与复盘</p></div>
+      <div class="meta">Online Lobby</div>
+      <h1>这里专注在线房间对局</h1>
+      <p>中国象棋与五子棋都可以通过房间码或公开房间开始在线对战，AI 练习也保持在 Online 内完成。</p>
+      <div class="grid cards">
+        <div class="card"><div class="meta">Rooms</div><h3>${b.activeRooms}</h3><p>当前活动房间</p></div>
+        <div class="card"><div class="meta">Players</div><h3>${b.totalUsers}</h3><p>已注册用户</p></div>
+        <div class="card"><div class="meta">Games</div><h3>${b.totalGames}</h3><p>已归档在线局与练习局</p></div>
       </div>
-      ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
     </section>
-    <div class="split homeSplit">
+    <div class="split">
       <section class="panel">
-        <div class="sectionHead">
-          <h2 class="sectionTitle">选择模式</h2>
-          <p class="muted">AI 对局放在第一位，在线对局作为另一种模式放在首页，进入后再决定棋种和玩法细节。</p>
+        <h2 class="sectionTitle">快速开始</h2>
+        <div class="grid cards">
+          <div class="card"><h3>在线房间对局</h3><p>创建房间、分享邀请码、实时对战，支持棋钟、求和、认输与局后分析。</p><button class="btn" data-nav="play">进入大厅</button></div>
+          <div class="card"><h3>在线 AI 练习</h3><p>默认按中国象棋中等难度开局，点击后直接进入 AI 对局。</p><button class="btn" data-action="quick-start-ai-practice">直接进入 AI 对局</button></div>
+          <div class="card"><h3>围棋</h3><p>统一入口已保留，在线对战和 AI 练习都将在后续补齐。</p><button class="ghost" disabled>即将开放</button></div>
         </div>
-        <div class="grid cards modeCards">
-          <div class="card modeCard modeCardPrimary">
-            <div class="meta">Mode 01</div>
-            <h3>AI 对局</h3>
-            <p>进入专属棋桌后再选中国象棋或五子棋，支持难度、先后手、复盘和结果播报。</p>
-            <button class="btn" data-action="go-home-ai">进入 AI 棋桌</button>
-          </div>
-          <div class="card modeCard">
-            <div class="meta">Mode 02</div>
-            <h3>在线对局</h3>
-            <p>创建房间、输入邀请码或加入公开房间，支持棋钟、求和、认输与局后分析。</p>
-            <button class="ghost" data-nav="play">进入在线大厅</button>
-          </div>
-          <div class="card modeCard">
-            <div class="meta">More</div>
-            <h3>观战与学习</h3>
-            <p>观战、学习和社区继续保留在导航里，保持统一入口，不在首页占太大篇幅。</p>
-            <button class="ghost" data-nav="learn">查看学习内容</button>
-          </div>
-        </div>
+        ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
       </section>
       <section class="panel">
-        <div class="sectionHead">
-          <h2 class="sectionTitle">最近归档</h2>
-          <p class="muted">刚结束的棋局会立刻进入可分析状态，首页可以直接回看。</p>
-        </div>
+        <h2 class="sectionTitle">最近对局</h2>
         <div class="moves">
-          ${(b.recentGames || []).length ? b.recentGames.map(renderRecentGameCard).join('') : '<div class="banner">还没有归档对局，先开始一局 AI 对局或进入在线大厅。</div>'}
+          ${(b.recentGames || []).length ? b.recentGames.map(renderRecentGameCard).join('') : '<div class="banner">还没有归档对局，先去大厅或学习页开始一局。</div>'}
         </div>
       </section>
     </div>
   `;
 }
 
-function renderAiSetup() {
-  const cfg = state.learnConfig;
-  const engines = engineOptions(cfg.gameType);
+function renderLearnPage(route) {
+  if (!state.learnContent) {
+    loadLearnContent();
+    return '<section class="panel"><h2 class="sectionTitle">学习内容加载中</h2></section>';
+  }
+  if (state.me && !state.learnProgress) {
+    loadLearnProgress();
+  }
+  const content = state.learnContent || { tutorials: [], puzzles: [], recommendedPractice: [] };
+  const progress = state.learnProgress || { tutorialsCompleted: [], puzzlesCompleted: [] };
+  const activeTab = route && route.learnTab ? route.learnTab : resolveLearnSubRoute('');
+  const puzzleTheme = activeTab === 'puzzles'
+    ? resolvePuzzleTheme(route && route.puzzleTheme ? route.puzzleTheme : state.learnPuzzleTheme)
+    : resolvePuzzleTheme(state.learnPuzzleTheme);
+  if (activeTab === 'puzzles') {
+    state.learnPuzzleTheme = puzzleTheme;
+  }
+  const tabTitle = activeTab === 'tutorials' ? '教程' : (activeTab === 'practice' ? '推荐练习' : '题库 / 残局');
+  const tabDesc = activeTab === 'tutorials'
+    ? '从基础规则、战术主题到完整例线，按主题系统学习。'
+    : (activeTab === 'practice'
+      ? '直接创建 AI 练习局，或按推荐配置一键进入对弈。'
+      : '默认题库视图，支持按主题切换和“按此题开局”快速进入对应局面。');
   return `
     <section class="hero">
-      <div class="meta">AI 对局</div>
-      <h1>AI 棋桌</h1>
-      <p>选择棋种、难度和先后手，后端会自动匹配合适的 AI 引擎。练完直接复盘，练习局会自动归档到最近对局。</p>
+      <div class="meta">Learn</div>
+      <h1>学习模块</h1>
+      <p>游客可浏览全部内容；登录后可记录进度并直接发起 AI 练习。默认进入题库视图，支持深链接访问。</p>
+      <div class="grid cards">
+        <div class="card"><div class="meta">教程</div><h3>${(content.tutorials || []).length}</h3><p>基础与进阶学习清单</p></div>
+        <div class="card"><div class="meta">题库</div><h3>${(content.puzzles || []).length}</h3><p>残局与战术训练</p></div>
+        <div class="card"><div class="meta">进度</div><h3>${progressCount(progress)}</h3><p>${state.me ? '已完成项目总数' : '登录后可记录学习进度'}</p></div>
+      </div>
+      ${renderLearnSubTabs(activeTab, state.learnPuzzleTheme)}
     </section>
-    <section class="panel">
-      <h2 class="sectionTitle">配置对局</h2>
-      <div class="stack">
-        <div class="field">
-          <label>棋种</label>
-          <select data-learn-field="gameType">
-            <option value="XIANGQI" ${cfg.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
-            <option value="GOMOKU" ${cfg.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>难度</label>
-          <select data-learn-field="difficulty">
-            <option value="EASY" ${cfg.difficulty === 'EASY' ? 'selected' : ''}>简单</option>
-            <option value="MEDIUM" ${cfg.difficulty === 'MEDIUM' ? 'selected' : ''}>中等</option>
-            <option value="HARD" ${cfg.difficulty === 'HARD' ? 'selected' : ''}>困难</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>先后手</label>
-          <select data-learn-field="humanFirst">
-            <option value="true" ${cfg.humanFirst ? 'selected' : ''}>我先手（红方 / 黑方）</option>
-            <option value="false" ${!cfg.humanFirst ? 'selected' : ''}>AI 先手</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>AI 引擎</label>
-          <select data-learn-field="preferredEngine">
-            ${engines.map(e => `<option value="${e.value}" ${cfg.preferredEngine === e.value ? 'selected' : ''}>${e.label}</option>`).join('')}
-          </select>
-        </div>
-        <button class="btn" data-action="create-practice">开始对局</button>
-        <div class="status">${state.status || ''}</div>
+    <section class="panel" style="margin-top:18px">
+      <h2 class="sectionTitle">${tabTitle}</h2>
+      <p class="muted" style="margin:0 0 12px">${tabDesc}</p>
+      ${renderLearnTabContent(activeTab, content, progress, puzzleTheme)}
+    </section>
+  `;
+}
+
+function renderWatchPage() {
+  if (!state.watchOverview) {
+    loadWatchOverview();
+    return '<section class="panel"><h2 class="sectionTitle">观战数据加载中</h2></section>';
+  }
+  const rooms = filterWatchRooms((state.watchOverview.publicRooms || []), state.watchFilters);
+  const games = filterWatchGames((state.watchOverview.archivedGames || []), state.watchFilters);
+  return `
+    <section class="hero">
+      <div class="meta">Watch</div>
+      <h1>公开观战入口</h1>
+      <p>先提供稳定轮询刷新（${Math.floor(WATCH_POLL_INTERVAL_MS / 1000)} 秒）。可按棋种和状态过滤，并快速跳转分析页。</p>
+    </section>
+    <section class="panel" style="margin-top:18px">
+      <div class="roomRow" style="margin-bottom:12px">
+        <select data-watch-filter="gameType">
+          <option value="ALL" ${state.watchFilters.gameType === 'ALL' ? 'selected' : ''}>全部棋种</option>
+          <option value="XIANGQI" ${state.watchFilters.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
+          <option value="GOMOKU" ${state.watchFilters.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
+        </select>
+        <select data-watch-filter="status">
+          <option value="ALL" ${state.watchFilters.status === 'ALL' ? 'selected' : ''}>全部状态</option>
+          <option value="PLAYING" ${state.watchFilters.status === 'PLAYING' ? 'selected' : ''}>进行中</option>
+          <option value="FINISHED" ${state.watchFilters.status === 'FINISHED' ? 'selected' : ''}>已结束</option>
+        </select>
+        <button class="ghost" data-action="refresh-watch">手动刷新</button>
+      </div>
+      <div class="split">
+        <section class="panel">
+          <h3>公开房间</h3>
+          <div class="moves">${renderWatchRooms(rooms)}</div>
+        </section>
+        <section class="panel">
+          <h3>可观战归档对局</h3>
+          <div class="moves">${renderWatchGames(games)}</div>
+        </section>
       </div>
     </section>
   `;
 }
 
-function renderLearn() {
-  if (!state.endgamesLoaded) {
-    loadEndgames();
+function renderCommunityPage() {
+  if (!state.communityLeaderboard) {
+    loadCommunityLeaderboard();
+    return '<section class="panel"><h2 class="sectionTitle">社区榜单加载中</h2></section>';
   }
-  const endgames = state.endgames || [];
-  const groups = { beginner: [], intermediate: [], advanced: [] };
-  endgames.forEach(eg => {
-    const d = (eg.difficulty || 'beginner').toLowerCase();
-    if (groups[d]) groups[d].push(eg);
+  const board = state.communityLeaderboard || { winBoard: [], activityBoard: [] };
+  const isWin = state.communityTab === 'win';
+  const items = isWin ? (board.winBoard || []) : (board.activityBoard || []);
+  const title = isWin ? '胜局榜' : '活跃榜';
+  const quickEntry = state.me
+    ? '<div class="roomRow" style="margin-top:12px"><button class="btn" data-nav="me">查看我的主页</button><button class="ghost" data-nav="play">进入对局大厅</button></div>'
+    : '<div class="banner" style="margin-top:12px">登录后会高亮你的榜单位置，并提供个人主页快捷入口。</div>';
+  return `
+    <section class="hero">
+      <div class="meta">Community</div>
+      <h1>排行榜与活跃榜</h1>
+      <p>默认按最近 ${board.windowDaysUsed || board.requestedWindowDays || 30} 天统计。若样本不足会自动回退到全量历史。</p>
+      ${quickEntry}
+    </section>
+    <section class="panel" style="margin-top:18px">
+      <div class="roomRow" style="margin-bottom:12px">
+        <button class="${isWin ? 'btn' : 'ghost'}" data-community-tab="win">胜局榜</button>
+        <button class="${!isWin ? 'btn' : 'ghost'}" data-community-tab="activity">活跃榜</button>
+      </div>
+      ${board.fallbackToAllTime ? '<div class="banner">近 30 天样本较少，当前展示全量历史榜单。</div>' : ''}
+      <h2 class="sectionTitle">${title}</h2>
+      <div class="moves">${renderCommunityItems(items, isWin)}</div>
+    </section>
+  `;
+}
+
+function renderProfilePage() {
+  return renderProfile();
+}
+
+function progressCount(progress) {
+  const tutorials = (progress && progress.tutorialsCompleted) || [];
+  const puzzles = (progress && progress.puzzlesCompleted) || [];
+  return tutorials.length + puzzles.length;
+}
+
+function renderLearnSubTabs(activeTab, puzzleTheme) {
+  const theme = resolvePuzzleTheme(puzzleTheme);
+  return `
+    <div class="learnTabs">
+      <a href="#/learn/puzzles/${theme}" class="${activeTab === 'puzzles' ? 'is-active' : ''}">题库</a>
+      <a href="#/learn/tutorials" class="${activeTab === 'tutorials' ? 'is-active' : ''}">教程</a>
+      <a href="#/learn/practice" class="${activeTab === 'practice' ? 'is-active' : ''}">练习</a>
+    </div>
+  `;
+}
+
+function renderLearnTabContent(activeTab, content, progress, puzzleTheme) {
+  if (activeTab === 'tutorials') {
+    return `<div class="moves">${renderLearnTutorials(content.tutorials || [], progress.tutorialsCompleted || [])}</div>`;
+  }
+  if (activeTab === 'practice') {
+    return renderLearnPracticeTab(content);
+  }
+  return `
+    ${renderPuzzleThemeTiles(puzzleTheme)}
+    <div class="moves">${renderLearnPuzzles(content.puzzles || [], progress.puzzlesCompleted || [], puzzleTheme)}</div>
+  `;
+}
+
+function renderPuzzleThemeTiles(activeTheme) {
+  const resolved = resolvePuzzleTheme(activeTheme);
+  return `
+    <div class="learnThemeTiles">
+      ${PUZZLE_THEMES.map(theme => `<a class="learnThemeTile ${resolved === theme ? 'is-active' : ''}" href="#/learn/puzzles/${theme}">${escapeHtml(puzzleThemeLabel(theme))}</a>`).join('')}
+    </div>
+  `;
+}
+
+function puzzleThemeLabel(theme) {
+  if (theme === 'ALL') return '全部';
+  if (theme === 'TACTIC') return '战术';
+  if (theme === 'MATE') return '杀法';
+  if (theme === 'POSITION') return '局面';
+  if (theme === 'ENDGAME_FEN') return '残局';
+  return theme;
+}
+
+function renderLearnPracticeTab(content) {
+  const engines = engineOptions(state.learnConfig.gameType);
+  return `
+    <div class="split">
+      <section class="panel">
+        <h3 style="margin:0 0 12px">快速创建 AI 练习</h3>
+        <div class="stack">
+          <div class="field">
+            <label>棋种</label>
+            <select data-learn-field="gameType">
+              <option value="XIANGQI" ${state.learnConfig.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
+              <option value="GOMOKU" ${state.learnConfig.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>难度</label>
+            <select data-learn-field="difficulty">
+              <option value="EASY" ${state.learnConfig.difficulty === 'EASY' ? 'selected' : ''}>简单</option>
+              <option value="MEDIUM" ${state.learnConfig.difficulty === 'MEDIUM' ? 'selected' : ''}>中等</option>
+              <option value="HARD" ${state.learnConfig.difficulty === 'HARD' ? 'selected' : ''}>困难</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>先后手</label>
+            <select data-learn-field="humanFirst">
+              <option value="true" ${state.learnConfig.humanFirst ? 'selected' : ''}>我先手</option>
+              <option value="false" ${!state.learnConfig.humanFirst ? 'selected' : ''}>AI 先手</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>引擎</label>
+            <select data-learn-field="preferredEngine">
+              ${engines.map(item => `<option value="${item.value}" ${state.learnConfig.preferredEngine === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+            </select>
+          </div>
+          <button class="btn" data-action="create-practice">直接进入 AI 对局</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h3 style="margin:0 0 12px">推荐练习配置</h3>
+        <div class="grid cards">
+          ${(content.recommendedPractice || []).length
+            ? (content.recommendedPractice || []).map(renderPracticePresetCard).join('')
+            : '<div class="banner">暂无推荐练习配置。</div>'}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderLearnTutorials(items, completedIds) {
+  const completed = new Set(completedIds || []);
+  if (!items.length) {
+    return '<div class="banner">暂无教程内容。</div>';
+  }
+  return items.map(item => `
+    <div class="move">
+      <div class="learnMain">
+        <strong>${escapeHtml(item.title || '')}</strong>
+        <div class="muted">${escapeHtml(item.gameType || '')} · ${escapeHtml(item.difficulty || '')} · ${escapeHtml(String(item.minutes || '-'))} 分钟</div>
+        <div class="muted">${escapeHtml(item.summary || '')}</div>
+        <div class="learnDetail">
+          ${renderLearnTextBlock('学习目标', item.objective)}
+          ${renderLearnListBlock('关键要点', item.keyPoints)}
+          ${renderLearnListBlock('示例走法', item.exampleLine)}
+          ${renderLearnListBlock('练习清单', item.practiceChecklist)}
+        </div>
+      </div>
+      <div class="learnAction">${renderProgressAction('tutorial', item.id, completed.has(item.id))}</div>
+    </div>
+  `).join('');
+}
+
+function renderLearnPuzzles(items, completedIds, puzzleTheme) {
+  const completed = new Set(completedIds || []);
+  const resolvedTheme = resolvePuzzleTheme(puzzleTheme);
+  const filteredItems = resolvedTheme === 'ALL'
+    ? (items || [])
+    : (items || []).filter(item => resolvePuzzleTheme(item.theme) === resolvedTheme);
+  if (!filteredItems.length) {
+    return '<div class="banner">暂无题库内容。</div>';
+  }
+  return filteredItems.map(item => `
+    <div class="move">
+      <div class="learnMain">
+        <strong>${escapeHtml(item.title || '')}</strong>
+        <div class="muted">${escapeHtml(item.gameType || '')} · ${escapeHtml(item.difficulty || '')} · ${escapeHtml(puzzleThemeLabel(resolvePuzzleTheme(item.theme)))}</div>
+        <div class="muted learnSummaryOneLine">${escapeHtml(item.summary || '暂无题目摘要')}</div>
+      </div>
+      <div class="learnAction">${renderPuzzleActions(item, completed.has(item.id))}</div>
+    </div>
+  `).join('');
+}
+
+function renderPuzzleActions(item, completed) {
+  const completeAction = renderProgressAction('puzzle', item.id, completed);
+  if (!canStartPuzzlePractice(item)) {
+    return `
+      <div class="learnActionGroup">
+        ${completeAction}
+        <button class="ghost" disabled>FEN 待补全</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="learnActionGroup">
+      ${completeAction}
+      <button class="btn" data-action="start-puzzle-practice" data-puzzle-id="${escapeHtml(item.id || '')}">按此题开局</button>
+    </div>
+  `;
+}
+
+function renderProgressAction(kind, id, completed) {
+  if (completed) {
+    return '<span class="pill">已完成</span>';
+  }
+  if (!state.me) {
+    return '<button class="ghost" disabled>登录后记录</button>';
+  }
+  return `<button class="btn" data-learn-complete="${kind}" data-id="${escapeHtml(id || '')}">标记完成</button>`;
+}
+
+function renderLearnTextBlock(label, value) {
+  if (!value) {
+    return '';
+  }
+  return `
+    <div class="learnBlock">
+      <div class="learnLabel">${escapeHtml(label)}</div>
+      <div class="learnText">${escapeHtml(value)}</div>
+    </div>
+  `;
+}
+
+function renderLearnFenBlock(fen) {
+  if (!fen) {
+    return '';
+  }
+  return `
+    <div class="learnBlock">
+      <div class="learnLabel">FEN</div>
+      <div class="learnText learnText--fen">${escapeHtml(fen)}</div>
+    </div>
+  `;
+}
+
+function canStartPuzzlePractice(item) {
+  return !!(item
+    && item.gameType === 'XIANGQI'
+    && isValidXiangqiInitialFen(item.fen));
+}
+
+function normalizeFenText(fen) {
+  return String(fen || '').trim().replace(/\s+/g, ' ');
+}
+
+function isValidXiangqiInitialFen(fen) {
+  const normalized = normalizeFenText(fen);
+  if (!normalized) {
+    return false;
+  }
+  const parts = normalized.split(' ');
+  const boardPart = parts[0] || '';
+  const rows = boardPart.split('/');
+  if (rows.length !== 10) {
+    return false;
+  }
+  const allowedPieces = new Set(['k', 'a', 'b', 'n', 'r', 'c', 'p', 'K', 'A', 'B', 'N', 'R', 'C', 'P']);
+  let redGeneral = 0;
+  let blackGeneral = 0;
+  for (const row of rows) {
+    let col = 0;
+    for (const ch of row) {
+      if (ch >= '1' && ch <= '9') {
+        col += Number(ch);
+      } else if (allowedPieces.has(ch)) {
+        col += 1;
+        if (ch === 'K') redGeneral += 1;
+        if (ch === 'k') blackGeneral += 1;
+      } else {
+        return false;
+      }
+      if (col > 9) {
+        return false;
+      }
+    }
+    if (col !== 9) {
+      return false;
+    }
+  }
+  if (redGeneral !== 1 || blackGeneral !== 1) {
+    return false;
+  }
+  if (parts.length > 1 && parts[1] !== 'w' && parts[1] !== 'b') {
+    return false;
+  }
+  return true;
+}
+
+function renderLearnListBlock(label, values) {
+  if (!Array.isArray(values) || !values.length) {
+    return '';
+  }
+  return `
+    <div class="learnBlock">
+      <div class="learnLabel">${escapeHtml(label)}</div>
+      <ul class="learnList">
+        ${values.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+function renderPracticePresetCard(item) {
+  return `
+    <div class="card">
+      <h3>${escapeHtml(item.title || '')}</h3>
+      <p>${escapeHtml(item.description || '')}</p>
+      <div class="muted">${escapeHtml(item.gameType || '')} · ${escapeHtml(item.difficulty || '')}</div>
+      <button class="btn" style="margin-top:10px" data-action="start-practice-preset" data-preset-id="${escapeHtml(item.id || '')}">立即练习</button>
+    </div>
+  `;
+}
+
+function filterWatchRooms(items, filters) {
+  return (items || []).filter(item => {
+    if (filters.gameType !== 'ALL' && item.gameType !== filters.gameType) return false;
+    if (filters.status !== 'ALL' && item.status !== filters.status) return false;
+    return true;
   });
-  const labels = { beginner: '入门', intermediate: '进阶', advanced: '高级' };
-  const icons = { beginner: '♟', intermediate: '♞', advanced: '♛' };
-  const total = endgames.length;
-  return `
-    <section class="hero">
-      <div class="meta">残局练习</div>
-      <h1>残局训练场</h1>
-      <p>精选 ${total} 道残局题，从基本杀法到经典江湖残局，逐步提升你的棋力。点击任意残局即可开始练习。</p>
-    </section>
-    <section class="panel learnPanel">
-      <div class="learnFilter">
-        <span class="muted">难度筛选：</span>
-        <button class="ghost learnFilterBtn is-active" data-filter="all">全部 (${total})</button>
-        <button class="ghost learnFilterBtn" data-filter="beginner">入门 (${groups.beginner.length})</button>
-        <button class="ghost learnFilterBtn" data-filter="intermediate">进阶 (${groups.intermediate.length})</button>
-        <button class="ghost learnFilterBtn" data-filter="advanced">高级 (${groups.advanced.length})</button>
+}
+
+function filterWatchGames(items, filters) {
+  return (items || []).filter(item => {
+    if (filters.gameType !== 'ALL' && item.gameType !== filters.gameType) return false;
+    if (filters.status !== 'ALL' && item.status !== filters.status) return false;
+    return true;
+  });
+}
+
+function renderWatchRooms(items) {
+  if (!items.length) {
+    return '<div class="banner">暂无公开房间。</div>';
+  }
+  return items.map(item => `
+    <div class="move">
+      <div>
+        <strong>${escapeHtml(item.gameType || '')}</strong>
+        <div class="muted">${escapeHtml(item.players && item.players.first ? item.players.first.username : '')} vs ${escapeHtml(item.players && item.players.second ? item.players.second.username : '等待加入')}</div>
+        <div class="muted">状态：${escapeHtml(item.status || '')}</div>
       </div>
-      ${['beginner', 'intermediate', 'advanced'].map(diff => `
-        <div class="learnGroup" data-difficulty="${diff}">
-          <div class="learnGroupHead">
-            <span class="learnGroupIcon">${icons[diff]}</span>
-            <h2>${labels[diff]}</h2>
-            <span class="muted">${groups[diff].length} 题</span>
-          </div>
-          <div class="grid cards learnCards">
-            ${groups[diff].map(eg => `
-              <div class="card learnCard ${eg.solved === 'true' ? 'learnCard-solved' : ''}" data-endgame-id="${eg.id}">
-                <div class="learnCardMeta">
-                  <span class="pill learnDifficulty learnDifficulty-${diff}">${labels[diff]}</span>
-                  ${eg.solved === 'true' ? '<span class="pill learnSolvedBadge">已破解</span>' : ''}
-                  <span class="muted">${eg.category || '残局'}</span>
-                </div>
-                <h3>${eg.name}</h3>
-                <p>${eg.description || ''}</p>
-                <div class="learnCardSource muted">${eg.source || ''}</div>
-              </div>
-            `).join('')}
-          </div>
+      ${item.gameId ? `<button class="ghost" data-nav="analysis/${escapeHtml(item.gameId)}">分析</button>` : '<span class="pill">等待开局</span>'}
+    </div>
+  `).join('');
+}
+
+function renderWatchGames(items) {
+  if (!items.length) {
+    return '<div class="banner">暂无可观战归档对局。</div>';
+  }
+  return items.map(item => `
+    <div class="move">
+      <div>
+        <strong>${escapeHtml(item.gameType || '')}</strong>
+        <div class="muted">${escapeHtml(item.players && item.players.first ? item.players.first.username : '')} vs ${escapeHtml(item.players && item.players.second ? item.players.second.username : '')}</div>
+        <div class="muted">状态：${escapeHtml(item.status || '')} · 手数：${escapeHtml(String(item.moveCount || 0))}</div>
+      </div>
+      <button class="ghost" data-nav="analysis/${escapeHtml(item.gameId || '')}">查看</button>
+    </div>
+  `).join('');
+}
+
+function renderCommunityItems(items, isWinBoard) {
+  if (!items.length) {
+    return '<div class="banner">当前暂无榜单数据。</div>';
+  }
+  return items.map(item => {
+    const self = state.me && state.me.id === item.userId;
+    const metrics = isWinBoard
+      ? `胜 ${item.wins || 0} / 总 ${item.totalGames || 0} / 胜率 ${(Number(item.winRate || 0) * 100).toFixed(1)}%`
+      : `活跃局数 ${item.activityGames || 0} / 胜局 ${item.wins || 0}`;
+    return `
+      <div class="move ${self ? 'is-current' : ''}">
+        <div>
+          <strong>#${item.rank || '-'} ${escapeHtml(item.username || '')}${self ? '（你）' : ''}</strong>
+          <div class="muted">${metrics}</div>
         </div>
-      `).join('')}
-    </section>
-  `;
-}
-
-async function loadEndgames() {
-  if (state.endgamesLoaded) return;
-  state.endgamesLoaded = true;
-  try {
-    const data = await fetchJson(`${API_BASE}/learn/endgames`);
-    state.endgames = data.endgames || [];
-  } catch (_e) {
-    state.endgames = [];
-  }
-  render();
-}
-
-async function requestHint() {
-  const game = state.game;
-  if (!game || game.status === 'FINISHED' || !game.endgameName) return;
-  try {
-    const hint = await fetchJson(`${API_BASE}/learn/practice-games/${game.gameId}/hint`, { method: 'POST' });
-    state.hintHighlight = { fromRow: hint.fromRow, fromCol: hint.fromCol, toRow: hint.toRow, toCol: hint.toCol };
-    state.game = enrichGame({ ...game, hintUsed: hint.hintUsed });
-    render();
-  } catch (error) {
-    state.status = error.message;
-    render();
-  }
-}
-
-async function startEndgamePractice(endgameId) {
-  try {
-    state.status = '';
-    state.hintHighlight = null;
-    const data = await fetchJson(`${API_BASE}/learn/endgames`);
-    const eg = (data.endgames || []).find(e => e.id === endgameId);
-    if (!eg) { state.status = '残局不存在'; render(); return; }
-    const config = {
-      gameType: 'XIANGQI',
-      difficulty: 'MEDIUM',
-      humanFirst: true,
-      preferredEngine: 'BUILTIN',
-      fen: eg.fen,
-      endgameId: eg.id,
-      endgameName: eg.name
-    };
-    const game = await fetchJson(`${API_BASE}/learn/practice-games`, {
-      method: 'POST',
-      body: JSON.stringify(config)
-    });
-    state.game = enrichGame(game);
-    await refreshBootstrapAndProfile();
-    navTo(`practice/${game.gameId}`);
-  } catch (error) {
-    state.status = error.message;
-    render();
-  }
+      </div>
+    `;
+  }).join('');
 }
 
 function renderActivityBanner(room, game) {
@@ -475,120 +1053,97 @@ function renderPractice(gameId) {
 }
 
 function renderOnlineGameView(game) {
-  const board = game.gameType === 'GOMOKU' ? renderGomokuBoard(game) : renderXiangqiBoard(game);
+  const board = renderPlayableBoardByGameType(game, resolveBoardRenderOptions(game, { page: 'game' }));
   const drawOffer = game.drawOffer;
   const viewerSide = game.viewerSide || inferViewerSide(game);
+  const opponentSide = resolveOpponentSide(game, viewerSide);
   const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
   const canOfferDraw = game.status === 'PLAYING' && !drawOffer;
-  const finished = game.status !== 'PLAYING';
   return `
-    <div class="split">
-      <section class="boardWrap">
-        <div class="gameMetaRow">
-          <span class="pill">${game.gameType}</span>
-          <span class="pill">轮到 ${game.currentTurn || '-'}</span>
-          <span class="pill">${game.status}</span>
-          <span class="pill">${game.terminationReason || 'LIVE'}</span>
-        </div>
-        <div class="clockGrid">
-          ${renderClockCard(game, 'first')}
-          ${renderClockCard(game, 'second')}
-        </div>
-        ${finished ? renderFinishedBanner(game, true) : `<div class="status">${game.resultText || '在线对局进行中'}</div>`}
-        ${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}
-        ${board}
-        ${finished ? renderFinishedActions(game, true) : `
-          <div class="roomRow">
-            <button class="ghost" data-nav="room/${game.roomId}">回到房间</button>
-            <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
-            ${canOfferDraw ? '<button class="ghost" data-action="offer-draw">求和</button>' : ''}
-            <button class="danger" data-action="resign">认输</button>
+    <div class="boardPage">
+      ${renderBoardPaneTabs()}
+      <div class="split boardSplit">
+        <section class="boardWrap boardPane">
+          <div class="gameMetaRow">
+            <span class="pill">${game.gameType}</span>
+            <span class="pill" data-live-side-self>你执 ${sideLabel(game.gameType, viewerSide)}</span>
+            <span class="pill" data-live-side-opponent>对手执 ${sideLabel(game.gameType, opponentSide)}</span>
+            <span class="pill" data-live-turn>轮到 ${turnTextForViewer(game, viewerSide)}</span>
+            <span class="pill" data-live-game-status>${game.status}</span>
+            <span class="pill" data-live-game-termination>${game.terminationReason || 'LIVE'}</span>
           </div>
-        `}
-      </section>
-      <section class="panel">
-        <h2 class="sectionTitle">走子记录</h2>
-        <div class="moves">
-          ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
-        </div>
-      </section>
+          <div class="clockGrid" data-live-clock-grid>
+            ${renderClockCard(game, 'first')}
+            ${renderClockCard(game, 'second')}
+          </div>
+          <div class="status" data-live-status>${onlineGameStatusText(game)}</div>
+          <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
+          <div data-live-board-host>${board}</div>
+          <div class="roomRow" data-live-game-actions>
+            ${renderOnlineGameActions(game, canOfferDraw)}
+          </div>
+        </section>
+        <section class="panel recordPane">
+          <h2 class="sectionTitle">走子记录</h2>
+          <div class="moves" data-live-moves>
+            ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
+          </div>
+        </section>
+      </div>
     </div>
+  `;
+}
+
+function renderOnlineGameActions(game, canOfferDraw) {
+  return `
+    <button class="ghost" data-nav="room/${game.roomId}">回到房间</button>
+    <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
+    ${canOfferDraw ? '<button class="ghost" data-action="offer-draw">求和</button>' : ''}
+    ${game.status === 'PLAYING' ? '<button class="danger" data-action="resign">认输</button>' : ''}
   `;
 }
 
 function renderPracticeView(game) {
-  const board = game.gameType === 'GOMOKU' ? renderGomokuBoard(game) : renderXiangqiBoard(game);
+  const board = renderPlayableBoardByGameType(game, resolveBoardRenderOptions(game, { page: 'practice' }));
   const ai = practiceAiMeta(game);
-  const finished = game.status !== 'PLAYING';
+  const undoDisabledReason = practiceUndoDisabledReason(game);
+  const undoDisabled = !!undoDisabledReason;
   return `
-    <div class="split">
-      <section class="boardWrap">
-        <div class="gameMetaRow">
-          <span class="pill">AI 练习</span>
-          ${game.endgameName ? `<span class="pill pill-endgame">${game.endgameName}</span>` : ''}
-          <span class="pill">${game.gameType}</span>
-          <span class="pill">${game.viewerSide || inferViewerSide(game)}</span>
-          <span class="pill">轮到 ${game.currentTurn || '-'}</span>
-          <span class="pill">${game.status}</span>
-        </div>
-        <div class="grid cards">
-          <div class="card"><div class="meta">AI</div><h3>${ai.engineText}</h3><p>${ai.engineId} · ${ai.difficulty}</p></div>
-          <div class="card"><div class="meta">对手</div><h3>${practiceOpponent(game)}</h3><p>${game.aiSide || ai.side || '-'}</p></div>
-        </div>
-        ${finished ? renderFinishedBanner(game, false) : `
-          <div class="status">${game.resultText || '轮到你落子后，后端会立刻返回 AI 应手。'}</div>
-          ${game.endgameName ? `<div class="hintRow"><button class="ghost" data-action="request-hint">提示</button>${game.hintUsed ? `<span class="hintCount muted">已用 ${game.hintUsed} 次提示</span>` : ''}</div>` : ''}
-        `}
-        ${board}
-        ${finished ? renderFinishedActions(game, false) : `
-          <div class="roomRow">
-            <button class="ghost" data-nav="home">返回首页</button>
-            <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
-            ${game.endgameName ? '<button class="ghost" data-action="request-hint">提示</button>' : ''}
-            <button class="danger" data-action="resign">认输</button>
+    <div class="boardPage boardPage--practice">
+      ${renderBoardPaneTabs()}
+      <div class="split boardSplit">
+        <section class="boardWrap boardPane boardPane--practice">
+          <div class="gameMetaRow">
+            <span class="pill">AI 练习</span>
+            <span class="pill">${game.gameType}</span>
+            <span class="pill">${game.viewerSide || inferViewerSide(game)}</span>
+            <span class="pill">轮到 ${game.currentTurn || '-'}</span>
+            <span class="pill">${game.status}</span>
           </div>
-        `}
-      </section>
-      <section class="panel">
-        <h2 class="sectionTitle">练习记录</h2>
-        <div class="moves">
-          ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
-        </div>
-      </section>
-    </div>
-  `;
-}
-
-function renderFinishedBanner(game, isOnline) {
-  const isPuzzleWin = !isOnline && game.endgameName && game.winnerSide && game.winnerSide === (game.viewerSide || inferViewerSide(game));
-  return `
-    <div class="banner endgameBanner ${isPuzzleWin ? 'puzzleWinBanner' : ''}">
-      <div>
-        <strong>${isPuzzleWin ? '残局破解成功！' : isOnline ? '在线对局结束' : 'AI 对局结束'}</strong>
-        <div class="muted">${game.resultText || game.terminationReason || '本局已结束'}${game.hintUsed ? ` · 用了 ${game.hintUsed} 次提示` : ''} · 共 ${game.moveCount || 0} 步</div>
+          <div class="practiceInfoLine">
+            <span class="pill">AI ${escapeHtml(ai.engineText || '-')}</span>
+            <span class="pill">引擎 ${escapeHtml(ai.engineId || '-')}</span>
+            <span class="pill">难度 ${escapeHtml(ai.difficulty || '-')}</span>
+            <span class="pill">对手 ${escapeHtml(practiceOpponent(game))}</span>
+            <span class="pill">AI 方 ${escapeHtml(game.aiSide || ai.side || '-')}</span>
+          </div>
+          <div class="status" data-live-status>${practiceStatusText(game)}</div>
+          <div data-live-board-host>${board}</div>
+          <div class="roomRow">
+            <button class="ghost" data-nav="learn/practice">返回学习页</button>
+            <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
+            ${game.status === 'PLAYING'
+              ? `<button class="ghost" data-action="undo-practice" ${undoDisabled ? 'disabled' : ''} title="${escapeHtml(undoDisabledReason || '回合悔棋：撤销你最近一步及其后续 AI 应手')}">悔棋</button><button class="danger" data-action="resign">认输</button>`
+              : '<button class="btn" data-action="practice-rematch">再开一局</button>'}
+          </div>
+        </section>
+        <section class="panel recordPane">
+          <h2 class="sectionTitle">练习记录</h2>
+          <div class="moves">
+            ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
+          </div>
+        </section>
       </div>
-      <span class="pill">${game.status}</span>
-    </div>
-  `;
-}
-
-function renderFinishedActions(game, isOnline) {
-  if (isOnline) {
-    return `
-      <div class="roomRow endgameActions">
-        <button class="btn" data-action="play-online-again">再来一局</button>
-        <button class="ghost" data-nav="analysis/${game.gameId}">复盘分析</button>
-        <button class="ghost" data-nav="room/${game.roomId}">回到房间</button>
-        <button class="ghost" data-nav="home">返回首页</button>
-      </div>
-    `;
-  }
-  return `
-    <div class="roomRow endgameActions">
-      <button class="btn" data-action="play-practice-again">再来一局</button>
-      ${game.endgameName ? '<button class="ghost" data-nav="learn">返回残局列表</button>' : ''}
-      <button class="ghost" data-nav="analysis/${game.gameId}">复盘分析</button>
-      <button class="ghost" data-nav="home">返回首页</button>
     </div>
   `;
 }
@@ -598,11 +1153,12 @@ function renderClockCard(game, slot) {
   const side = player.side;
   const active = game.status === 'PLAYING' && game.currentTurn === side;
   const remaining = slot === 'first' ? effectiveRemaining(game, game.firstRemainingSeconds, side) : effectiveRemaining(game, game.secondRemainingSeconds, side);
+  const baseRemaining = slot === 'first' ? (game.firstRemainingSeconds || 0) : (game.secondRemainingSeconds || 0);
   return `
-    <div class="clockCard ${active ? 'is-active' : ''}">
+    <div class="clockCard ${active ? 'is-active' : ''}" data-clock-card="${side}">
       <div class="meta">${side}</div>
       <strong>${player.username}</strong>
-      <div class="clockValue">${formatClock(remaining)}</div>
+      <div class="clockValue" data-clock-value="${side}" data-remaining-base="${baseRemaining}">${formatClock(remaining)}</div>
     </div>
   `;
 }
@@ -630,34 +1186,47 @@ function renderAnalysis(gameId) {
   const step = Math.max(0, Math.min(state.analysisStep, boards.length - 1));
   const board = boards[step] || analysis.board || [];
   const move = step === 0 ? null : (analysis.moves || [])[step - 1];
+  const marker = createMoveMarker(analysis.gameType, move, analysis.viewerSide || '');
   return `
-    <div class="split">
-      <section class="boardWrap">
-        <div class="gameMetaRow">
-          <span class="pill">${analysis.gameType}</span>
-          ${analysis.isTraining ? '<span class="pill">AI 练习</span>' : ''}
-          <span class="pill">${analysis.status}</span>
-          <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
-        </div>
-        <div class="status">${(analysis.isTraining || analysis.aiEngine) ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
-        ${renderReadonlyBoard(analysis.gameType, board)}
-        <div class="roomRow">
-          <button class="ghost" data-analysis-step="0">开局</button>
-          <button class="ghost" data-analysis-step="${Math.max(0, step - 1)}">上一步</button>
-          <button class="ghost" data-analysis-step="${Math.min(boards.length - 1, step + 1)}">下一步</button>
-          <button class="ghost" data-analysis-step="${boards.length - 1}">终局</button>
-        </div>
-      </section>
-      <section class="panel">
-        <h2 class="sectionTitle">全部着法</h2>
-        <div class="moves">
-          ${(analysis.moves || []).length ? analysis.moves.map(moveItem => `
-            <button class="move ${step === moveItem.index ? 'is-current' : ''}" data-analysis-step="${moveItem.index}">
-              <div><strong>#${moveItem.index}</strong><div class="muted">${moveItem.side}</div></div>
-              <div>${moveItem.notation}</div>
-            </button>`).join('') : '<div class="banner">当前没有可回放着法。</div>'}
-        </div>
-      </section>
+    <div class="boardPage">
+      ${renderBoardPaneTabs()}
+      <div class="split boardSplit">
+        <section class="boardWrap boardPane">
+          <div class="gameMetaRow">
+            <span class="pill">${analysis.gameType}</span>
+            ${analysis.isTraining ? '<span class="pill">AI 练习</span>' : ''}
+            <span class="pill">${analysis.status}</span>
+            <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
+          </div>
+          <div class="status">${analysis.isTraining ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
+          ${renderAnalysisBoardByGameType(analysis.gameType, board, marker)}
+          <div class="roomRow">
+            <button class="ghost" data-analysis-step="0">开局</button>
+            <button class="ghost" data-analysis-step="${Math.max(0, step - 1)}">上一步</button>
+            <button class="ghost" data-analysis-step="${Math.min(boards.length - 1, step + 1)}">下一步</button>
+            <button class="ghost" data-analysis-step="${boards.length - 1}">终局</button>
+          </div>
+        </section>
+        <section class="panel recordPane">
+          <h2 class="sectionTitle">全部着法</h2>
+          <div class="moves">
+            ${(analysis.moves || []).length ? analysis.moves.map(moveItem => `
+              <button class="move ${step === moveItem.index ? 'is-current' : ''}" data-analysis-step="${moveItem.index}">
+                <div><strong>#${moveItem.index}</strong><div class="muted">${moveItem.side}</div></div>
+                <div>${moveItem.notation}</div>
+              </button>`).join('') : '<div class="banner">当前没有可回放着法。</div>'}
+          </div>
+        </section>
+      </div>
+    </div>
+  `;
+}
+
+function renderBoardPaneTabs() {
+  return `
+    <div class="boardMobileTabs">
+      <button class="${state.boardPaneTab === 'board' ? 'btn' : 'ghost'}" data-board-pane="board">棋盘</button>
+      <button class="${state.boardPaneTab === 'moves' ? 'btn' : 'ghost'}" data-board-pane="moves">记录</button>
     </div>
   `;
 }
@@ -684,7 +1253,6 @@ function renderProfile() {
       <div class="card"><div class="meta">Wins</div><h3>${summary.wins || 0}</h3><p>胜局</p></div>
       <div class="card"><div class="meta">Draws</div><h3>${summary.draws || 0}</h3><p>和局</p></div>
       <div class="card"><div class="meta">Losses</div><h3>${summary.losses || 0}</h3><p>负局</p></div>
-      <div class="card"><div class="meta">Puzzles</div><h3>${(state.profile.puzzleStats || {}).totalSolved || 0}</h3><p>残局破解</p>${Object.keys((state.profile.puzzleStats || {}).byDifficulty || {}).length ? `<div class="muted">${Object.entries((state.profile.puzzleStats || {}).byDifficulty || {}).map(([k,v]) => `${k}: ${v}`).join(' · ')}</div>` : ''}</div>
     </div>
     ${activity.room || activity.game ? renderActivityBanner(activity.room, activity.game) : ''}
     <section class="panel" style="margin-top:18px">
@@ -734,13 +1302,12 @@ function renderPlaceholder(title, desc) {
   return `<section class="placeholder"><h2>${title}</h2><p>${desc}</p></section>`;
 }
 
-function renderAuthOverlay(dismissible) {
+function renderAuthOverlay() {
   return `
     <div class="authOverlay">
       <div class="authCard">
         <div class="meta">Authentication</div>
-        <h2 class="sectionTitle">登录后才能创建或加入在线房间</h2>
-        ${dismissible ? '<button class="ghost authClose" data-action="close-auth">稍后再说</button>' : ''}
+        <h2 class="sectionTitle">登录后可进行房间对局与学习进度互动</h2>
         <div class="authTabs">
           <button class="${state.authMode === 'login' ? 'btn' : 'ghost'}" data-auth-mode="login">登录</button>
           <button class="${state.authMode === 'register' ? 'btn' : 'ghost'}" data-auth-mode="register">注册</button>
@@ -756,149 +1323,114 @@ function renderAuthOverlay(dismissible) {
   `;
 }
 
-function renderXiangqiBoard(game) {
-  const html = renderXiangqiBoardState(game.board || [], {
-    interactive: true,
-    disabled: !canInteractWithBoard(game),
-    selectedFrom: state.selectedFrom,
-    hintFrom: state.hintHighlight,
-    hintTo: state.hintHighlight
-  });
-  // 延迟绑定：等 innerHTML 渲染完成后初始化棋盘
-  requestAnimationFrame(() => bindXiangqiBoard(game.board || [], {
-    interactive: true,
-    disabled: !canInteractWithBoard(game),
-    selectedFrom: state.selectedFrom,
-    hintFrom: state.hintHighlight
-  }));
-  return html;
+function renderXiangqiBoard(game, options = {}) {
+  const rows = game.board || [];
+  const disabled = !canInteractWithBoard(game);
+  const marker = currentMoveMarker(game);
+  const flipped = !!options.flipped;
+  const riverText = options.riverText || (flipped ? '汉界　楚河' : '楚河　汉界');
+  const cells = [];
+  for (let displayRow = 0; displayRow < XIANGQI_ROWS; displayRow += 1) {
+    for (let displayCol = 0; displayCol < XIANGQI_COLS; displayCol += 1) {
+      const mapped = mapDisplayToBoardPosition('XIANGQI', displayRow, displayCol, flipped);
+      const r = mapped.row;
+      const c = mapped.col;
+      const boardRow = Array.isArray(rows[r]) ? rows[r] : [];
+      const cell = Array.isArray(boardRow) ? boardRow[c] : '';
+      const piece = normalizeXiangqiPiece(cell);
+      const redPiece = isRedPiece(cell);
+      const cls = ['xiangqiCell'];
+      if (piece) cls.push('has-piece');
+      if (piece && !redPiece) cls.push('is-black');
+      if (state.selectedFrom && state.selectedFrom.row === r && state.selectedFrom.col === c) cls.push('is-selected');
+      cells.push(`<button class="${cls.join(' ')}" data-board="xiangqi" data-row="${r}" data-col="${c}" data-display-row="${displayRow}" data-display-col="${displayCol}" ${disabled ? 'disabled' : ''}>${renderXiangqiCellLines(displayRow, displayCol)}${renderXiangqiMarkerGlyph(displayRow, displayCol)}${renderXiangqiLastMoveMarker(marker, r, c)}${piece ? `<span class="piece">${escapeHtml(piece)}</span>` : ''}</button>`);
+    }
+  }
+  return `<div class="xiangqiBoard ${flipped ? 'xiangqiBoard--flipped' : ''}">
+    <div class="xiangqiBoardRiver" data-river-layer="under-piece">${riverText}</div>
+    <div class="xiangqiBoardGrid">
+      ${renderXiangqiPalaceLayer()}
+      ${cells.join('')}
+    </div>
+  </div>`;
 }
 
-function renderGomokuBoard(game) {
-  const html = renderGomokuBoardState(game.board || [], {
-    interactive: true,
-    disabled: !canInteractWithBoard(game)
-  });
-  requestAnimationFrame(() => bindGomokuBoard(game.board || [], {
-    interactive: true,
-    disabled: !canInteractWithBoard(game)
-  }));
-  return html;
+function renderStaticXiangqiBoard(board, marker = null) {
+  const rows = normalizeBoard(board);
+  return `<div class="xiangqiBoard xiangqiBoard--static">
+    <div class="xiangqiBoardRiver">楚河　汉界</div>
+    <div class="xiangqiBoardGrid">
+      ${renderXiangqiPalaceLayer()}
+      ${rows.map((row, r) => row.map((cell, c) => {
+        const piece = normalizeXiangqiPiece(cell);
+        const redPiece = isRedPiece(cell);
+        return `<button class="xiangqiCell xiangqiCell--static ${piece ? 'has-piece' : ''} ${piece && !redPiece ? 'is-black' : ''}" disabled>${renderXiangqiCellLines(r, c)}${renderXiangqiMarkerGlyph(r, c)}${renderXiangqiLastMoveMarker(marker, r, c)}${piece ? `<span class="piece">${escapeHtml(piece)}</span>` : ''}</button>`;
+      }).join('')).join('')}
+    </div>
+  </div>`;
 }
 
-function renderReadonlyBoard(gameType, board) {
+function renderGomokuBoard(game, options = {}) {
+  const rows = game.board || [];
+  const disabled = !canInteractWithBoard(game);
+  const marker = currentMoveMarker(game);
+  const flipped = !!options.flipped;
+  const cells = [];
+  for (let displayRow = 0; displayRow < GOMOKU_SIZE; displayRow += 1) {
+    for (let displayCol = 0; displayCol < GOMOKU_SIZE; displayCol += 1) {
+      const mapped = mapDisplayToBoardPosition('GOMOKU', displayRow, displayCol, flipped);
+      const r = mapped.row;
+      const c = mapped.col;
+      const boardRow = Array.isArray(rows[r]) ? rows[r] : [];
+      const cell = Array.isArray(boardRow) ? boardRow[c] : '';
+      const cls = ['gomokuCell'];
+      if (isGomokuStarPoint(displayRow, displayCol)) cls.push('is-star');
+      if (cell === 'BLACK') cls.push('is-black');
+      if (cell === 'WHITE') cls.push('is-white');
+      cells.push(`<button class="${cls.join(' ')}" data-board="gomoku" data-row="${r}" data-col="${c}" data-display-row="${displayRow}" data-display-col="${displayCol}" ${disabled ? 'disabled' : ''}><span class="gomokuStone"></span>${renderGomokuLastMoveMarker(marker, r, c)}</button>`);
+    }
+  }
+  return `<div class="gomokuBoard">
+    ${cells.join('')}
+  </div>`;
+}
+
+function renderStaticGomokuBoard(board, marker = null) {
+  const rows = normalizeBoard(board);
+  return `<div class="gomokuBoard">
+    ${rows.map((row, r) => row.map((cell, c) => `<button class="gomokuCell ${isGomokuStarPoint(r, c) ? 'is-star' : ''} ${cell === 'BLACK' ? 'is-black' : ''} ${cell === 'WHITE' ? 'is-white' : ''}" disabled><span class="gomokuStone"></span>${renderGomokuLastMoveMarker(marker, r, c)}</button>`).join('')).join('')}
+  </div>`;
+}
+
+function renderPlayableBoardByGameType(game, options = {}) {
+  if (!game || !isSupportedGameType(game.gameType)) {
+    return renderUnsupportedBoard(game ? game.gameType : '', 'game');
+  }
+  if (game.gameType === 'XIANGQI') {
+    return renderXiangqiBoard(game, options);
+  }
+  return renderGomokuBoard(game, options);
+}
+
+function renderAnalysisBoardByGameType(gameType, board, marker = null) {
+  if (gameType === 'XIANGQI') {
+    return renderStaticXiangqiBoard(board, marker);
+  }
   if (gameType === 'GOMOKU') {
-    const html = renderGomokuBoardState(board, { interactive: false, disabled: false });
-    requestAnimationFrame(() => bindGomokuBoard(board, { interactive: false, disabled: false }));
-    return html;
+    return renderStaticGomokuBoard(board, marker);
   }
-  const html = renderXiangqiBoardState(board, { interactive: false, disabled: false, selectedFrom: null });
-  requestAnimationFrame(() => bindXiangqiBoard(board, { interactive: false, disabled: false }));
-  return html;
+  return renderUnsupportedBoard(gameType, 'analysis');
 }
 
-let _xiangqiBoardRenderer = null;
-let _gomokuBoardRenderer = null;
-
-function renderXiangqiBoardState(board, options = {}) {
-  const rows = normalizeBoard(board);
-  const interactive = options.interactive === true;
-  const disabled = options.disabled === true;
-  const selectedFrom = options.selectedFrom || null;
-  const hintFrom = options.hintFrom || null;
-  const hintTo = options.hintTo || null;
-
-  // 构建 pieces map
-  const pieces = {};
-  rows.forEach((row, r) => {
-    row.forEach((cell, c) => {
-      if (cell) pieces[`${r},${c}`] = cell;
-    });
-  });
-
-  // 返回占位 div，实际渲染在 bindXiangqiBoard 中完成
-  return `<div id="xiangqi-board-container" data-interactive="${interactive}" data-disabled="${disabled}"></div>`;
-}
-
-function renderGomokuBoardState(board, options = {}) {
-  const rows = normalizeBoard(board);
-  const interactive = options.interactive === true;
-  const disabled = options.disabled === true;
-
-  const pieces = {};
-  rows.forEach((row, r) => {
-    row.forEach((cell, c) => {
-      if (cell) pieces[`${r},${c}`] = cell;
-    });
-  });
-
-  return `<div id="gomoku-board-container" data-interactive="${interactive}" data-disabled="${disabled}"></div>`;
-}
-
-function bindXiangqiBoard(board, options = {}) {
-  const container = document.getElementById('xiangqi-board-container');
-  if (!container) return;
-
-  if (!_xiangqiBoardRenderer || _xiangqiBoardRenderer.container !== container) {
-    _xiangqiBoardRenderer = new XiangqiBoard(container);
-  }
-
-  const pieces = {};
-  normalizeBoard(board).forEach((row, r) => {
-    row.forEach((cell, c) => {
-      if (cell) pieces[`${r},${c}`] = cell;
-    });
-  });
-
-  _xiangqiBoardRenderer.set({
-    pieces,
-    selected: options.selectedFrom || null,
-    hint: options.hintFrom || null,
-    disabled: options.disabled === true
-  });
-
-  if (options.interactive !== false) {
-    _xiangqiBoardRenderer.onClick = (row, col) => {
-      if (!canInteractWithBoard(state.game)) return;
-      state.hintHighlight = null;
-      if (!state.selectedFrom) {
-        state.selectedFrom = { row, col };
-        render();
-        return;
-      }
-      const move = { fromRow: state.selectedFrom.row, fromCol: state.selectedFrom.col, toRow: row, toCol: col };
-      state.selectedFrom = null;
-      sendMove(move);
-    };
-  }
-}
-
-function bindGomokuBoard(board, options = {}) {
-  const container = document.getElementById('gomoku-board-container');
-  if (!container) return;
-
-  if (!_gomokuBoardRenderer || _gomokuBoardRenderer.container !== container) {
-    _gomokuBoardRenderer = new GomokuBoard(container);
-  }
-
-  const pieces = {};
-  normalizeBoard(board).forEach((row, r) => {
-    row.forEach((cell, c) => {
-      if (cell) pieces[`${r},${c}`] = cell;
-    });
-  });
-
-  _gomokuBoardRenderer.set({
-    pieces,
-    disabled: options.disabled === true
-  });
-
-  if (options.interactive !== false) {
-    _gomokuBoardRenderer.onClick = (row, col) => {
-      if (!canInteractWithBoard(state.game)) return;
-      sendMove({ row, col });
-    };
-  }
+function renderUnsupportedBoard(gameType, surface) {
+  const typeText = escapeHtml(gameType || 'UNKNOWN');
+  const sceneText = surface === 'analysis' ? '分析页' : '对局页';
+  return `
+    <div class="boardUnsupported" data-unsupported-board="${surface}">
+      <strong>${sceneText}暂不支持该棋种渲染</strong>
+      <div class="muted">gameType: ${typeText}</div>
+    </div>
+  `;
 }
 
 function normalizeBoard(board) {
@@ -906,105 +1438,293 @@ function normalizeBoard(board) {
   return board.map(row => Array.isArray(row) ? row : []);
 }
 
+function isGomokuStarPoint(row, col) {
+  return (row === 3 && col === 3)
+    || (row === 3 && col === 11)
+    || (row === 7 && col === 7)
+    || (row === 11 && col === 3)
+    || (row === 11 && col === 11);
+}
+
+function isXiangqiMarkerPoint(row, col) {
+  return (row === 2 && (col === 1 || col === 7))
+    || (row === 7 && (col === 1 || col === 7))
+    || (row === 3 && [0, 2, 4, 6, 8].includes(col))
+    || (row === 6 && [0, 2, 4, 6, 8].includes(col));
+}
+
+function renderXiangqiPalaceLayer() {
+  return `
+    <div class="xiangqiPalaceLayer" aria-hidden="true">
+      <span class="xiangqiPalaceLine xiangqiPalaceLine--top-a"></span>
+      <span class="xiangqiPalaceLine xiangqiPalaceLine--top-b"></span>
+      <span class="xiangqiPalaceLine xiangqiPalaceLine--bottom-a"></span>
+      <span class="xiangqiPalaceLine xiangqiPalaceLine--bottom-b"></span>
+    </div>
+  `;
+}
+
+function renderXiangqiCellLines(row, col) {
+  const hasUp = row > 0 && !(row === 5 && col >= 1 && col <= 7);
+  const hasDown = row < 9 && !(row === 4 && col >= 1 && col <= 7);
+  const hasLeft = col > 0;
+  const hasRight = col < 8;
+  return `
+    <span class="xiangqiLines" aria-hidden="true">
+      ${hasUp ? '<span class="xiangqiLine xiangqiLine--up"></span>' : ''}
+      ${hasDown ? '<span class="xiangqiLine xiangqiLine--down"></span>' : ''}
+      ${hasLeft ? '<span class="xiangqiLine xiangqiLine--left"></span>' : ''}
+      ${hasRight ? '<span class="xiangqiLine xiangqiLine--right"></span>' : ''}
+    </span>
+  `;
+}
+
+function renderXiangqiMarkerGlyph(row, col) {
+  if (!isXiangqiMarkerPoint(row, col)) {
+    return '';
+  }
+  const hasLeft = col > 0;
+  const hasRight = col < 8;
+  return `
+    <span class="xiangqiMarker" aria-hidden="true">
+      ${hasLeft ? '<span class="xiangqiMarkerCorner xiangqiMarkerCorner--lt"></span><span class="xiangqiMarkerCorner xiangqiMarkerCorner--lb"></span>' : ''}
+      ${hasRight ? '<span class="xiangqiMarkerCorner xiangqiMarkerCorner--rt"></span><span class="xiangqiMarkerCorner xiangqiMarkerCorner--rb"></span>' : ''}
+    </span>
+  `;
+}
+
+function getLastMove(game) {
+  if (!game || !Array.isArray(game.moves) || !game.moves.length) {
+    return null;
+  }
+  return game.moves[game.moves.length - 1];
+}
+
+function currentMoveMarker(game) {
+  if (state.moveInFlight
+    && state.pendingMoveMarker
+    && game
+    && game.gameId
+    && state.pendingMoveGameId === game.gameId) {
+    return state.pendingMoveMarker;
+  }
+  return createMoveMarker(game.gameType, getLastMove(game), game.viewerSide || '');
+}
+
+function createPendingMoveMarker(game, payload) {
+  if (!game || !payload) {
+    return null;
+  }
+  if (game.gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
+    return {
+      gameType: 'XIANGQI',
+      fromRow: payload.fromRow,
+      fromCol: payload.fromCol,
+      toRow: payload.toRow,
+      toCol: payload.toCol,
+      owner: 'self',
+      pending: true
+    };
+  }
+  if (game.gameType === 'GOMOKU' && isGomokuMovePayload(payload)) {
+    return {
+      gameType: 'GOMOKU',
+      row: payload.row,
+      col: payload.col,
+      owner: 'self',
+      pending: true
+    };
+  }
+  return null;
+}
+
+function clearPendingMoveMarker() {
+  state.pendingMoveMarker = null;
+  state.pendingMoveGameId = '';
+}
+
+function createMoveMarker(gameType, move, viewerSide) {
+  if (!move || !move.payload) {
+    return null;
+  }
+  const payload = move.payload;
+  const side = String(move.side || payload.side || '').trim();
+  const owner = moveOwnerClass(side, viewerSide);
+  if (gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
+    return {
+      gameType: 'XIANGQI',
+      fromRow: payload.fromRow,
+      fromCol: payload.fromCol,
+      toRow: payload.toRow,
+      toCol: payload.toCol,
+      owner: owner
+    };
+  }
+  if (gameType === 'GOMOKU' && isGomokuMovePayload(payload)) {
+    return {
+      gameType: 'GOMOKU',
+      row: payload.row,
+      col: payload.col,
+      owner: owner
+    };
+  }
+  return null;
+}
+
+function moveOwnerClass(side, viewerSide) {
+  if (viewerSide && side && side === viewerSide) {
+    return 'self';
+  }
+  if (side) {
+    return 'opponent';
+  }
+  return 'neutral';
+}
+
+function renderXiangqiLastMoveMarker(marker, row, col) {
+  if (!marker || marker.gameType !== 'XIANGQI') {
+    return '';
+  }
+  const owner = marker.owner || 'neutral';
+  const pendingClass = marker.pending ? ' xiangqiLastMove--pending' : '';
+  let html = '';
+  if (marker.fromRow === row && marker.fromCol === col) {
+    html += `<span class="xiangqiLastMove xiangqiLastMove--from xiangqiLastMove--${owner}${pendingClass}"></span>`;
+  }
+  if (marker.toRow === row && marker.toCol === col) {
+    html += `<span class="xiangqiLastMove xiangqiLastMove--to xiangqiLastMove--${owner}${pendingClass}"></span>`;
+  }
+  return html;
+}
+
+function renderGomokuLastMoveMarker(marker, row, col) {
+  if (!marker || marker.gameType !== 'GOMOKU') {
+    return '';
+  }
+  if (marker.row !== row || marker.col !== col) {
+    return '';
+  }
+  const owner = marker.owner || 'neutral';
+  const pendingClass = marker.pending ? ' gomokuLastMove--pending' : '';
+  return `<span class="gomokuLastMove gomokuLastMove--${owner}${pendingClass}"></span>`;
+}
+
+function normalizeXiangqiPiece(cell) {
+  const raw = String(cell || '').trim();
+  if (!raw) return '';
+  if (isRedPiece(raw)) {
+    if (raw === '帥') return '帅';
+    if (raw === '馬') return '马';
+    if (raw === '車') return '车';
+    if (raw === '砲') return '炮';
+    if (raw === '卒') return '兵';
+    return raw;
+  }
+  if (raw === '兵') return '卒';
+  if (raw === '馬') return '马';
+  if (raw === '車') return '车';
+  if (raw === '砲') return '炮';
+  return raw;
+}
+
 function isRedPiece(text) {
-  return ['帥', '帅', '仕', '相', '馬', '車', '砲', '卒'].includes(text);
+  return ['帥', '帅', '仕', '相', '馬', '車', '砲', '卒'].includes(String(text || '').trim());
+}
+
+function isViewerOwnXiangqiPiece(piece, viewerSide) {
+  const normalized = String(piece || '').trim();
+  if (!normalized) {
+    return false;
+  }
+  const redPiece = isRedPiece(normalized);
+  if (viewerSide === 'RED') {
+    return redPiece;
+  }
+  if (viewerSide === 'BLACK') {
+    return !redPiece;
+  }
+  return false;
 }
 
 function bindCommon(route) {
-  document.querySelectorAll('[data-nav]').forEach(el => el.addEventListener('click', () => navTo(el.getAttribute('data-nav'))));
+  bindNavClicks();
   document.querySelectorAll('[data-auth-mode]').forEach(el => el.addEventListener('click', () => {
     state.authMode = el.getAttribute('data-auth-mode');
     state.authError = '';
+    state.showAuthModal = true;
     render();
   }));
   document.querySelectorAll('[data-learn-field]').forEach(el => el.addEventListener('change', event => updateLearnConfig(event.currentTarget)));
-  on('[data-action="toggle-sound"]', toggleSound);
-  on('[data-action="show-auth"]', showAuthDialog);
-  on('[data-action="close-auth"]', closeAuthDialog);
+  document.querySelectorAll('[data-watch-filter]').forEach(el => el.addEventListener('change', event => {
+    const field = event.currentTarget.getAttribute('data-watch-filter');
+    state.watchFilters[field] = event.currentTarget.value;
+    render();
+  }));
+  document.querySelectorAll('[data-community-tab]').forEach(el => el.addEventListener('click', () => {
+    state.communityTab = el.getAttribute('data-community-tab');
+    render();
+  }));
+  document.querySelectorAll('[data-learn-complete]').forEach(el => el.addEventListener('click', () => {
+    markLearnCompleted(el.getAttribute('data-learn-complete'), el.getAttribute('data-id'));
+  }));
+  document.querySelectorAll('[data-action="start-practice-preset"]').forEach(el => el.addEventListener('click', startPracticeFromPreset));
+  document.querySelectorAll('[data-action="start-puzzle-practice"]').forEach(el => el.addEventListener('click', startPracticeFromPuzzle));
   on('[data-action="logout"]', logout);
-  on('[data-action="go-home-main"]', () => navTo('home'));
-  on('[data-action="go-home-ai"]', () => navTo('ai'));
+  on('[data-action="show-auth"]', () => {
+    state.showAuthModal = true;
+    state.authError = '';
+    render();
+  });
+  on('[data-action="toggle-sound"]', toggleOnlineSound);
   on('[data-action="submit-auth"]', submitAuth);
+  on('[data-action="quick-start-ai-practice"]', quickStartAiPractice);
   on('[data-action="create-room"]', createRoom);
   on('[data-action="join-by-code"]', joinByCode);
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
   on('[data-action="create-practice"]', createPracticeGame);
-  on('[data-action="request-hint"]', requestHint);
-  document.querySelectorAll('[data-endgame-id]').forEach(el => {
-    el.addEventListener('click', () => startEndgamePractice(el.getAttribute('data-endgame-id')));
+  on('[data-action="refresh-watch"]', () => loadWatchOverview(true));
+  document.querySelectorAll('[data-board-pane]').forEach(el => el.addEventListener('click', () => {
+    const pane = el.getAttribute('data-board-pane');
+    if (pane !== 'board' && pane !== 'moves') {
+      return;
+    }
+    if (state.boardPaneTab === pane) {
+      return;
+    }
+    state.boardPaneTab = pane;
+    render();
+  }));
+  bindBoardCellEvents();
+  bindInlineOnlineGameActions();
+  document.querySelectorAll('[data-action="practice-rematch"]').forEach(el => {
+    if (el.dataset.boundPracticeRematch === '1') {
+      return;
+    }
+    el.dataset.boundPracticeRematch = '1';
+    el.addEventListener('click', startPracticeRematch);
   });
-  document.querySelectorAll('.learnFilterBtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const filter = btn.getAttribute('data-filter');
-      document.querySelectorAll('.learnGroup').forEach(g => {
-        g.style.display = (filter === 'all' || g.getAttribute('data-difficulty') === filter) ? '' : 'none';
-      });
-      document.querySelectorAll('.learnFilterBtn').forEach(b => b.classList.toggle('is-active', b === btn));
-    });
+  document.querySelectorAll('[data-action="undo-practice"]').forEach(el => {
+    if (el.dataset.boundPracticeUndo === '1') {
+      return;
+    }
+    el.dataset.boundPracticeUndo = '1';
+    el.addEventListener('click', undoPracticeMove);
   });
-  on('[data-action="play-practice-again"]', playPracticeAgain);
-  on('[data-action="play-online-again"]', playOnlineAgain);
-  on('[data-action="offer-draw"]', offerDraw);
-  on('[data-action="accept-draw"]', () => respondDraw(true));
-  on('[data-action="reject-draw"]', () => respondDraw(false));
-  on('[data-action="resign"]', resignGame);
-  // 棋盘点击事件已由 board.js 渲染器内部处理
+  document.querySelectorAll('[data-action="close-end-modal"]').forEach(el => {
+    if (el.dataset.boundCloseModal === '1') {
+      return;
+    }
+    el.dataset.boundCloseModal = '1';
+    el.addEventListener('click', closeEndGameModal);
+  });
+  document.querySelectorAll('[data-end-game-card]').forEach(el => el.addEventListener('click', event => event.stopPropagation()));
   document.querySelectorAll('[data-analysis-step]').forEach(el => el.addEventListener('click', () => {
     state.analysisStep = Number(el.getAttribute('data-analysis-step'));
     render();
   }));
   if (route.page === 'play' && !state.lobby) {
     loadLobby();
-  }
-}
-
-function toggleSound() {
-  soundEnabled = !soundEnabled;
-  localStorage.setItem('xq_online_sound_enabled', soundEnabled ? '1' : '0');
-  render();
-}
-
-function unlockAudio() {
-  if (audioUnlocked) return;
-  audioUnlocked = true;
-  [moveAudio, resultAudio].forEach(audio => {
-    const pending = audio.play();
-    if (pending && pending.catch) {
-      pending.then(() => {
-        audio.pause();
-        audio.currentTime = 0;
-      }).catch(() => {});
-    } else {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-  });
-}
-
-function playSound(audio) {
-  if (!soundEnabled || !audioUnlocked) return;
-  try {
-    audio.pause();
-    audio.currentTime = 0;
-    const pending = audio.play();
-    if (pending && pending.catch) pending.catch(() => {});
-  } catch (_error) {}
-}
-
-function syncAudioFeedback() {
-  const game = state.game;
-  if (!game) return;
-  const moveCount = Array.isArray(game.moves) ? game.moves.length : 0;
-  const moveKey = `${game.gameId || ''}:${moveCount}:${game.status}`;
-  if (moveCount > 0 && game.status === 'PLAYING' && moveKey !== lastMoveSoundKey) {
-    lastMoveSoundKey = moveKey;
-    playSound(moveAudio);
-  }
-  const resultKey = `${game.gameId || ''}:${game.status}:${game.resultText || ''}:${game.terminationReason || ''}`;
-  if (game.status !== 'PLAYING' && resultKey !== lastResultSoundKey) {
-    lastResultSoundKey = resultKey;
-    playSound(resultAudio);
   }
 }
 
@@ -1033,16 +1753,6 @@ function on(selector, handler) {
   }
 }
 
-function showAuthDialog() {
-  state.authDialogOpen = true;
-  render();
-}
-
-function closeAuthDialog() {
-  state.authDialogOpen = false;
-  render();
-}
-
 async function submitAuth() {
   const username = document.getElementById('authUsername').value.trim();
   const password = document.getElementById('authPassword').value;
@@ -1051,8 +1761,9 @@ async function submitAuth() {
     const url = state.authMode === 'login' ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
     const data = await fetchJson(url, { method: 'POST', body: JSON.stringify({ username, password }) });
     state.me = data.user;
-    state.authDialogOpen = false;
+    state.showAuthModal = false;
     await refreshBootstrapAndProfile();
+    await loadLearnProgress();
     render();
   } catch (error) {
     state.authError = error.message;
@@ -1066,11 +1777,80 @@ async function logout() {
   state.profile = null;
   state.room = null;
   state.game = null;
+  state.moveInFlight = false;
+  stopPracticePolling();
   state.analysis = null;
+  state.learnProgress = null;
   state.bootstrap = null;
+  state.showAuthModal = false;
+  state.selectedFrom = null;
+  state.endGameModal = null;
+  state.endGameModalShownKey = '';
+  state.lastMoveSoundGameId = '';
+  state.lastMoveSoundIndex = 0;
+  state.lastFinishSoundKey = '';
+  clearAiMoveHint();
   state.status = '';
   await loadBootstrap();
   render();
+}
+
+function bindNavClicks(root = document) {
+  root.querySelectorAll('[data-nav]').forEach(el => {
+    if (el.dataset.boundNav === '1') {
+      return;
+    }
+    el.dataset.boundNav = '1';
+    el.addEventListener('click', () => navTo(el.getAttribute('data-nav')));
+  });
+}
+
+function bindBoardCellEvents(root = document) {
+  root.querySelectorAll('[data-board="xiangqi"]').forEach(el => {
+    if (el.dataset.boundBoard === '1') {
+      return;
+    }
+    el.dataset.boundBoard = '1';
+    el.addEventListener('click', onXiangqiCellClick);
+  });
+  root.querySelectorAll('[data-board="gomoku"]').forEach(el => {
+    if (el.dataset.boundBoard === '1') {
+      return;
+    }
+    el.dataset.boundBoard = '1';
+    el.addEventListener('click', onGomokuCellClick);
+  });
+}
+
+function bindInlineOnlineGameActions(root = document) {
+  root.querySelectorAll('[data-action="offer-draw"]').forEach(el => {
+    if (el.dataset.boundInlineAction === '1') {
+      return;
+    }
+    el.dataset.boundInlineAction = '1';
+    el.addEventListener('click', offerDraw);
+  });
+  root.querySelectorAll('[data-action="accept-draw"]').forEach(el => {
+    if (el.dataset.boundInlineAction === '1') {
+      return;
+    }
+    el.dataset.boundInlineAction = '1';
+    el.addEventListener('click', () => respondDraw(true));
+  });
+  root.querySelectorAll('[data-action="reject-draw"]').forEach(el => {
+    if (el.dataset.boundInlineAction === '1') {
+      return;
+    }
+    el.dataset.boundInlineAction = '1';
+    el.addEventListener('click', () => respondDraw(false));
+  });
+  root.querySelectorAll('[data-action="resign"]').forEach(el => {
+    if (el.dataset.boundInlineAction === '1') {
+      return;
+    }
+    el.dataset.boundInlineAction = '1';
+    el.addEventListener('click', resignGame);
+  });
 }
 
 async function createRoom() {
@@ -1094,14 +1874,16 @@ async function createRoom() {
   }
 }
 
-async function createPracticeGame() {
+async function createPracticeGame(overrideConfig = null) {
+  const payload = overrideConfig ? { ...state.learnConfig, ...overrideConfig } : state.learnConfig;
   try {
     state.status = '';
+    stopPracticePolling();
     const game = await fetchJson(`${API_BASE}/learn/practice-games`, {
       method: 'POST',
-      body: JSON.stringify(state.learnConfig)
+      body: JSON.stringify(payload)
     });
-    state.game = enrichGame(game);
+    state.game = applyServerGameSnapshot(game);
     await refreshBootstrapAndProfile();
     navTo(`practice/${game.gameId}`);
   } catch (error) {
@@ -1110,24 +1892,113 @@ async function createPracticeGame() {
   }
 }
 
-async function playPracticeAgain() {
-  if (state.game) {
-    state.learnConfig = {
-      gameType: state.game.gameType || 'XIANGQI',
-      difficulty: state.game.difficulty || 'MEDIUM',
-      humanFirst: (state.game.viewerSide || inferViewerSide(state.game) || 'RED') === (state.game.gameType === 'GOMOKU' ? 'BLACK' : 'RED'),
-      preferredEngine: state.game.aiEngine || 'BUILTIN'
-    };
+async function quickStartAiPractice() {
+  if (!state.me) {
+    state.showAuthModal = true;
+    state.authError = '请先登录，再直接进入 AI 对局。';
+    render();
+    return;
   }
+  state.learnConfig = {
+    gameType: 'XIANGQI',
+    difficulty: 'MEDIUM',
+    humanFirst: true,
+    preferredEngine: 'BUILTIN'
+  };
   await createPracticeGame();
 }
 
-function playOnlineAgain() {
-  if (state.game && state.game.roomId) {
-    navTo(`room/${state.game.roomId}`);
+async function startPracticeFromPreset(event) {
+  if (!state.me) {
+    state.showAuthModal = true;
+    state.authError = '登录后可按推荐配置开始练习';
+    render();
     return;
   }
-  navTo('play');
+  const presetId = event.currentTarget.getAttribute('data-preset-id');
+  const presets = (state.learnContent && state.learnContent.recommendedPractice) || [];
+  const preset = presets.find(item => item.id === presetId);
+  if (!preset) {
+    state.status = '未找到练习配置。';
+    render();
+    return;
+  }
+  state.learnConfig = {
+    gameType: preset.gameType || 'XIANGQI',
+    difficulty: preset.difficulty || 'MEDIUM',
+    humanFirst: preset.humanFirst !== false,
+    preferredEngine: preset.preferredEngine || 'BUILTIN'
+  };
+  await createPracticeGame();
+}
+
+async function startPracticeFromPuzzle(event) {
+  if (!state.me) {
+    state.showAuthModal = true;
+    state.authError = '登录后可按题目局面直接开始练习';
+    render();
+    return;
+  }
+  const puzzleId = event.currentTarget.getAttribute('data-puzzle-id');
+  const puzzles = (state.learnContent && state.learnContent.puzzles) || [];
+  const puzzle = puzzles.find(item => item.id === puzzleId);
+  if (!puzzle) {
+    state.status = '未找到对应题目。';
+    render();
+    return;
+  }
+  const fen = normalizeFenText(puzzle.fen);
+  if (!canStartPuzzlePractice(puzzle)) {
+    state.status = '该题目 FEN 暂不可用于在线开局，请先选择其他题目或推荐练习。';
+    render();
+    return;
+  }
+  state.learnConfig = {
+    gameType: 'XIANGQI',
+    difficulty: puzzle.difficulty || 'MEDIUM',
+    humanFirst: true,
+    preferredEngine: 'BUILTIN'
+  };
+  await createPracticeGame({ gameType: 'XIANGQI', initialFen: fen });
+}
+
+async function markLearnCompleted(kind, id) {
+  if (!state.me) {
+    state.showAuthModal = true;
+    state.authError = '登录后才能记录学习进度';
+    render();
+    return;
+  }
+  const normalizedKind = (kind || '').toLowerCase();
+  const endpoint = normalizedKind === 'tutorial'
+    ? `${API_BASE}/learn/tutorials/${id}/complete`
+    : `${API_BASE}/learn/puzzles/${id}/complete`;
+  try {
+    await fetchJson(endpoint, { method: 'POST', body: '{}' });
+    await loadLearnProgress();
+  } catch (error) {
+    state.status = error.message;
+    render();
+  }
+}
+
+async function startPracticeRematch() {
+  const game = state.game;
+  if (!game || !game.isTraining) {
+    return;
+  }
+  closeEndGameModal();
+  const ai = practiceAiMeta(game);
+  const rematch = {
+    gameType: game.gameType || state.learnConfig.gameType || 'XIANGQI',
+    difficulty: game.difficulty || ai.difficulty || state.learnConfig.difficulty || 'MEDIUM',
+    humanFirst: inferPracticeHumanFirst(game),
+    preferredEngine: ai.preferredEngine || ai.engineId || game.aiEngine || state.learnConfig.preferredEngine || 'BUILTIN'
+  };
+  if (rematch.gameType === 'XIANGQI' && game.initialFen) {
+    rematch.initialFen = game.initialFen;
+  }
+  await createPracticeGame(rematch);
 }
 
 async function joinByCode() {
@@ -1189,15 +2060,41 @@ async function respondDraw(accept) {
   await sendGameAction(`${gameActionBase(state.game)}/draw-response`, { accept });
 }
 
+async function undoPracticeMove() {
+  const game = state.game;
+  const reason = practiceUndoDisabledReason(game);
+  if (reason) {
+    state.status = reason;
+    if (!refreshLiveStatusLine(currentRoute())) {
+      render();
+    }
+    return;
+  }
+  await sendGameAction(`${API_BASE}/learn/practice-games/${game.gameId}/undo`, {});
+}
+
 async function resignGame() {
+  if (!state.game || state.game.status !== 'PLAYING') {
+    return;
+  }
+  const prompt = state.game.isTraining ? '确定要在当前 AI 练习局认输吗？' : '确定要在当前在线对局认输吗？';
+  if (!window.confirm(prompt)) {
+    return;
+  }
   await sendGameAction(`${gameActionBase(state.game)}/resign`, {});
 }
 
 async function sendGameAction(url, body) {
   try {
-    state.game = enrichGame(await fetchJson(url, { method: 'POST', body: JSON.stringify(body) }));
-    await refreshBootstrapAndProfile();
+    state.status = '';
+    state.game = applyServerGameSnapshot(await fetchJson(url, { method: 'POST', body: JSON.stringify(body) }));
+    if (!isPracticeAiPending(state.game) || state.game.status !== 'PLAYING') {
+      stopPracticePolling();
+    } else {
+      startPracticePolling(state.game.gameId, true);
+    }
     render();
+    refreshBootstrapAndProfile().catch(() => null);
   } catch (error) {
     state.status = error.message;
     render();
@@ -1215,12 +2112,13 @@ async function loadRoom(roomId) {
 }
 
 async function loadGame(gameId) {
-  state.game = enrichGame(await fetchJson(`${API_BASE}/games/${gameId}`).catch(() => null));
+  stopPracticePolling();
+  state.game = applyServerGameSnapshot(await fetchJson(`${API_BASE}/games/${gameId}`).catch(() => null));
   render();
 }
 
 async function loadPractice(gameId) {
-  state.game = enrichGame(await fetchJson(`${API_BASE}/learn/practice-games/${gameId}`).catch(() => null));
+  state.game = applyServerGameSnapshot(await fetchJson(`${API_BASE}/learn/practice-games/${gameId}`).catch(() => null));
   render();
 }
 
@@ -1242,34 +2140,230 @@ async function refreshBootstrapAndProfile() {
   }
 }
 
+function refreshLiveBoardSurface(route = currentRoute()) {
+  if (!state.game || !isBoardRoutePage(route.page)) {
+    return false;
+  }
+  const host = document.querySelector('[data-live-board-host]');
+  if (!host) {
+    return false;
+  }
+  host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
+  bindBoardCellEvents(host);
+  return true;
+}
+
+function refreshLiveStatusLine(route = currentRoute()) {
+  if (!state.game || !isBoardRoutePage(route.page)) {
+    return false;
+  }
+  const statusEl = document.querySelector('[data-live-status]');
+  if (!statusEl) {
+    return false;
+  }
+  if (route.page === 'game' && !state.game.isTraining) {
+    statusEl.textContent = onlineGameStatusText(state.game);
+    return true;
+  }
+  if (route.page === 'practice' || (route.page === 'game' && state.game.isTraining)) {
+    statusEl.textContent = practiceStatusText(state.game);
+    return true;
+  }
+  return false;
+}
+
+function refreshOnlineGameMetaPills() {
+  const route = currentRoute();
+  if (route.page !== 'game' || !state.game || state.game.isTraining) {
+    return false;
+  }
+  const viewerSide = state.game.viewerSide || inferViewerSide(state.game);
+  const opponentSide = resolveOpponentSide(state.game, viewerSide);
+  const sideSelf = document.querySelector('[data-live-side-self]');
+  const sideOpponent = document.querySelector('[data-live-side-opponent]');
+  const turn = document.querySelector('[data-live-turn]');
+  const status = document.querySelector('[data-live-game-status]');
+  const termination = document.querySelector('[data-live-game-termination]');
+  if (sideSelf) sideSelf.textContent = `你执 ${sideLabel(state.game.gameType, viewerSide)}`;
+  if (sideOpponent) sideOpponent.textContent = `对手执 ${sideLabel(state.game.gameType, opponentSide)}`;
+  if (turn) turn.textContent = `轮到 ${turnTextForViewer(state.game, viewerSide)}`;
+  if (status) status.textContent = state.game.status || '-';
+  if (termination) termination.textContent = state.game.terminationReason || 'LIVE';
+  return !!(sideSelf || sideOpponent || turn || status || termination);
+}
+
+function refreshGameInteractionUi(route = currentRoute()) {
+  const board = refreshLiveBoardSurface(route);
+  const status = refreshLiveStatusLine(route);
+  const meta = refreshOnlineGameMetaPills();
+  return board || status || meta;
+}
+
+function patchOnlineGameRealtimeView() {
+  const route = currentRoute();
+  if (route.page !== 'game' || !state.game || state.game.isTraining) {
+    return false;
+  }
+  let patched = refreshGameInteractionUi(route);
+  const clockHost = document.querySelector('[data-live-clock-grid]');
+  if (clockHost) {
+    clockHost.innerHTML = `${renderClockCard(state.game, 'first')}${renderClockCard(state.game, 'second')}`;
+    patched = true;
+  }
+  const movesHost = document.querySelector('[data-live-moves]');
+  if (movesHost) {
+    movesHost.innerHTML = (state.game.moves || []).length
+      ? state.game.moves.map(renderMoveRow).join('')
+      : '<div class="banner">等待第一步落子。</div>';
+    patched = true;
+  }
+  const viewerSide = state.game.viewerSide || inferViewerSide(state.game);
+  const drawOffer = state.game.drawOffer;
+  const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
+  const drawHost = document.querySelector('[data-live-draw-offer]');
+  if (drawHost) {
+    drawHost.innerHTML = drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : '';
+    patched = true;
+  }
+  const actionsHost = document.querySelector('[data-live-game-actions]');
+  if (actionsHost) {
+    const canOfferDraw = state.game.status === 'PLAYING' && !drawOffer;
+    actionsHost.innerHTML = renderOnlineGameActions(state.game, canOfferDraw);
+    patched = true;
+  }
+  if (patched) {
+    bindNavClicks();
+    bindInlineOnlineGameActions();
+  }
+  return patched;
+}
+
 function onXiangqiCellClick(event) {
   if (!canInteractWithBoard(state.game)) return;
-  state.hintHighlight = null;
+  markBoardTap(event.currentTarget);
+  if (!state.game || state.game.gameType !== 'XIANGQI') {
+    state.status = '当前对局并非中国象棋，无法使用象棋落子。';
+    if (!refreshLiveStatusLine()) {
+      render();
+    }
+    return;
+  }
   const row = Number(event.currentTarget.dataset.row);
   const col = Number(event.currentTarget.dataset.col);
+  const boardRow = Array.isArray(state.game.board) ? state.game.board[row] : [];
+  const clickedCell = Array.isArray(boardRow) ? boardRow[col] : '';
   if (!state.selectedFrom) {
+    if (!clickedCell) {
+      return;
+    }
+    if (!isViewerOwnXiangqiPiece(clickedCell, state.game.viewerSide)) {
+      state.status = '请先选择己方棋子。';
+      if (!refreshLiveStatusLine()) {
+        render();
+      }
+      return;
+    }
+    state.status = '';
     state.selectedFrom = { row, col };
-    render();
+    if (!refreshGameInteractionUi()) {
+      render();
+    }
+    return;
+  }
+  if (state.selectedFrom.row === row && state.selectedFrom.col === col) {
+    state.status = '';
+    state.selectedFrom = null;
+    if (!refreshGameInteractionUi()) {
+      render();
+    }
+    return;
+  }
+  if (clickedCell && isViewerOwnXiangqiPiece(clickedCell, state.game.viewerSide)) {
+    state.status = '';
+    state.selectedFrom = { row, col };
+    if (!refreshGameInteractionUi()) {
+      render();
+    }
     return;
   }
   const move = { fromRow: state.selectedFrom.row, fromCol: state.selectedFrom.col, toRow: row, toCol: col };
+  state.status = '';
   state.selectedFrom = null;
   sendMove(move);
 }
 
 function onGomokuCellClick(event) {
   if (!canInteractWithBoard(state.game)) return;
+  markBoardTap(event.currentTarget);
+  if (!state.game || state.game.gameType !== 'GOMOKU') {
+    state.status = '当前对局并非五子棋，无法使用五子棋落子。';
+    if (!refreshLiveStatusLine()) {
+      render();
+    }
+    return;
+  }
+  state.status = '';
   sendMove({ row: Number(event.currentTarget.dataset.row), col: Number(event.currentTarget.dataset.col) });
 }
 
 async function sendMove(payload) {
+  const gameBeforeMove = state.game;
+  const routeBeforeMove = currentRoute();
+  if (state.moveInFlight) {
+    state.status = '正在提交走子，请稍候...';
+    if (!refreshLiveStatusLine(routeBeforeMove)) {
+      render();
+    }
+    return;
+  }
+  const moveUrl = `${gameActionBase(gameBeforeMove)}/move`;
+  const payloadError = validateMovePayload(gameBeforeMove, payload);
+  if (payloadError) {
+    state.status = payloadError;
+    if (!refreshLiveStatusLine(routeBeforeMove)) {
+      render();
+    }
+    return;
+  }
+  const requestToken = ++state.moveRequestToken;
+  state.moveInFlight = true;
+  state.status = '';
+  state.pendingMoveGameId = gameBeforeMove && gameBeforeMove.gameId ? gameBeforeMove.gameId : '';
+  state.pendingMoveMarker = createPendingMoveMarker(gameBeforeMove, payload);
+  if (!refreshGameInteractionUi(routeBeforeMove)) {
+    render();
+  }
   try {
-    state.game = enrichGame(await fetchJson(`${gameActionBase(state.game)}/move`, { method: 'POST', body: JSON.stringify(payload) }));
-    await refreshBootstrapAndProfile();
+    const snapshot = applyServerGameSnapshot(await fetchJson(moveUrl, { method: 'POST', body: JSON.stringify(payload) }));
+    if (requestToken !== state.moveRequestToken) {
+      return;
+    }
+    state.game = snapshot;
+    state.moveInFlight = false;
+    clearPendingMoveMarker();
+    if (isPracticeAiPending(state.game)) {
+      startPracticePolling(state.game.gameId, true);
+    } else {
+      stopPracticePolling();
+    }
     render();
+    refreshBootstrapAndProfile().catch(() => null);
   } catch (error) {
+    if (requestToken !== state.moveRequestToken) {
+      return;
+    }
     state.status = error.message;
-    render();
+    state.moveInFlight = false;
+    clearPendingMoveMarker();
+    if (!refreshGameInteractionUi(currentRoute())) {
+      render();
+    }
+  } finally {
+    if (requestToken === state.moveRequestToken && state.moveInFlight) {
+      state.moveInFlight = false;
+      clearPendingMoveMarker();
+      refreshGameInteractionUi(currentRoute());
+    }
   }
 }
 
@@ -1289,23 +2383,18 @@ async function syncRealtime(route) {
   state.ws.onopen = () => state.ws.send(JSON.stringify({ type: 'subscribe', roomId: desiredRoom }));
   state.ws.onmessage = async event => {
     const data = JSON.parse(event.data);
+    const previousGame = state.game;
     if (data.room) state.room = data.room;
     if (data.game) {
-      const incomingGame = data.game;
-      const currentGame = state.game;
-
-      // stateId 校验：如果检测到跳跃（丢消息），请求全量同步
-      if (currentGame && currentGame.gameId === incomingGame.gameId
-        && incomingGame.stateId && currentGame.stateId
-        && incomingGame.stateId > currentGame.stateId + 1) {
-        try {
-          const full = await fetchJson(`${API_BASE}/games/${incomingGame.gameId}`);
-          state.game = enrichGame(full);
-        } catch (_e) {
-          state.game = enrichGame(incomingGame);
-        }
-      } else {
-        state.game = enrichGame(incomingGame);
+      state.game = applyServerGameSnapshot(data.game);
+      const routeNow = currentRoute();
+      if (previousGame
+        && state.game
+        && previousGame.gameId === state.game.gameId
+        && routeNow.page === 'game'
+        && !state.game.isTraining
+        && patchOnlineGameRealtimeView()) {
+        return;
       }
     }
     if (state.room && state.room.gameId && currentRoute().page === 'room') {
@@ -1325,6 +2414,293 @@ function closeSocket() {
   if (state.ws) state.ws.close();
   state.ws = null;
   state.wsRoomId = '';
+}
+
+function syncGameTransitionFeedback(previousGame, nextGame) {
+  if (!nextGame || !nextGame.gameId) {
+    return;
+  }
+  if (state.endGameModal
+    && state.endGameModal.game
+    && state.endGameModal.game.gameId === nextGame.gameId
+    && nextGame.status !== 'FINISHED') {
+    state.endGameModal = null;
+  }
+  maybePlayMoveSound(previousGame, nextGame);
+  maybePlayFinishSound(previousGame, nextGame);
+  maybeOpenEndGameModal(nextGame);
+}
+
+function maybePlayMoveSound(previousGame, nextGame) {
+  if (!nextGame || !Array.isArray(nextGame.moves) || !nextGame.moves.length) {
+    return;
+  }
+  const latest = getLastMove(nextGame);
+  const latestIndex = Number(latest && latest.index ? latest.index : nextGame.moves.length);
+  if (!Number.isFinite(latestIndex) || latestIndex <= 0) {
+    return;
+  }
+  if (!previousGame || previousGame.gameId !== nextGame.gameId) {
+    state.lastMoveSoundGameId = nextGame.gameId;
+    state.lastMoveSoundIndex = latestIndex;
+    return;
+  }
+  const prevLast = getLastMove(previousGame);
+  const prevIndex = Number(prevLast && prevLast.index ? prevLast.index : (previousGame.moves || []).length);
+  if (latestIndex <= prevIndex) {
+    state.lastMoveSoundGameId = nextGame.gameId;
+    state.lastMoveSoundIndex = latestIndex;
+    return;
+  }
+  if (state.lastMoveSoundGameId === nextGame.gameId && state.lastMoveSoundIndex === latestIndex) {
+    return;
+  }
+  state.lastMoveSoundGameId = nextGame.gameId;
+  state.lastMoveSoundIndex = latestIndex;
+  playOnlineSound(onlineMoveAudio);
+}
+
+function maybePlayFinishSound(previousGame, nextGame) {
+  if (!nextGame || nextGame.status !== 'FINISHED') {
+    return;
+  }
+  const key = endModalGameKey(nextGame);
+  if (!key || state.lastFinishSoundKey === key) {
+    return;
+  }
+  const becameFinished = !previousGame
+    || previousGame.gameId !== nextGame.gameId
+    || previousGame.status !== 'FINISHED';
+  state.lastFinishSoundKey = key;
+  if (becameFinished) {
+    playOnlineSound(onlineMateAudio);
+  }
+}
+
+function maybeOpenEndGameModal(game) {
+  const route = currentRoute();
+  if (!game || game.status !== 'FINISHED') {
+    return;
+  }
+  if (route.page !== 'game' && route.page !== 'practice') {
+    return;
+  }
+  const key = endModalGameKey(game);
+  if (!key || state.endGameModalShownKey === key) {
+    return;
+  }
+  state.endGameModalShownKey = key;
+  state.endGameModal = { key: key, game: game };
+}
+
+function endModalGameKey(game) {
+  if (!game || !game.gameId) {
+    return '';
+  }
+  return `${game.gameId}|${game.status || ''}|${game.moveCount || 0}|${game.winnerSide || ''}|${game.terminationReason || ''}|${game.resultText || ''}`;
+}
+
+function closeEndGameModal() {
+  state.endGameModal = null;
+  render();
+}
+
+function initOnlineAudio() {
+  window.addEventListener('pointerdown', unlockOnlineAudio, { once: true, capture: true });
+  window.addEventListener('keydown', unlockOnlineAudio, { once: true, capture: true });
+}
+
+function readOnlineSoundEnabled() {
+  try {
+    return (localStorage.getItem('xq_online_sound_enabled') ?? '1') !== '0';
+  } catch (error) {
+    return true;
+  }
+}
+
+function persistOnlineSoundEnabled(value) {
+  try {
+    localStorage.setItem('xq_online_sound_enabled', value ? '1' : '0');
+  } catch (error) {
+    // ignore storage write failures
+  }
+}
+
+function toggleOnlineSound() {
+  state.soundEnabled = !state.soundEnabled;
+  persistOnlineSoundEnabled(state.soundEnabled);
+  render();
+}
+
+function createOnlineAudio(url) {
+  try {
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+    return audio;
+  } catch (error) {
+    return null;
+  }
+}
+
+function unlockOnlineAudio() {
+  if (state.audioUnlocked) {
+    return;
+  }
+  state.audioUnlocked = true;
+  [onlineMoveAudio, onlineMateAudio].forEach(audio => {
+    if (!audio) {
+      return;
+    }
+    try {
+      const pending = audio.play();
+      if (pending && pending.then) {
+        pending.then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }).catch(() => null);
+      } else {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    } catch (error) {
+      // ignore
+    }
+  });
+}
+
+function playOnlineSound(audio) {
+  if (!audio || !state.soundEnabled || !state.audioUnlocked) {
+    return;
+  }
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+    const pending = audio.play();
+    if (pending && pending.catch) {
+      pending.catch(() => null);
+    }
+  } catch (error) {
+    // ignore
+  }
+}
+
+function applyServerGameSnapshot(game) {
+  const previousGame = state.game;
+  state.selectedFrom = null;
+  if (!state.moveInFlight) {
+    clearPendingMoveMarker();
+  }
+  const snapshot = enrichGame(game);
+  syncGameTransitionFeedback(previousGame, snapshot);
+  maybeRememberAiMove(previousGame, snapshot);
+  if (!snapshot || snapshot.gameId !== state.aiMoveHintGameId) {
+    clearAiMoveHint();
+  }
+  return snapshot;
+}
+
+function syncPracticePolling(route) {
+  if (!state.me || !isPracticeRouteActive(route)) {
+    stopPracticePolling();
+    return;
+  }
+  if (!state.game
+    || !state.game.isTraining
+    || state.game.status !== 'PLAYING'
+    || !state.game.aiPending) {
+    stopPracticePolling();
+    return;
+  }
+  startPracticePolling(state.game.gameId, false);
+}
+
+function startPracticePolling(gameId, immediate) {
+  if (!gameId) {
+    return;
+  }
+  if (state.practicePollGameId !== gameId) {
+    stopPracticePolling();
+  }
+  state.practicePollGameId = gameId;
+  if (!state.practicePollStartedAtMs) {
+    state.practicePollStartedAtMs = Date.now();
+  }
+  if (state.practicePollTimeout || state.practicePollInFlight) {
+    return;
+  }
+  schedulePracticePoll(gameId, !!immediate);
+}
+
+function stopPracticePolling() {
+  if (state.practicePollTimeout) {
+    window.clearTimeout(state.practicePollTimeout);
+  }
+  state.practicePollTimeout = null;
+  state.practicePollGameId = '';
+  state.practicePollStartedAtMs = 0;
+  state.practicePollInFlight = false;
+}
+
+function schedulePracticePoll(gameId, immediate) {
+  if (!gameId) {
+    return;
+  }
+  if (state.practicePollTimeout) {
+    window.clearTimeout(state.practicePollTimeout);
+    state.practicePollTimeout = null;
+  }
+  const elapsed = Math.max(0, Date.now() - (state.practicePollStartedAtMs || Date.now()));
+  const delay = immediate
+    ? 0
+    : (elapsed < PRACTICE_POLL_FAST_WINDOW_MS ? PRACTICE_POLL_FAST_MS : PRACTICE_POLL_SLOW_MS);
+  state.practicePollTimeout = window.setTimeout(() => {
+    state.practicePollTimeout = null;
+    pollPracticeGame(gameId);
+  }, delay);
+}
+
+async function pollPracticeGame(gameId) {
+  if (state.practicePollInFlight || !gameId || state.practicePollGameId !== gameId) {
+    return;
+  }
+  const route = currentRoute();
+  if (!isPracticeRouteActive(route) || !state.game || state.game.gameId !== gameId) {
+    stopPracticePolling();
+    return;
+  }
+  state.practicePollInFlight = true;
+  try {
+    const snapshot = applyServerGameSnapshot(await fetchJson(`${API_BASE}/learn/practice-games/${gameId}`));
+    if (!snapshot || snapshot.gameId !== gameId) {
+      stopPracticePolling();
+      return;
+    }
+    state.game = snapshot;
+    if (!snapshot.aiPending || snapshot.status !== 'PLAYING') {
+      stopPracticePolling();
+    } else {
+      schedulePracticePoll(gameId, false);
+    }
+    render();
+  } catch (error) {
+    state.status = error.message;
+    render();
+    if (state.practicePollGameId === gameId && isPracticeRouteActive(currentRoute())) {
+      schedulePracticePoll(gameId, false);
+    }
+  } finally {
+    state.practicePollInFlight = false;
+  }
+}
+
+function isPracticeRouteActive(route) {
+  if (!route || !state.game) {
+    return false;
+  }
+  if (route.page === 'practice') {
+    return true;
+  }
+  return route.page === 'game' && state.game.isTraining === true;
 }
 
 function enrichGame(game) {
@@ -1357,6 +2733,46 @@ function formatClock(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+function tickLiveGameClock(route) {
+  if (!route || route.page !== 'game') {
+    return;
+  }
+  const game = state.game;
+  if (!game || game.isTraining || game.status !== 'PLAYING' || game.clockState !== 'RUNNING') {
+    return;
+  }
+  updateClockValue(game, 'first');
+  updateClockValue(game, 'second');
+}
+
+function updateClockValue(game, slot) {
+  if (!game || !game.players) {
+    return;
+  }
+  const player = slot === 'first' ? game.players.first : game.players.second;
+  if (!player || !player.side) {
+    return;
+  }
+  const side = player.side;
+  const remaining = slot === 'first'
+    ? effectiveRemaining(game, game.firstRemainingSeconds, side)
+    : effectiveRemaining(game, game.secondRemainingSeconds, side);
+  const target = document.querySelector(`[data-clock-value="${side}"]`);
+  if (target) {
+    target.textContent = formatClock(remaining);
+  }
+}
+
+function markBoardTap(target) {
+  if (!target) {
+    return;
+  }
+  target.classList.add('is-tapped');
+  window.setTimeout(() => {
+    target.classList.remove('is-tapped');
+  }, 110);
+}
+
 function engineOptions(gameType) {
   if (gameType === 'GOMOKU') {
     return [
@@ -1379,8 +2795,192 @@ function gameActionBase(game) {
     : `${API_BASE}/games/${game.gameId}`;
 }
 
+function inferPracticeHumanFirst(game) {
+  const viewerSide = game && game.viewerSide ? game.viewerSide : inferViewerSide(game);
+  if (game && game.gameType === 'GOMOKU') {
+    return viewerSide === 'BLACK';
+  }
+  return viewerSide !== 'BLACK';
+}
+
+function latestHumanMoveIndex(game) {
+  if (!game || !Array.isArray(game.moves) || !game.moves.length) {
+    return -1;
+  }
+  const viewerSide = game.viewerSide || inferViewerSide(game);
+  for (let idx = game.moves.length - 1; idx >= 0; idx -= 1) {
+    const move = game.moves[idx] || {};
+    const side = String(move.side || (move.payload && move.payload.side) || '').trim();
+    if (side && side === viewerSide) {
+      return idx;
+    }
+  }
+  return -1;
+}
+
+function practiceUndoDisabledReason(game) {
+  if (!game || !game.isTraining) {
+    return '仅 AI 练习局支持悔棋。';
+  }
+  if (game.status !== 'PLAYING') {
+    return '对局结束后不可悔棋。';
+  }
+  if (state.moveInFlight) {
+    return '正在提交走子，请稍候。';
+  }
+  if (isPracticeAiPending(game)) {
+    return 'AI 思考中不可悔棋。';
+  }
+  if (latestHumanMoveIndex(game) < 0) {
+    return '至少完成一步走子后可悔棋。';
+  }
+  return '';
+}
+
 function canInteractWithBoard(game) {
-  return !!(game && game.status === 'PLAYING' && game.viewerSide && game.currentTurn === game.viewerSide);
+  return !!(game
+    && isSupportedGameType(game.gameType)
+    && game.status === 'PLAYING'
+    && game.viewerSide
+    && game.currentTurn === game.viewerSide
+    && !state.moveInFlight
+    && !isPracticeAiPending(game));
+}
+
+function isSupportedGameType(gameType) {
+  return gameType === 'XIANGQI' || gameType === 'GOMOKU';
+}
+
+function practiceStatusText(game) {
+  if (state.moveInFlight) {
+    return '正在提交走子...';
+  }
+  if (state.status) {
+    return state.status;
+  }
+  const hint = activeAiMoveHint(game);
+  if (hint) {
+    return hint;
+  }
+  if (isPracticeAiPending(game)) {
+    return 'AI 思考中...';
+  }
+  return (game && game.resultText) || '轮到你落子后，后端会立刻返回 AI 应手。';
+}
+
+function isPracticeAiPending(game) {
+  return !!(game && game.isTraining && game.aiPending);
+}
+
+function activeAiMoveHint(game) {
+  if (!game || !state.aiMoveHintText) {
+    return '';
+  }
+  if (game.gameId !== state.aiMoveHintGameId) {
+    return '';
+  }
+  if (Date.now() > state.aiMoveHintExpireAt) {
+    clearAiMoveHint();
+    return '';
+  }
+  return state.aiMoveHintText;
+}
+
+function clearAiMoveHint() {
+  state.aiMoveHintText = '';
+  state.aiMoveHintExpireAt = 0;
+  state.aiMoveHintGameId = '';
+  state.aiMoveHintMoveIndex = 0;
+}
+
+function maybeRememberAiMove(previousGame, nextGame) {
+  if (!nextGame || !nextGame.gameId || !Array.isArray(nextGame.moves) || !nextGame.moves.length) {
+    return;
+  }
+  const move = getLastMove(nextGame);
+  if (!move) {
+    return;
+  }
+  const previousLast = getLastMove(previousGame);
+  const previousIndex = previousLast ? Number(previousLast.index || (previousGame.moves || []).length || 0) : 0;
+  const nextIndex = Number(move.index || nextGame.moves.length || 0);
+  if (previousGame
+    && previousGame.gameId === nextGame.gameId
+    && previousIndex === nextIndex
+    && state.aiMoveHintMoveIndex === nextIndex) {
+    return;
+  }
+  const viewerSide = nextGame.viewerSide || inferViewerSide(nextGame);
+  const moveSide = String(move.side || (move.payload && move.payload.side) || '').trim();
+  if (!moveSide || !viewerSide || moveSide === viewerSide) {
+    return;
+  }
+  if (!nextGame.isTraining && !gameHasAiOpponent(nextGame)) {
+    return;
+  }
+  const notation = String(move.notation || '').trim() || fallbackMoveNotation(nextGame.gameType, move.payload);
+  state.aiMoveHintText = notation ? `AI 已落子：${notation}` : 'AI 已落子';
+  state.aiMoveHintExpireAt = Date.now() + 2600;
+  state.aiMoveHintGameId = nextGame.gameId;
+  state.aiMoveHintMoveIndex = nextIndex;
+}
+
+function gameHasAiOpponent(game) {
+  if (!game || !game.players) {
+    return false;
+  }
+  const first = game.players.first;
+  const second = game.players.second;
+  return !!((first && first.opponentType === 'AI') || (second && second.opponentType === 'AI'));
+}
+
+function fallbackMoveNotation(gameType, payload) {
+  if (!payload) {
+    return '';
+  }
+  if (gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
+    return `${payload.fromRow},${payload.fromCol}→${payload.toRow},${payload.toCol}`;
+  }
+  if (gameType === 'GOMOKU' && isGomokuMovePayload(payload)) {
+    return `${payload.row},${payload.col}`;
+  }
+  return '';
+}
+
+function validateMovePayload(game, payload) {
+  if (!game) {
+    return '当前对局不存在，无法落子。';
+  }
+  if (!isSupportedGameType(game.gameType)) {
+    return `暂不支持 ${game.gameType || 'UNKNOWN'} 的落子操作。`;
+  }
+  if (game.gameType === 'XIANGQI') {
+    return isXiangqiMovePayload(payload) ? '' : '象棋走法参数不合法，必须包含 fromRow/fromCol/toRow/toCol。';
+  }
+  return isGomokuMovePayload(payload) ? '' : '五子棋走法参数不合法，必须包含 row/col。';
+}
+
+function isXiangqiMovePayload(payload) {
+  return !!(payload
+    && Number.isInteger(payload.fromRow)
+    && Number.isInteger(payload.fromCol)
+    && Number.isInteger(payload.toRow)
+    && Number.isInteger(payload.toCol));
+}
+
+function isGomokuMovePayload(payload) {
+  return !!(payload
+    && Number.isInteger(payload.row)
+    && Number.isInteger(payload.col));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function gameLabel(game) {

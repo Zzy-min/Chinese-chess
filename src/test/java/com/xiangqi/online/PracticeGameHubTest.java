@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PracticeGameHubTest {
@@ -28,7 +29,8 @@ class PracticeGameHubTest {
             GameType.XIANGQI,
             "MEDIUM",
             true,
-            "PIKAFISH"
+            "PIKAFISH",
+            ""
         ));
 
         assertEquals("XIANGQI", game.get("gameType"));
@@ -51,7 +53,8 @@ class PracticeGameHubTest {
             GameType.GOMOKU,
             "EASY",
             false,
-            "RAPFI"
+            "RAPFI",
+            ""
         ));
 
         assertEquals("GOMOKU", game.get("gameType"));
@@ -80,7 +83,8 @@ class PracticeGameHubTest {
             GameType.XIANGQI,
             "EASY",
             true,
-            "BUILTIN"
+            "BUILTIN",
+            ""
         ));
 
         Map<String, Object> updated = hub.applyMove(
@@ -102,6 +106,119 @@ class PracticeGameHubTest {
         assertEquals("RED", afterAi.get("currentTurn"));
         assertEquals("BLACK", asMap(lastMove(afterAi).get("payload")).get("side"));
         assertEquals("builtin", asMap(afterAi.get("ai")).get("engineId"));
+    }
+
+    @Test
+    void undoRewindsLatestHumanRoundInPracticeGame() throws Exception {
+        OnlineStore store = newStore();
+        PracticeGameHub hub = new PracticeGameHub(store);
+        AuthUser user = new AuthUser("u-practice", "practice-user");
+
+        Map<String, Object> created = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.XIANGQI,
+            "EASY",
+            true,
+            "BUILTIN",
+            ""
+        ));
+
+        Map<String, Object> moved = hub.applyMove(
+            asString(created.get("gameId")),
+            user,
+            Map.of("fromRow", 6, "fromCol", 0, "toRow", 5, "toCol", 0)
+        );
+        assertEquals(Boolean.TRUE, moved.get("aiPending"));
+
+        String gameId = asString(moved.get("gameId"));
+        Map<String, Object> afterAi = waitUntil(() -> hub.gameSnapshotById(gameId, user), snapshot ->
+            Boolean.FALSE.equals(snapshot.get("aiPending")) && Integer.valueOf(2).equals(snapshot.get("moveCount"))
+        );
+        assertEquals(2, afterAi.get("moveCount"));
+
+        Map<String, Object> undone = hub.undo(gameId, user);
+        assertEquals("PLAYING", undone.get("status"));
+        assertEquals(Boolean.FALSE, undone.get("aiPending"));
+        assertEquals(0, undone.get("moveCount"));
+        assertEquals("RED", undone.get("currentTurn"));
+        assertTrue(((List<?>) undone.get("moves")).isEmpty());
+    }
+
+    @Test
+    void undoRejectsWhenAiIsPending() throws Exception {
+        OnlineStore store = newStore();
+        PracticeGameHub hub = new PracticeGameHub(store);
+        AuthUser user = new AuthUser("u-practice", "practice-user");
+
+        Map<String, Object> created = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.XIANGQI,
+            "EASY",
+            true,
+            "BUILTIN",
+            ""
+        ));
+
+        Map<String, Object> moved = hub.applyMove(
+            asString(created.get("gameId")),
+            user,
+            Map.of("fromRow", 6, "fromCol", 0, "toRow", 5, "toCol", 0)
+        );
+        assertEquals(Boolean.TRUE, moved.get("aiPending"));
+
+        IllegalArgumentException error = assertThrows(
+            IllegalArgumentException.class,
+            () -> hub.undo(asString(created.get("gameId")), user)
+        );
+        assertTrue(error.getMessage().contains("AI is thinking"));
+    }
+
+    @Test
+    void createsXiangqiPracticeGameFromInitialFenAndKeepsReplayStartBoard() throws Exception {
+        OnlineStore store = newStore();
+        PracticeGameHub hub = new PracticeGameHub(store);
+        AuthUser user = new AuthUser("u-practice", "practice-user");
+        String fen = "4k4/9/9/9/9/4R4/9/9/9/4K4 b - - 0 1";
+
+        Map<String, Object> game = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.XIANGQI,
+            "MEDIUM",
+            false,
+            "BUILTIN",
+            fen
+        ));
+
+        assertEquals("XIANGQI", game.get("gameType"));
+        assertEquals("BLACK", game.get("currentTurn"));
+        assertEquals("BLACK", game.get("viewerSide"));
+        assertEquals(fen, game.get("initialFen"));
+
+        List<List<String>> board = asBoard(game.get("board"));
+        assertEquals("将", board.get(0).get(4));
+        assertEquals("車", board.get(5).get(4));
+        assertEquals("帅", board.get(9).get(4));
+
+        List<List<List<String>>> historyBoards = asHistoryBoards(game.get("historyBoards"));
+        assertEquals(1, historyBoards.size());
+        assertEquals("車", historyBoards.get(0).get(5).get(4));
+    }
+
+    @Test
+    void rejectsInvalidInitialFenForXiangqiPracticeGame() throws Exception {
+        OnlineStore store = newStore();
+        PracticeGameHub hub = new PracticeGameHub(store);
+        AuthUser user = new AuthUser("u-practice", "practice-user");
+
+        IllegalArgumentException error = org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> hub.createGame(user, new CreatePracticeGameRequest(
+                GameType.XIANGQI,
+                "MEDIUM",
+                true,
+                "BUILTIN",
+                "invalid-fen"
+            ))
+        );
+
+        assertTrue(error.getMessage().contains("invalid initial FEN"));
     }
 
     private OnlineStore newStore() throws Exception {
@@ -131,6 +248,24 @@ class PracticeGameHubTest {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<List<String>> asBoard(Object value) {
+        if (value instanceof String[][]) {
+            String[][] board = (String[][]) value;
+            List<List<String>> rows = new java.util.ArrayList<List<String>>();
+            for (String[] row : board) {
+                rows.add(new java.util.ArrayList<String>(java.util.Arrays.asList(row)));
+            }
+            return rows;
+        }
+        return (List<List<String>>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<List<List<String>>> asHistoryBoards(Object value) {
+        return (List<List<List<String>>>) value;
     }
 
     private Map<String, Object> waitUntil(Supplier<Map<String, Object>> supplier, java.util.function.Predicate<Map<String, Object>> predicate) throws Exception {
