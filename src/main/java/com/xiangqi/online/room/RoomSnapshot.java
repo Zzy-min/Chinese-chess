@@ -7,6 +7,7 @@ public final class RoomSnapshot {
     private final String roomCode;
     private final String gameId;
     private final RoomStatus status;
+    private final RoomVisibility visibility;
     private final AuthUser hostPlayer;
     private final AuthUser guestPlayer;
     private final AuthUser redPlayer;
@@ -19,6 +20,7 @@ public final class RoomSnapshot {
         String roomCode,
         String gameId,
         RoomStatus status,
+        RoomVisibility visibility,
         AuthUser hostPlayer,
         AuthUser guestPlayer,
         AuthUser redPlayer,
@@ -30,6 +32,7 @@ public final class RoomSnapshot {
         this.roomCode = roomCode;
         this.gameId = gameId;
         this.status = status;
+        this.visibility = visibility;
         this.hostPlayer = hostPlayer;
         this.guestPlayer = guestPlayer;
         this.redPlayer = redPlayer;
@@ -52,6 +55,10 @@ public final class RoomSnapshot {
 
     public RoomStatus status() {
         return status;
+    }
+
+    public RoomVisibility visibility() {
+        return visibility;
     }
 
     public AuthUser hostPlayer() {

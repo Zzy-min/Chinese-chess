@@ -51,6 +51,9 @@ public final class OnlineSiteServer {
     private final PracticeGameHub practiceHub;
     private final EndgameCatalog endgameCatalog = new EndgameCatalog();
     private final WsHub wsHub;
+    private final RateLimiter authLimiter = new RateLimiter(5, 60_000);      // 登录/注册：5次/分钟
+    private final RateLimiter createRoomLimiter = new RateLimiter(3, 60_000); // 创建房间：3次/分钟
+    private final RateLimiter moveLimiter = new RateLimiter(60, 60_000);     // 走子：60次/分钟
     private Undertow server;
 
     public OnlineSiteServer() throws Exception {
@@ -70,6 +73,7 @@ public final class OnlineSiteServer {
             .get("/", this::handleIndex)
             .get("/assets/site/app.css", this::handleCss)
             .get("/assets/site/app.js", this::handleJs)
+            .get("/assets/site/board.js", this::handleBoardJs)
             .get("/api/site/bootstrap", this::handleBootstrap)
             .get("/api/auth/me", this::handleMe)
             .get("/api/lobby/overview", this::handleLobby)
@@ -132,6 +136,10 @@ public final class OnlineSiteServer {
 
     private void handleJs(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/online/app.js", "application/javascript; charset=UTF-8");
+    }
+
+    private void handleBoardJs(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/online/board.js", "application/javascript; charset=UTF-8");
     }
 
     private void handleBootstrap(HttpServerExchange exchange) {
@@ -212,6 +220,11 @@ public final class OnlineSiteServer {
     }
 
     private void handleRegister(HttpServerExchange exchange) {
+        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
+        if (!authLimiter.allow(ip)) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.register(asString(payload.get("username")), asString(payload.get("password")));
@@ -223,6 +236,11 @@ public final class OnlineSiteServer {
     }
 
     private void handleLogin(HttpServerExchange exchange) {
+        String ip = exchange.getSourceAddress().getAddress().getHostAddress();
+        if (!authLimiter.allow(ip)) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.login(asString(payload.get("username")), asString(payload.get("password")));
@@ -251,6 +269,10 @@ public final class OnlineSiteServer {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
             sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        if (!createRoomLimiter.allow(user.get().id())) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
             return;
         }
         try {
@@ -666,13 +688,29 @@ public final class OnlineSiteServer {
             if (roomId == null || roomId.trim().isEmpty()) {
                 return;
             }
-            // TODO: BUG-004 — IDOR: any authenticated user can subscribe to any room.
-            // Room model does not yet support visibility/access-control, so we only
-            // verify the room exists before allowing subscription. Once the room
-            // model supports visibility (e.g. public/private/invite-only), enforce
-            // authorization here.
+            // 访问控制：检查房间可见性和用户权限
+            Object userIdAttr = channel.getAttribute("userId");
+            String userId = userIdAttr != null ? userIdAttr.toString() : null;
             try {
-                roomHub.roomSnapshotById(roomId);
+                Map<String, Object> room = roomHub.roomSnapshotById(roomId);
+                if (room == null) return;
+
+                // 检查是否是房间玩家
+                boolean isPlayer = false;
+                if (userId != null) {
+                    Map<String, Object> host = (Map<String, Object>) room.get("host");
+                    Map<String, Object> guest = (Map<String, Object>) room.get("guest");
+                    isPlayer = (host != null && userId.equals(host.get("id")))
+                        || (guest != null && userId.equals(guest.get("id")));
+                }
+
+                // 检查房间是否公开
+                boolean isPublic = Boolean.TRUE.equals(room.get("isPublic"));
+
+                if (!isPlayer && !isPublic) {
+                    WebSockets.sendText("{\"error\":\"no access to this room\"}", channel, null);
+                    return;
+                }
             } catch (Exception ex) {
                 return;
             }

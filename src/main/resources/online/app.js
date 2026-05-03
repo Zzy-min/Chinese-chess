@@ -757,27 +757,48 @@ function renderAuthOverlay(dismissible) {
 }
 
 function renderXiangqiBoard(game) {
-  return renderXiangqiBoardState(game.board || [], {
+  const html = renderXiangqiBoardState(game.board || [], {
     interactive: true,
     disabled: !canInteractWithBoard(game),
     selectedFrom: state.selectedFrom,
     hintFrom: state.hintHighlight,
     hintTo: state.hintHighlight
   });
+  // 延迟绑定：等 innerHTML 渲染完成后初始化棋盘
+  requestAnimationFrame(() => bindXiangqiBoard(game.board || [], {
+    interactive: true,
+    disabled: !canInteractWithBoard(game),
+    selectedFrom: state.selectedFrom,
+    hintFrom: state.hintHighlight
+  }));
+  return html;
 }
 
 function renderGomokuBoard(game) {
-  return renderGomokuBoardState(game.board || [], {
+  const html = renderGomokuBoardState(game.board || [], {
     interactive: true,
     disabled: !canInteractWithBoard(game)
   });
+  requestAnimationFrame(() => bindGomokuBoard(game.board || [], {
+    interactive: true,
+    disabled: !canInteractWithBoard(game)
+  }));
+  return html;
 }
 
 function renderReadonlyBoard(gameType, board) {
-  return gameType === 'GOMOKU'
-    ? renderGomokuBoardState(board, { interactive: false, disabled: false })
-    : renderXiangqiBoardState(board, { interactive: false, disabled: false, selectedFrom: null });
+  if (gameType === 'GOMOKU') {
+    const html = renderGomokuBoardState(board, { interactive: false, disabled: false });
+    requestAnimationFrame(() => bindGomokuBoard(board, { interactive: false, disabled: false }));
+    return html;
+  }
+  const html = renderXiangqiBoardState(board, { interactive: false, disabled: false, selectedFrom: null });
+  requestAnimationFrame(() => bindXiangqiBoard(board, { interactive: false, disabled: false }));
+  return html;
 }
+
+let _xiangqiBoardRenderer = null;
+let _gomokuBoardRenderer = null;
 
 function renderXiangqiBoardState(board, options = {}) {
   const rows = normalizeBoard(board);
@@ -786,36 +807,98 @@ function renderXiangqiBoardState(board, options = {}) {
   const selectedFrom = options.selectedFrom || null;
   const hintFrom = options.hintFrom || null;
   const hintTo = options.hintTo || null;
-  return `<div class="xiangqiBoard">
-    ${rows.map((row, r) => row.map((cell, c) => {
-      const cls = ['xiangqiCell'];
-      if (cell && !isRedPiece(cell)) cls.push('is-black');
-      if (selectedFrom && selectedFrom.row === r && selectedFrom.col === c) cls.push('is-selected');
-      if (hintFrom && hintFrom.fromRow === r && hintFrom.fromCol === c) cls.push('is-hint-from');
-      if (hintTo && hintTo.toRow === r && hintTo.toCol === c) cls.push('is-hint-to');
-      const attrs = interactive
-        ? ` data-board="xiangqi" data-row="${r}" data-col="${c}"${disabled ? ' disabled' : ''}`
-        : '';
-      return `<button class="${cls.join(' ')}"${attrs}>${cell || ''}</button>`;
-    }).join('')).join('')}
-  </div>`;
+
+  // 构建 pieces map
+  const pieces = {};
+  rows.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell) pieces[`${r},${c}`] = cell;
+    });
+  });
+
+  // 返回占位 div，实际渲染在 bindXiangqiBoard 中完成
+  return `<div id="xiangqi-board-container" data-interactive="${interactive}" data-disabled="${disabled}"></div>`;
 }
 
 function renderGomokuBoardState(board, options = {}) {
   const rows = normalizeBoard(board);
   const interactive = options.interactive === true;
   const disabled = options.disabled === true;
-  return `<div class="gomokuBoard">
-    ${rows.map((row, r) => row.map((cell, c) => {
-      const cls = ['gomokuCell'];
-      if (cell === 'BLACK') cls.push('is-black');
-      if (cell === 'WHITE') cls.push('is-white');
-      const attrs = interactive
-        ? ` data-board="gomoku" data-row="${r}" data-col="${c}"${disabled ? ' disabled' : ''}`
-        : '';
-      return `<button class="${cls.join(' ')}"${attrs}></button>`;
-    }).join('')).join('')}
-  </div>`;
+
+  const pieces = {};
+  rows.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell) pieces[`${r},${c}`] = cell;
+    });
+  });
+
+  return `<div id="gomoku-board-container" data-interactive="${interactive}" data-disabled="${disabled}"></div>`;
+}
+
+function bindXiangqiBoard(board, options = {}) {
+  const container = document.getElementById('xiangqi-board-container');
+  if (!container) return;
+
+  if (!_xiangqiBoardRenderer || _xiangqiBoardRenderer.container !== container) {
+    _xiangqiBoardRenderer = new XiangqiBoard(container);
+  }
+
+  const pieces = {};
+  normalizeBoard(board).forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell) pieces[`${r},${c}`] = cell;
+    });
+  });
+
+  _xiangqiBoardRenderer.set({
+    pieces,
+    selected: options.selectedFrom || null,
+    hint: options.hintFrom || null,
+    disabled: options.disabled === true
+  });
+
+  if (options.interactive !== false) {
+    _xiangqiBoardRenderer.onClick = (row, col) => {
+      if (!canInteractWithBoard(state.game)) return;
+      state.hintHighlight = null;
+      if (!state.selectedFrom) {
+        state.selectedFrom = { row, col };
+        render();
+        return;
+      }
+      const move = { fromRow: state.selectedFrom.row, fromCol: state.selectedFrom.col, toRow: row, toCol: col };
+      state.selectedFrom = null;
+      sendMove(move);
+    };
+  }
+}
+
+function bindGomokuBoard(board, options = {}) {
+  const container = document.getElementById('gomoku-board-container');
+  if (!container) return;
+
+  if (!_gomokuBoardRenderer || _gomokuBoardRenderer.container !== container) {
+    _gomokuBoardRenderer = new GomokuBoard(container);
+  }
+
+  const pieces = {};
+  normalizeBoard(board).forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell) pieces[`${r},${c}`] = cell;
+    });
+  });
+
+  _gomokuBoardRenderer.set({
+    pieces,
+    disabled: options.disabled === true
+  });
+
+  if (options.interactive !== false) {
+    _gomokuBoardRenderer.onClick = (row, col) => {
+      if (!canInteractWithBoard(state.game)) return;
+      sendMove({ row, col });
+    };
+  }
 }
 
 function normalizeBoard(board) {
@@ -866,8 +949,7 @@ function bindCommon(route) {
   on('[data-action="accept-draw"]', () => respondDraw(true));
   on('[data-action="reject-draw"]', () => respondDraw(false));
   on('[data-action="resign"]', resignGame);
-  document.querySelectorAll('[data-board="xiangqi"]').forEach(el => el.addEventListener('click', onXiangqiCellClick));
-  document.querySelectorAll('[data-board="gomoku"]').forEach(el => el.addEventListener('click', onGomokuCellClick));
+  // 棋盘点击事件已由 board.js 渲染器内部处理
   document.querySelectorAll('[data-analysis-step]').forEach(el => el.addEventListener('click', () => {
     state.analysisStep = Number(el.getAttribute('data-analysis-step'));
     render();
@@ -1208,7 +1290,24 @@ async function syncRealtime(route) {
   state.ws.onmessage = async event => {
     const data = JSON.parse(event.data);
     if (data.room) state.room = data.room;
-    if (data.game) state.game = enrichGame(data.game);
+    if (data.game) {
+      const incomingGame = data.game;
+      const currentGame = state.game;
+
+      // stateId 校验：如果检测到跳跃（丢消息），请求全量同步
+      if (currentGame && currentGame.gameId === incomingGame.gameId
+        && incomingGame.stateId && currentGame.stateId
+        && incomingGame.stateId > currentGame.stateId + 1) {
+        try {
+          const full = await fetchJson(`${API_BASE}/games/${incomingGame.gameId}`);
+          state.game = enrichGame(full);
+        } catch (_e) {
+          state.game = enrichGame(incomingGame);
+        }
+      } else {
+        state.game = enrichGame(incomingGame);
+      }
+    }
     if (state.room && state.room.gameId && currentRoute().page === 'room') {
       await refreshBootstrapAndProfile();
       navTo(`game/${state.room.gameId}`);

@@ -21,4 +21,8 @@ public interface OnlineMatchEngine {
     String resultText();
 
     List<Map<String, Object>> moves();
+
+    default long stateId() {
+        return 0;
+    }
 }

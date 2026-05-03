@@ -71,6 +71,9 @@ button,input,select{font:inherit}
 .xiangqiCell{aspect-ratio:1;border-radius:14px;background:rgba(255,249,241,.9);border:1px solid rgba(111,68,30,.16);font-size:20px;font-weight:700;color:#7b2216}
 .xiangqiCell.is-black{color:#1d1d1d}
 .xiangqiCell.is-selected{outline:3px solid #2f5f4a}
+.xiangqiCell.is-last-move{background:rgba(47,95,74,.12)}
+.xiangqiCell.is-hint-from{box-shadow:inset 0 0 0 3px #2196f3;animation:hintPulse 1.2s ease-in-out infinite}
+.xiangqiCell.is-hint-to{box-shadow:inset 0 0 0 3px #4caf50;animation:hintPulse 1.2s ease-in-out infinite}
 .gomokuBoard{display:grid;grid-template-columns:repeat(15,minmax(18px,1fr));gap:4px;background:#d5ad74;padding:10px;border-radius:18px}
 .gomokuCell{aspect-ratio:1;border-radius:999px;background:rgba(255,245,232,.45)}
 .gomokuCell.is-black{background:#111}

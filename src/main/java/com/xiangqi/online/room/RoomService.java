@@ -24,6 +24,7 @@ public class RoomService {
             request.gameType(),
             host
         );
+        state.visibility = request.isPublic() ? RoomVisibility.PUBLIC : RoomVisibility.PRIVATE;
         rooms.save(state);
         return state.snapshot();
     }

@@ -33,6 +33,7 @@ public class InMemoryRoomRepository implements RoomRepository {
         final String roomCode;
         RoomStatus status;
         String gameId;
+        RoomVisibility visibility;
         final com.xiangqi.online.game.GameType gameType;
         final com.xiangqi.online.auth.AuthUser hostPlayer;
         com.xiangqi.online.auth.AuthUser guestPlayer;
@@ -51,6 +52,7 @@ public class InMemoryRoomRepository implements RoomRepository {
             this.status = status;
             this.gameType = gameType;
             this.hostPlayer = hostPlayer;
+            this.visibility = RoomVisibility.PUBLIC;
         }
 
         RoomSnapshot snapshot() {
@@ -59,6 +61,7 @@ public class InMemoryRoomRepository implements RoomRepository {
                 roomCode,
                 gameId,
                 status,
+                visibility,
                 hostPlayer,
                 guestPlayer,
                 hostPlayer,

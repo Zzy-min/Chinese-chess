@@ -1,7 +1,9 @@
 package com.xiangqi.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 棋盘类 - 管理棋盘状态和棋子移动规则
@@ -14,6 +16,8 @@ public class Board {
     private PieceColor currentTurn;
     private int moveCount;
     private List<Move> moveHistory;
+    private long zobristHash;
+    private final Map<Long, Integer> positionCounts = new HashMap<>();
 
     public Board() {
         board = new Piece[ROWS][COLS];
@@ -21,6 +25,8 @@ public class Board {
         moveCount = 0;
         moveHistory = new ArrayList<>();
         initializeBoard();
+        zobristHash = Zobrist.compute(this);
+        positionCounts.put(zobristHash, 1);
     }
 
     public Board(Board other) {
@@ -28,6 +34,8 @@ public class Board {
         this.currentTurn = other.currentTurn;
         this.moveCount = other.moveCount;
         this.moveHistory = new ArrayList<>(other.moveHistory);
+        this.zobristHash = other.zobristHash;
+        this.positionCounts.putAll(other.positionCounts);
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
                 Piece piece = other.board[row][col];
@@ -93,17 +101,35 @@ public class Board {
 
     public synchronized void movePiece(Move move) {
         Piece piece = board[move.getFromRow()][move.getFromCol()];
-        Piece captured = board[move.getToRow()][move.getToCol()]; // 保存被吃的棋子
+        Piece captured = board[move.getToRow()][move.getToCol()];
+
+        // 记录走子前的 Zobrist hash
+        move.setHashBefore(zobristHash);
 
         // 设置被吃掉的棋子
         move.setCapturedPiece(captured);
 
+        // 更新 Zobrist 哈希：移除被吃的棋子
+        if (captured != null) {
+            zobristHash = Zobrist.remove(zobristHash, captured, move.getToRow(), move.getToCol());
+            move.setCapture();
+        }
+
+        // 更新 Zobrist 哈希：移动棋子
+        zobristHash = Zobrist.move(zobristHash, piece, move.getFromRow(), move.getFromCol(), move.getToRow(), move.getToCol());
+
         setPiece(move.getToRow(), move.getToCol(), piece);
         setPiece(move.getFromRow(), move.getFromCol(), null);
+
+        // 切换走棋方
+        zobristHash = Zobrist.flipTurn(zobristHash);
 
         moveHistory.add(move);
         moveCount++;
         currentTurn = currentTurn.opposite();
+
+        // 记录局面出现次数
+        positionCounts.merge(zobristHash, 1, Integer::sum);
     }
 
     /**
@@ -116,6 +142,12 @@ public class Board {
 
         Move lastMove = moveHistory.remove(moveHistory.size() - 1);
         moveCount--;
+
+        // 移除当前局面计数
+        positionCounts.merge(zobristHash, -1, Integer::sum);
+
+        // 恢复 Zobrist hash
+        zobristHash = lastMove.getHashBefore();
 
         // 将棋子移回原位
         Piece piece = board[lastMove.getToRow()][lastMove.getToCol()];
@@ -171,12 +203,7 @@ public class Board {
     private List<Move> copyMoveHistory(List<Move> source) {
         List<Move> copy = new ArrayList<>(source.size());
         for (Move move : source) {
-            Move cloned = new Move(move.getFromRow(), move.getFromCol(), move.getToRow(), move.getToCol());
-            Piece captured = move.getCapturedPiece();
-            if (captured != null) {
-                cloned.setCapturedPiece(captured.copy());
-            }
-            copy.add(cloned);
+            copy.add(move.copy());
         }
         return copy;
     }
@@ -655,6 +682,54 @@ public class Board {
         }
 
         return "";
+    }
+
+    public long getZobristHash() {
+        return zobristHash;
+    }
+
+    public boolean isThreefoldRepetition() {
+        return positionCounts.getOrDefault(zobristHash, 0) >= 3;
+    }
+
+    /**
+     * 生成当前走棋方的所有合法走法
+     */
+    public List<Move> generateAllLegalMoves() {
+        return getAllValidMoves(currentTurn);
+    }
+
+    /**
+     * perft 测试 - 统计指定深度的合法走法数
+     * 用于验证棋规实现的正确性
+     */
+    public long perft(int depth) {
+        if (depth == 0) return 1;
+        long nodes = 0;
+        List<Move> moves = generateAllLegalMoves();
+        for (Move move : moves) {
+            movePiece(move);
+            nodes += perft(depth - 1);
+            undoMove();
+        }
+        return nodes;
+    }
+
+    /**
+     * perft 分解 - 返回每步走法对应的子节点数
+     */
+    public Map<String, Long> perftDivide(int depth) {
+        Map<String, Long> result = new HashMap<>();
+        List<Move> moves = generateAllLegalMoves();
+        for (Move move : moves) {
+            movePiece(move);
+            long nodes = depth > 1 ? perft(depth - 1) : 1;
+            undoMove();
+            String key = String.format("(%d,%d)->(%d,%d)",
+                move.getFromRow(), move.getFromCol(), move.getToRow(), move.getToCol());
+            result.put(key, nodes);
+        }
+        return result;
     }
 }
 

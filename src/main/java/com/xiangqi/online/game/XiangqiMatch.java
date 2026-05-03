@@ -2,6 +2,7 @@ package com.xiangqi.online.game;
 
 import com.xiangqi.model.Board;
 import com.xiangqi.model.Move;
+import com.xiangqi.model.NotationParser;
 import com.xiangqi.model.Piece;
 import com.xiangqi.model.PieceColor;
 
@@ -14,17 +15,31 @@ public class XiangqiMatch implements OnlineMatchEngine {
     private final MatchPlayer red;
     private final MatchPlayer black;
     private final Board board;
+    private final GameClock clock;
+    private long stateId = 0;
 
     public XiangqiMatch(MatchPlayer red, MatchPlayer black) {
-        this.red = red;
-        this.black = black;
-        this.board = new Board();
+        this(red, black, new Board(), 600);
     }
 
     public XiangqiMatch(MatchPlayer red, MatchPlayer black, Board customBoard) {
+        this(red, black, customBoard, 600);
+    }
+
+    public XiangqiMatch(MatchPlayer red, MatchPlayer black, Board customBoard, long initialTimeSeconds) {
         this.red = red;
         this.black = black;
         this.board = customBoard;
+        this.clock = new GameClock(initialTimeSeconds, java.time.Clock.systemUTC());
+        this.clock.start(PieceColor.RED);
+    }
+
+    public GameClock clock() {
+        return clock;
+    }
+
+    public long stateId() {
+        return stateId;
     }
 
     @Override
@@ -39,6 +54,16 @@ public class XiangqiMatch implements OnlineMatchEngine {
         }
         Move move = new Move(input.fromRow(), input.fromCol(), input.toRow(), input.toCol());
         board.movePiece(move);
+        stateId++;
+        clock.switchSide();
+
+        // 检查超时
+        PieceColor flagged = clock.flaggedSide();
+        if (flagged != null) {
+            clock.stop();
+            return MatchEvent.accepted("timeout");
+        }
+
         return MatchEvent.accepted("move accepted");
     }
 
@@ -104,17 +129,27 @@ public class XiangqiMatch implements OnlineMatchEngine {
 
     @Override
     public boolean finished() {
-        return board.isGameOver();
+        return board.isGameOver() || clock.isFlagged();
     }
 
     @Override
     public String winnerSide() {
+        // 检查超时
+        PieceColor flagged = clock.flaggedSide();
+        if (flagged != null) {
+            return flagged.opposite().name();
+        }
         PieceColor winner = board.getWinner();
         return winner == null ? "" : winner.name();
     }
 
     @Override
     public String resultText() {
+        // 检查超时
+        PieceColor flagged = clock.flaggedSide();
+        if (flagged != null) {
+            return flagged.getDisplayName() + "超时！" + flagged.opposite().getDisplayName() + "获胜";
+        }
         return board.getGameResult();
     }
 
@@ -139,6 +174,15 @@ public class XiangqiMatch implements OnlineMatchEngine {
     }
 
     private String displayNotation(Piece piece, Move move) {
+        // 尝试使用标准记谱法
+        Board boardAtMove = board.getBoardAtMove(board.getMoveCount());
+        if (boardAtMove != null) {
+            String notation = NotationParser.format(move, boardAtMove);
+            if (notation != null && !notation.contains("?")) {
+                return notation;
+            }
+        }
+        // 回退到简单格式
         String name = piece == null ? "子" : piece.getType().getDisplayName();
         return name + " " + move.getFromRow() + "," + move.getFromCol() + " -> " + move.getToRow() + "," + move.getToCol();
     }

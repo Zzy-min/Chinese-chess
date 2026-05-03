@@ -335,6 +335,7 @@ public final class OnlineRoomHub {
         snapshot.put("board", game.engine.board());
         snapshot.put("moveCount", game.engine.moves().size());
         snapshot.put("moves", game.engine.moves());
+        snapshot.put("stateId", game.engine.stateId());
         attachReplayBoards(snapshot);
         snapshot.put("updatedAt", game.updatedAt.toString());
         Map<String, Object> players = new LinkedHashMap<String, Object>();
