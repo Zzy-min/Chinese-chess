@@ -70,6 +70,7 @@ public final class OnlineSiteServer {
             .get("/", this::handleIndex)
             .get("/assets/site/app.css", this::handleCss)
             .get("/assets/site/app.js", this::handleJs)
+            .get("/assets/site/board.js", this::handleBoardJs)
             .get("/api/site/bootstrap", this::handleBootstrap)
             .get("/api/auth/me", this::handleMe)
             .get("/api/lobby/overview", this::handleLobby)
@@ -120,6 +121,10 @@ public final class OnlineSiteServer {
 
     private void handleJs(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/online/app.js", "application/javascript; charset=UTF-8");
+    }
+
+    private void handleBoardJs(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/online/board.js", "application/javascript; charset=UTF-8");
     }
 
     private void handleBootstrap(HttpServerExchange exchange) {

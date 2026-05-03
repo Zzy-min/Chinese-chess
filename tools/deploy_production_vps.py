@@ -38,6 +38,16 @@ DEFAULT_PROJECT_DIR = "/opt/chinese-chess"
 DEFAULT_BRANCH = "main"
 DEFAULT_PUBLIC_URL = "https://www.xiangqiarena.com/"
 DEFAULT_LOCAL_HEALTH_URL = "http://127.0.0.1:18388/"
+DEFAULT_PUBLIC_CHECK_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Cache-Control": "no-cache",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -146,9 +156,12 @@ def public_check(url: str, retries: int = 10, sleep_sec: int = 6) -> str:
     last_error = None
     for attempt in range(1, retries + 1):
         try:
-            with urllib.request.urlopen(url, timeout=20) as response:
+            request = urllib.request.Request(url, headers=DEFAULT_PUBLIC_CHECK_HEADERS)
+            with urllib.request.urlopen(request, timeout=20) as response:
                 html = response.read().decode("utf-8", "replace")
-            print(f"PUBLIC_CHECK attempt={attempt} ok")
+                status = getattr(response, "status", "unknown")
+                final_url = response.geturl()
+            print(f"PUBLIC_CHECK attempt={attempt} ok status={status} url={final_url}")
             return html
         except (urllib.error.URLError, TimeoutError) as exc:
             last_error = exc
