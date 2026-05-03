@@ -2386,7 +2386,29 @@ async function syncRealtime(route) {
     const previousGame = state.game;
     if (data.room) state.room = data.room;
     if (data.game) {
-      state.game = applyServerGameSnapshot(data.game);
+      const incomingGame = data.game;
+      if (previousGame && incomingGame && previousGame.gameId === incomingGame.gameId) {
+        const currentStateId = Number(previousGame.stateId || 0);
+        const incomingStateId = Number(incomingGame.stateId || 0);
+        if (incomingStateId > 0 && currentStateId > 0) {
+          if (incomingStateId <= currentStateId) {
+            return;
+          }
+          if (incomingStateId > currentStateId + 1) {
+            try {
+              state.game = applyServerGameSnapshot(await fetchJson(`${API_BASE}/games/${incomingGame.gameId}`));
+            } catch (error) {
+              state.game = applyServerGameSnapshot(incomingGame);
+            }
+          } else {
+            state.game = applyServerGameSnapshot(incomingGame);
+          }
+        } else {
+          state.game = applyServerGameSnapshot(incomingGame);
+        }
+      } else {
+        state.game = applyServerGameSnapshot(incomingGame);
+      }
       const routeNow = currentRoute();
       if (previousGame
         && state.game

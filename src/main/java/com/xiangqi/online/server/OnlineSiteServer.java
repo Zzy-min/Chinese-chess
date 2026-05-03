@@ -24,6 +24,7 @@ import io.undertow.util.StatusCodes;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
+import io.undertow.websockets.core.CloseMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
@@ -51,6 +52,8 @@ public final class OnlineSiteServer {
     private final OnlineRoomHub roomHub;
     private final PracticeGameHub practiceHub;
     private final WsHub wsHub;
+    private final RateLimiter authLimiter = new RateLimiter(8, 60_000);
+    private final RateLimiter createRoomLimiter = new RateLimiter(12, 60_000);
     private Undertow server;
 
     public OnlineSiteServer() throws Exception {
@@ -103,6 +106,21 @@ public final class OnlineSiteServer {
             .addExactPath("/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
                 public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
+                    String token = extractWsCookie(exchange, AUTH_COOKIE);
+                    Optional<AuthUser> user = token.isEmpty() ? Optional.<AuthUser>empty() : store.findUserByToken(token);
+                    if (!user.isPresent()) {
+                        try {
+                            WebSockets.sendClose(CloseMessage.NORMAL_CLOSURE, "not authenticated", channel, null);
+                        } catch (Exception ignored) {
+                        }
+                        try {
+                            channel.close();
+                        } catch (IOException ignored) {
+                        }
+                        return;
+                    }
+                    channel.setAttribute("userId", user.get().id());
+                    channel.setAttribute("username", user.get().username());
                     wsHub.onConnect(channel);
                 }
             }))
@@ -283,6 +301,11 @@ public final class OnlineSiteServer {
     }
 
     private void handleRegister(HttpServerExchange exchange) {
+        String ip = clientIp(exchange);
+        if (!authLimiter.allow(ip + ":register")) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.register(asString(payload.get("username")), asString(payload.get("password")));
@@ -294,6 +317,11 @@ public final class OnlineSiteServer {
     }
 
     private void handleLogin(HttpServerExchange exchange) {
+        String ip = clientIp(exchange);
+        if (!authLimiter.allow(ip + ":login")) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
         try {
             Map<String, Object> payload = readJson(exchange);
             UserSession session = authService.login(asString(payload.get("username")), asString(payload.get("password")));
@@ -320,6 +348,11 @@ public final class OnlineSiteServer {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
             sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        String ip = clientIp(exchange);
+        if (!createRoomLimiter.allow(ip + ":create-room")) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
             return;
         }
         try {
@@ -517,6 +550,28 @@ public final class OnlineSiteServer {
         return "";
     }
 
+    private String extractWsCookie(WebSocketHttpExchange exchange, String name) {
+        String header = exchange.getRequestHeader("Cookie");
+        if (header == null || header.trim().isEmpty()) {
+            return "";
+        }
+        String[] parts = header.split(";");
+        for (String part : parts) {
+            String[] kv = part.trim().split("=", 2);
+            if (kv.length == 2 && name.equals(kv[0].trim())) {
+                return kv[1].trim();
+            }
+        }
+        return "";
+    }
+
+    private String clientIp(HttpServerExchange exchange) {
+        if (exchange.getSourceAddress() == null || exchange.getSourceAddress().getAddress() == null) {
+            return "unknown";
+        }
+        return exchange.getSourceAddress().getAddress().getHostAddress();
+    }
+
     private void setAuthCookie(HttpServerExchange exchange, UserSession session) {
         CookieImpl cookie = new CookieImpl(AUTH_COOKIE, session.token());
         cookie.setPath("/");
@@ -690,6 +745,16 @@ public final class OnlineSiteServer {
             if (roomId == null || roomId.trim().isEmpty()) {
                 return;
             }
+            String userId = asString(channel.getAttribute("userId"));
+            Map<String, Object> room;
+            try {
+                room = roomHub.roomSnapshotById(roomId);
+            } catch (Exception ex) {
+                return;
+            }
+            if (!canSubscribeRoom(userId, room)) {
+                return;
+            }
             byRoom.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(channel);
             channelRooms.put(channel, roomId);
             try {
@@ -725,6 +790,27 @@ public final class OnlineSiteServer {
                 }
             } catch (Exception ignored) {
             }
+        }
+
+        private boolean canSubscribeRoom(String userId, Map<String, Object> room) {
+            if (userId == null || userId.trim().isEmpty() || room == null) {
+                return false;
+            }
+            if (asBoolean(room.get("isPublic"))) {
+                return true;
+            }
+            String hostId = nestedUserId(room.get("host"));
+            String guestId = nestedUserId(room.get("guest"));
+            return userId.equals(hostId) || userId.equals(guestId);
+        }
+
+        @SuppressWarnings("unchecked")
+        private String nestedUserId(Object value) {
+            if (!(value instanceof Map)) {
+                return "";
+            }
+            Object id = ((Map<String, Object>) value).get("id");
+            return id == null ? "" : String.valueOf(id);
         }
     }
 }
