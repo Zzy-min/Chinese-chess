@@ -65,6 +65,8 @@ const PRACTICE_POLL_FAST_WINDOW_MS = 2000;
 const XIANGQI_ROWS = 10;
 const XIANGQI_COLS = 9;
 const GOMOKU_SIZE = 15;
+const XIANGQI_BOARD_CHROME = 32;
+const GOMOKU_BOARD_CHROME = 26;
 
 const onlineMoveAudio = createOnlineAudio('/assets/audio/move.wav');
 const onlineMateAudio = createOnlineAudio('/assets/audio/mate.wav');
@@ -190,57 +192,53 @@ function fitPracticeBoardToViewport(route = currentRoute(), force = false) {
     state.practiceBoardFitKey = '';
     return;
   }
-  if (window.innerWidth > 980) {
-    state.practiceBoardFitKey = '';
-    return;
-  }
   window.requestAnimationFrame(() => {
     const pane = document.querySelector('.boardPane--practice');
     const board = pane ? pane.querySelector('.xiangqiBoard, .gomokuBoard') : null;
-    if (!pane || !board) {
+    const boardHost = board ? board.parentElement : null;
+    if (!pane || !board || !boardHost) {
       return;
     }
     const gameId = state.game && state.game.gameId ? state.game.gameId : '';
     const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
-    const fitKey = `${gameId}|${boardType}|${window.innerWidth}x${window.innerHeight}`;
+    const hostRect = boardHost.getBoundingClientRect();
+    const fitKey = `${gameId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${Math.round(hostRect.width)}x${Math.round(hostRect.height)}`;
     if (!force && fitKey === state.practiceBoardFitKey) {
       return;
     }
     if (boardType === 'XIANGQI') {
-      fitXiangqiPracticeBoard(board, pane);
+      fitXiangqiPracticeBoard(board, boardHost);
       state.practiceBoardFitKey = fitKey;
       return;
     }
-    fitGomokuPracticeBoard(board, pane);
+    fitGomokuPracticeBoard(board, boardHost);
     state.practiceBoardFitKey = fitKey;
   });
 }
 
-function fitXiangqiPracticeBoard(board, pane) {
+function fitXiangqiPracticeBoard(board, boardHost) {
   board.style.removeProperty('--xi-cell-size');
-  const parentRect = (pane || board.parentElement || board).getBoundingClientRect();
+  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
   const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--xi-cell-size')) || 36;
-  const availableWidth = Math.max(0, Math.min(window.innerWidth, parentRect.width) - 20);
-  const byWidth = Math.floor((availableWidth - 32) / XIANGQI_COLS);
-  const byViewportHeight = Math.floor((window.innerHeight * 0.42) / XIANGQI_ROWS);
-  const byPaneHeight = Math.floor((Math.max(0, parentRect.height - 30)) / XIANGQI_ROWS);
-  const byHeight = Math.min(byViewportHeight, byPaneHeight);
-  const targetCell = Math.max(20, Math.min(Math.floor(baseCell), byHeight, byWidth));
+  const availableWidth = Math.max(0, parentRect.width - 6);
+  const availableHeight = Math.max(0, parentRect.height - 6);
+  const byWidth = Math.floor((availableWidth - XIANGQI_BOARD_CHROME) / XIANGQI_COLS);
+  const byHeight = Math.floor((availableHeight - XIANGQI_BOARD_CHROME) / XIANGQI_ROWS);
+  const targetCell = Math.max(16, Math.min(Math.floor(baseCell), byHeight, byWidth));
   if (targetCell > 0) {
     board.style.setProperty('--xi-cell-size', `${targetCell}px`);
   }
 }
 
-function fitGomokuPracticeBoard(board, pane) {
+function fitGomokuPracticeBoard(board, boardHost) {
   board.style.removeProperty('--go-cell-size');
-  const parentRect = (pane || board.parentElement || board).getBoundingClientRect();
+  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
   const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--go-cell-size')) || 24;
-  const availableWidth = Math.max(0, Math.min(window.innerWidth, parentRect.width) - 20);
-  const byWidth = Math.floor((availableWidth - 26) / GOMOKU_SIZE);
-  const byViewportHeight = Math.floor((window.innerHeight * 0.56) / GOMOKU_SIZE);
-  const byPaneHeight = Math.floor((Math.max(0, parentRect.height - 24)) / GOMOKU_SIZE);
-  const byHeight = Math.min(byViewportHeight, byPaneHeight);
-  const targetCell = Math.max(14, Math.min(Math.floor(baseCell), byHeight, byWidth));
+  const availableWidth = Math.max(0, parentRect.width - 6);
+  const availableHeight = Math.max(0, parentRect.height - 6);
+  const byWidth = Math.floor((availableWidth - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
+  const byHeight = Math.floor((availableHeight - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
+  const targetCell = Math.max(12, Math.min(Math.floor(baseCell), byHeight, byWidth));
   if (targetCell > 0) {
     board.style.setProperty('--go-cell-size', `${targetCell}px`);
   }
