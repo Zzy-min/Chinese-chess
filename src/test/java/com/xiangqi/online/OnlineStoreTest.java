@@ -1,6 +1,8 @@
 package com.xiangqi.online;
 
 import com.xiangqi.online.auth.AuthUser;
+import com.xiangqi.online.auth.AuthService;
+import com.xiangqi.online.auth.PasswordHasher;
 import com.xiangqi.online.game.GameType;
 import com.xiangqi.online.practice.CreatePracticeGameRequest;
 import com.xiangqi.online.practice.PracticeGameHub;
@@ -14,8 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.time.Clock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OnlineStoreTest {
@@ -59,7 +63,8 @@ class OnlineStoreTest {
             GameType.GOMOKU,
             "MEDIUM",
             false,
-            "RAPFI"
+            "RAPFI",
+            ""
         ));
 
         String gameId = asString(created.get("gameId"));
@@ -80,6 +85,56 @@ class OnlineStoreTest {
         assertEquals("AI", analysis.get("opponentType"));
         assertEquals("builtin", analysis.get("aiEngine"));
         assertTrue(((List<?>) analysis.get("historyBoards")).size() >= 2);
+    }
+
+    @Test
+    void communityLeaderboardUsesStableSortingForWinAndActivityBoards() throws Exception {
+        OnlineStore store = newStore();
+        AuthService auth = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
+        OnlineRoomHub hub = new OnlineRoomHub(store);
+        AuthUser alice = auth.register("alice", "Passw0rd123!").user();
+        AuthUser bob = auth.register("bob", "Passw0rd123!").user();
+        AuthUser carol = auth.register("carol", "Passw0rd123!").user();
+
+        String g1 = startXiangqiGame(hub, alice, bob);
+        hub.resign(g1, bob);
+        String g2 = startGomokuGame(hub, alice, carol);
+        hub.resign(g2, carol);
+        String g3 = startXiangqiGame(hub, bob, carol);
+        hub.resign(g3, carol);
+
+        Map<String, Object> leaderboard = store.communityLeaderboard(30, 10);
+        List<Map<String, Object>> winBoard = asMapList(leaderboard.get("winBoard"));
+        List<Map<String, Object>> activityBoard = asMapList(leaderboard.get("activityBoard"));
+
+        assertEquals(Boolean.FALSE, leaderboard.get("fallbackToAllTime"));
+        assertEquals("alice", asString(winBoard.get(0).get("username")));
+        assertEquals("bob", asString(winBoard.get(1).get("username")));
+        assertEquals(2, ((Number) winBoard.get(0).get("wins")).intValue());
+        assertEquals(1, ((Number) winBoard.get(1).get("wins")).intValue());
+
+        assertEquals("alice", asString(activityBoard.get(0).get("username")));
+        assertEquals("bob", asString(activityBoard.get(1).get("username")));
+        assertEquals("carol", asString(activityBoard.get(2).get("username")));
+        assertEquals(2, ((Number) activityBoard.get(0).get("activityGames")).intValue());
+    }
+
+    @Test
+    void learnContentLoadsSeedAndReturnsSafeListDefaults() throws Exception {
+        OnlineStore store = newStore();
+
+        Map<String, Object> content = store.learnContent();
+
+        assertNotNull(content);
+        assertTrue(content.containsKey("tutorials"));
+        assertTrue(content.containsKey("puzzles"));
+        assertTrue(content.containsKey("recommendedPractice"));
+        assertTrue(content.get("tutorials") instanceof List);
+        assertTrue(content.get("puzzles") instanceof List);
+        assertTrue(content.get("recommendedPractice") instanceof List);
+        assertTrue(((List<?>) content.get("tutorials")).size() >= 1);
+        assertTrue(((List<?>) content.get("puzzles")).size() >= 1);
+        assertTrue(((List<?>) content.get("recommendedPractice")).size() >= 1);
     }
 
     private String startXiangqiGame(OnlineRoomHub hub, AuthUser host, AuthUser guest) {
@@ -109,6 +164,11 @@ class OnlineStoreTest {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> asMapList(Object value) {
+        return value instanceof List ? (List<Map<String, Object>>) value : List.of();
     }
 
     private Map<String, Object> waitUntil(Supplier<Map<String, Object>> supplier, java.util.function.Predicate<Map<String, Object>> predicate) throws Exception {

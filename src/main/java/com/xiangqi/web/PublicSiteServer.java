@@ -21,6 +21,7 @@ import io.undertow.server.RoutingHandler;
 import io.undertow.server.handlers.BlockingHandler;
 import io.undertow.server.handlers.CookieImpl;
 import io.undertow.util.Headers;
+import io.undertow.util.Methods;
 import io.undertow.util.PathTemplateMatch;
 import io.undertow.util.StatusCodes;
 import io.undertow.websockets.WebSocketConnectionCallback;
@@ -34,8 +35,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -80,6 +84,7 @@ public final class PublicSiteServer {
         }
         RoutingHandler routes = Handlers.routing(false)
             .get("/", this::handleRootRedirect)
+            .add(Methods.HEAD, "/", this::handleRootRedirect)
             .get("/home-ai", this::handleLegacyIndex)
             .get("/assets/ui/app.css", this::handleLegacyCss)
             .get("/assets/ui/app.js", this::handleLegacyJs)
@@ -104,6 +109,7 @@ public final class PublicSiteServer {
             .post("/api/auth/login", this::handleLogin)
             .post("/api/auth/logout", this::handleLogout)
             .get("/online", this::handleOnlineIndex)
+            .add(Methods.HEAD, "/online", this::handleOnlineIndex)
             .get("/online/assets/site/app.css", this::handleOnlineCss)
             .get("/online/assets/site/app.js", this::handleOnlineJs)
             .get("/online/api/site/bootstrap", this::handleBootstrap)
@@ -113,6 +119,10 @@ public final class PublicSiteServer {
             .get("/online/api/games/{gameId}", this::handleGameById)
             .get("/online/api/games/{gameId}/analysis", this::handleGameAnalysis)
             .get("/online/api/learn/practice-games/{gameId}", this::handlePracticeGameById)
+            .get("/online/api/learn/content", this::handleLearnContent)
+            .get("/online/api/learn/progress", this::handleLearnProgress)
+            .get("/online/api/watch/overview", this::handleWatchOverview)
+            .get("/online/api/community/leaderboard", this::handleCommunityLeaderboard)
             .get("/online/api/profile/summary", this::handleProfileSummary)
             .post("/online/api/auth/register", this::handleRegister)
             .post("/online/api/auth/login", this::handleLogin)
@@ -127,7 +137,10 @@ public final class PublicSiteServer {
             .post("/online/api/games/{gameId}/draw-response", this::handleDrawResponse)
             .post("/online/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/online/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
-            .post("/online/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign);
+            .post("/online/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
+            .post("/online/api/learn/practice-games/{gameId}/undo", this::handlePracticeUndo)
+            .post("/online/api/learn/puzzles/{id}/complete", this::handleCompletePuzzle)
+            .post("/online/api/learn/tutorials/{id}/complete", this::handleCompleteTutorial);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
             .addExactPath("/online/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
@@ -331,6 +344,89 @@ public final class PublicSiteServer {
         }
     }
 
+    private void handleLearnContent(HttpServerExchange exchange) {
+        sendJson(exchange, store.learnContent());
+    }
+
+    private void handleLearnProgress(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        sendJson(exchange, store.learnProgress(user.get().id()));
+    }
+
+    private void handleCompletePuzzle(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "PUZZLE");
+    }
+
+    private void handleCompleteTutorial(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "TUTORIAL");
+    }
+
+    private void completeLearnItem(HttpServerExchange exchange, String contentType) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            store.markLearnProgress(user.get().id(), contentType, pathParam(exchange, "id"));
+            Map<String, Object> body = new LinkedHashMap<String, Object>();
+            body.put("ok", true);
+            body.put("contentType", contentType);
+            body.put("contentId", pathParam(exchange, "id"));
+            sendJson(exchange, body);
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handleWatchOverview(HttpServerExchange exchange) {
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("publicRooms", watchPublicRooms());
+        body.put("archivedGames", store.watchableGames(limit));
+        body.put("generatedAt", Instant.now().toString());
+        sendJson(exchange, body);
+    }
+
+    private void handleCommunityLeaderboard(HttpServerExchange exchange) {
+        int windowDays = asInt(queryParam(exchange, "windowDays", "30"), 30);
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        sendJson(exchange, store.communityLeaderboard(windowDays, limit));
+    }
+
+    private List<Map<String, Object>> watchPublicRooms() {
+        List<Map<String, Object>> rooms = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> room : roomHub.publicRoomSummaries()) {
+            String gameType = asString(room.get("gameType"));
+            String hostSide = defaultHostSide(gameType);
+            String guestSide = defaultGuestSide(gameType);
+            String guestUsername = asString(room.get("guestUsername"));
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("roomId", asString(room.get("roomId")));
+            item.put("roomCode", asString(room.get("roomCode")));
+            item.put("gameId", asString(room.get("gameId")));
+            item.put("gameType", gameType);
+            item.put("status", asString(room.get("status")));
+            item.put("updatedAt", asString(room.get("updatedAt")));
+            Map<String, Object> players = new LinkedHashMap<String, Object>();
+            Map<String, Object> first = new LinkedHashMap<String, Object>();
+            first.put("username", asString(room.get("hostUsername")));
+            first.put("side", hostSide);
+            Map<String, Object> second = new LinkedHashMap<String, Object>();
+            second.put("username", guestUsername);
+            second.put("side", guestUsername.isEmpty() ? "" : guestSide);
+            players.put("first", first);
+            players.put("second", second);
+            item.put("players", players);
+            rooms.add(item);
+        }
+        return rooms;
+    }
+
     private void handleProfileSummary(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
@@ -387,8 +483,9 @@ public final class PublicSiteServer {
         }
         try {
             Map<String, Object> payload = readJson(exchange);
+            GameType gameType = parseGameType(payload.get("gameType"));
             Map<String, Object> room = roomHub.createRoom(user.get(), new CreateRoomRequest(
-                GameType.valueOf(asString(payload.get("gameType"))),
+                gameType,
                 asInt(payload.get("initialTimeSeconds"), 600),
                 asBoolean(payload.get("isPublic"))
             ));
@@ -525,7 +622,8 @@ public final class PublicSiteServer {
                 GameType.valueOf(asString(payload.get("gameType"))),
                 asString(payload.get("difficulty")),
                 asBoolean(payload.get("humanFirst")),
-                asString(payload.get("preferredEngine"))
+                asString(payload.get("preferredEngine")),
+                asString(payload.get("initialFen"))
             ));
             sendJson(exchange, game);
         } catch (Exception ex) {
@@ -554,6 +652,19 @@ public final class PublicSiteServer {
         }
         try {
             sendJson(exchange, practiceHub.resign(pathParam(exchange, "gameId"), user.get()));
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handlePracticeUndo(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            sendJson(exchange, practiceHub.undo(pathParam(exchange, "gameId"), user.get()));
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
@@ -681,6 +792,38 @@ public final class PublicSiteServer {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private GameType parseGameType(Object raw) {
+        String normalized = asString(raw).trim().toUpperCase();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("gameType is required");
+        }
+        try {
+            return GameType.valueOf(normalized);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("unsupported gameType: " + normalized);
+        }
+    }
+
+    private String defaultHostSide(String gameType) {
+        if ("XIANGQI".equals(gameType)) {
+            return "RED";
+        }
+        if ("GOMOKU".equals(gameType)) {
+            return "BLACK";
+        }
+        return "";
+    }
+
+    private String defaultGuestSide(String gameType) {
+        if ("XIANGQI".equals(gameType)) {
+            return "BLACK";
+        }
+        if ("GOMOKU".equals(gameType)) {
+            return "WHITE";
+        }
+        return "";
     }
 
     private int asInt(Object value, int fallback) {

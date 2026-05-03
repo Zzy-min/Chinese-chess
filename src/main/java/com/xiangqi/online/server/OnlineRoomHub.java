@@ -307,6 +307,7 @@ public final class OnlineRoomHub {
         Map<String, Object> item = new LinkedHashMap<String, Object>();
         item.put("roomId", room.roomId);
         item.put("roomCode", room.roomCode);
+        item.put("gameId", room.gameId == null ? "" : room.gameId);
         item.put("gameType", room.gameType.name());
         item.put("status", room.status);
         item.put("initialTimeSeconds", room.initialTimeSeconds);

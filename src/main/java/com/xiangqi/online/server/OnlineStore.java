@@ -27,6 +27,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,7 @@ public final class OnlineStore {
     private final ObjectMapper mapper;
     private final JdbcUserRepository users;
     private final JdbcAuthSessionRepository sessions;
+    private volatile Map<String, Object> learnContentSeed;
 
     public OnlineStore(DataSource dataSource) {
         this.dataSource = dataSource;
@@ -171,6 +173,67 @@ public final class OnlineStore {
             ps.executeUpdate();
         } catch (SQLException | IOException ex) {
             throw new IllegalStateException("failed to update game record", ex);
+        }
+    }
+
+    public void rewriteGameMoves(String gameId, List<Map<String, Object>> moves, Map<String, Object> snapshot) {
+        String deleteSql = "delete from game_moves where game_id = ?";
+        String insertSql = "insert into game_moves(id, game_id, move_index, actor_user_id, side, notation, payload_json, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)";
+        String updateSql = "update games set status=?, current_turn=?, winner_side=?, result_text=?, board_json=?, move_count=?, first_remaining_seconds=?, second_remaining_seconds=?, termination_reason=?, finished_at=? where id=?";
+        try (Connection connection = dataSource.getConnection()) {
+            boolean previousAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement deletePs = connection.prepareStatement(deleteSql)) {
+                    deletePs.setString(1, gameId);
+                    deletePs.executeUpdate();
+                }
+                try (PreparedStatement insertPs = connection.prepareStatement(insertSql)) {
+                    List<Map<String, Object>> safeMoves = moves == null ? new ArrayList<Map<String, Object>>() : moves;
+                    for (int idx = 0; idx < safeMoves.size(); idx++) {
+                        Map<String, Object> move = safeMoves.get(idx);
+                        int moveIndex = idx + 1;
+                        insertPs.setString(1, gameId + "-" + moveIndex);
+                        insertPs.setString(2, gameId);
+                        insertPs.setInt(3, moveIndex);
+                        insertPs.setString(4, asString(move.get("actorUserId")));
+                        insertPs.setString(5, asString(move.get("side")));
+                        insertPs.setString(6, asString(move.get("notation")));
+                        insertPs.setString(7, mapper.writeValueAsString(asMap(move.get("payload"))));
+                        insertPs.setTimestamp(8, parseMoveCreatedAt(move.get("createdAt")));
+                        insertPs.addBatch();
+                    }
+                    if (!safeMoves.isEmpty()) {
+                        insertPs.executeBatch();
+                    }
+                }
+                try (PreparedStatement gamePs = connection.prepareStatement(updateSql)) {
+                    gamePs.setString(1, asString(snapshot.get("status")));
+                    gamePs.setString(2, asString(snapshot.get("currentTurn")));
+                    gamePs.setString(3, asString(snapshot.get("winnerSide")));
+                    gamePs.setString(4, asString(snapshot.get("resultText")));
+                    gamePs.setString(5, mapper.writeValueAsString(snapshot.get("board")));
+                    gamePs.setInt(6, asInt(snapshot.get("moveCount")));
+                    gamePs.setInt(7, asInt(snapshot.get("firstRemainingSeconds")));
+                    gamePs.setInt(8, asInt(snapshot.get("secondRemainingSeconds")));
+                    gamePs.setString(9, asString(snapshot.get("terminationReason")));
+                    if ("FINISHED".equalsIgnoreCase(asString(snapshot.get("status")))) {
+                        gamePs.setTimestamp(10, Timestamp.from(Instant.now()));
+                    } else {
+                        gamePs.setTimestamp(10, null);
+                    }
+                    gamePs.setString(11, gameId);
+                    gamePs.executeUpdate();
+                }
+                connection.commit();
+            } catch (Exception inner) {
+                connection.rollback();
+                throw inner;
+            } finally {
+                connection.setAutoCommit(previousAutoCommit);
+            }
+        } catch (Exception ex) {
+            throw new IllegalStateException("failed to rewrite game moves", ex);
         }
     }
 
@@ -343,12 +406,269 @@ public final class OnlineStore {
         return queryForInt("select count(*) from games");
     }
 
+    public List<Map<String, Object>> watchableGames(int limit) {
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        String sql = "select id, game_type, status, is_training, first_username, first_side, second_username, second_side, move_count, started_at, finished_at "
+            + "from games order by coalesce(finished_at, started_at) desc limit ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> item = new LinkedHashMap<String, Object>();
+                    item.put("gameId", rs.getString("id"));
+                    item.put("gameType", rs.getString("game_type"));
+                    item.put("status", rs.getString("status"));
+                    item.put("isTraining", rs.getBoolean("is_training"));
+                    item.put("moveCount", rs.getInt("move_count"));
+                    Timestamp finishedAt = rs.getTimestamp("finished_at");
+                    Timestamp startedAt = rs.getTimestamp("started_at");
+                    Timestamp updatedAt = finishedAt == null ? startedAt : finishedAt;
+                    item.put("updatedAt", updatedAt == null ? "" : updatedAt.toInstant().toString());
+                    item.put("finishedAt", finishedAt == null ? "" : finishedAt.toInstant().toString());
+                    Map<String, Object> players = new LinkedHashMap<String, Object>();
+                    Map<String, Object> first = new LinkedHashMap<String, Object>();
+                    first.put("username", rs.getString("first_username"));
+                    first.put("side", rs.getString("first_side"));
+                    Map<String, Object> second = new LinkedHashMap<String, Object>();
+                    second.put("username", rs.getString("second_username"));
+                    second.put("side", rs.getString("second_side"));
+                    players.put("first", first);
+                    players.put("second", second);
+                    item.put("players", players);
+                    items.add(item);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to load watchable games", ex);
+        }
+        return items;
+    }
+
+    public Map<String, Object> communityLeaderboard(int windowDays, int limit) {
+        int safeWindowDays = Math.max(1, windowDays);
+        int safeLimit = Math.max(1, limit);
+        List<Map<String, Object>> winBoard = queryWinBoard(Integer.valueOf(safeWindowDays), safeLimit);
+        List<Map<String, Object>> activityBoard = queryActivityBoard(Integer.valueOf(safeWindowDays), safeLimit);
+        boolean fallback = winBoard.isEmpty() && activityBoard.isEmpty();
+        if (fallback) {
+            winBoard = queryWinBoard(null, safeLimit);
+            activityBoard = queryActivityBoard(null, safeLimit);
+        }
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("requestedWindowDays", safeWindowDays);
+        body.put("windowDaysUsed", fallback ? 0 : safeWindowDays);
+        body.put("fallbackToAllTime", fallback);
+        body.put("sampleSize", Math.max(winBoard.size(), activityBoard.size()));
+        body.put("generatedAt", Instant.now().toString());
+        body.put("winBoard", winBoard);
+        body.put("activityBoard", activityBoard);
+        return body;
+    }
+
+    public Map<String, Object> learnContent() {
+        Map<String, Object> seed = ensureLearnContentSeed();
+        return deepCopy(seed);
+    }
+
+    public Map<String, Object> learnProgress(String userId) {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        List<String> tutorials = new ArrayList<String>();
+        List<String> puzzles = new ArrayList<String>();
+        String sql = "select content_type, content_id from learn_progress where user_id = ? order by updated_at desc";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String contentType = rs.getString("content_type");
+                    String contentId = rs.getString("content_id");
+                    if ("TUTORIAL".equalsIgnoreCase(contentType)) {
+                        tutorials.add(contentId);
+                    } else if ("PUZZLE".equalsIgnoreCase(contentType)) {
+                        puzzles.add(contentId);
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to load learn progress", ex);
+        }
+        body.put("tutorialsCompleted", tutorials);
+        body.put("puzzlesCompleted", puzzles);
+        body.put("updatedAt", Instant.now().toString());
+        return body;
+    }
+
+    public void markLearnProgress(String userId, String contentType, String contentId) {
+        String normalizedType = normalizeContentType(contentType);
+        String normalizedId = contentId == null ? "" : contentId.trim();
+        if (normalizedId.isEmpty()) {
+            throw new IllegalArgumentException("content id is required");
+        }
+        Instant now = Instant.now();
+        String updateSql = "update learn_progress set completed_at = ?, updated_at = ? where user_id = ? and content_type = ? and content_id = ?";
+        String insertSql = "insert into learn_progress(user_id, content_type, content_id, completed_at, updated_at) values (?, ?, ?, ?, ?)";
+        try (Connection connection = dataSource.getConnection()) {
+            int updated;
+            try (PreparedStatement ps = connection.prepareStatement(updateSql)) {
+                ps.setTimestamp(1, Timestamp.from(now));
+                ps.setTimestamp(2, Timestamp.from(now));
+                ps.setString(3, userId);
+                ps.setString(4, normalizedType);
+                ps.setString(5, normalizedId);
+                updated = ps.executeUpdate();
+            }
+            if (updated == 0) {
+                try (PreparedStatement ps = connection.prepareStatement(insertSql)) {
+                    ps.setString(1, userId);
+                    ps.setString(2, normalizedType);
+                    ps.setString(3, normalizedId);
+                    ps.setTimestamp(4, Timestamp.from(now));
+                    ps.setTimestamp(5, Timestamp.from(now));
+                    ps.executeUpdate();
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to save learn progress", ex);
+        }
+    }
+
     private int queryForInt(String sql) {
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
             return rs.next() ? rs.getInt(1) : 0;
         } catch (SQLException ex) {
             throw new IllegalStateException("failed to run count query", ex);
         }
+    }
+
+    private String normalizeContentType(String contentType) {
+        String normalized = contentType == null ? "" : contentType.trim().toUpperCase();
+        if ("TUTORIAL".equals(normalized) || "PUZZLE".equals(normalized)) {
+            return normalized;
+        }
+        throw new IllegalArgumentException("unsupported content type");
+    }
+
+    private List<Map<String, Object>> queryWinBoard(Integer windowDays, int limit) {
+        String sql = "select u.id as user_id, u.username as username, "
+            + "count(g.id) as total_games, "
+            + "sum(case when (g.first_user_id = u.id and g.winner_side = g.first_side) or (g.second_user_id = u.id and g.winner_side = g.second_side) then 1 else 0 end) as wins, "
+            + "sum(case when g.termination_reason = 'DRAW_AGREED' then 1 else 0 end) as draws "
+            + "from users u join games g on (g.first_user_id = u.id or g.second_user_id = u.id)"
+            + (windowDays == null ? " " : " where g.started_at >= ? ")
+            + "group by u.id, u.username order by wins desc, total_games desc, u.username asc limit ?";
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            int index = 1;
+            if (windowDays != null) {
+                ps.setTimestamp(index++, Timestamp.from(Instant.now().minusSeconds(windowDays.intValue() * 24L * 3600L)));
+            }
+            ps.setInt(index, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                int rank = 1;
+                while (rs.next()) {
+                    int totalGames = rs.getInt("total_games");
+                    int wins = rs.getInt("wins");
+                    int draws = rs.getInt("draws");
+                    Map<String, Object> item = new LinkedHashMap<String, Object>();
+                    item.put("rank", rank++);
+                    item.put("userId", rs.getString("user_id"));
+                    item.put("username", rs.getString("username"));
+                    item.put("totalGames", totalGames);
+                    item.put("wins", wins);
+                    item.put("draws", draws);
+                    item.put("losses", Math.max(0, totalGames - wins - draws));
+                    item.put("winRate", totalGames <= 0 ? 0D : (wins * 1.0D / totalGames));
+                    items.add(item);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to query win leaderboard", ex);
+        }
+        return items;
+    }
+
+    private List<Map<String, Object>> queryActivityBoard(Integer windowDays, int limit) {
+        String sql = "select u.id as user_id, u.username as username, "
+            + "count(g.id) as activity_games, "
+            + "sum(case when (g.first_user_id = u.id and g.winner_side = g.first_side) or (g.second_user_id = u.id and g.winner_side = g.second_side) then 1 else 0 end) as wins "
+            + "from users u join games g on (g.first_user_id = u.id or g.second_user_id = u.id)"
+            + (windowDays == null ? " " : " where g.started_at >= ? ")
+            + "group by u.id, u.username order by activity_games desc, wins desc, u.username asc limit ?";
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            int index = 1;
+            if (windowDays != null) {
+                ps.setTimestamp(index++, Timestamp.from(Instant.now().minusSeconds(windowDays.intValue() * 24L * 3600L)));
+            }
+            ps.setInt(index, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                int rank = 1;
+                while (rs.next()) {
+                    Map<String, Object> item = new LinkedHashMap<String, Object>();
+                    item.put("rank", rank++);
+                    item.put("userId", rs.getString("user_id"));
+                    item.put("username", rs.getString("username"));
+                    item.put("activityGames", rs.getInt("activity_games"));
+                    item.put("wins", rs.getInt("wins"));
+                    items.add(item);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to query activity leaderboard", ex);
+        }
+        return items;
+    }
+
+    private Map<String, Object> ensureLearnContentSeed() {
+        Map<String, Object> cached = learnContentSeed;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (this) {
+            if (learnContentSeed != null) {
+                return learnContentSeed;
+            }
+            learnContentSeed = loadLearnContentSeed();
+            return learnContentSeed;
+        }
+    }
+
+    private Map<String, Object> loadLearnContentSeed() {
+        try (InputStream input = OnlineStore.class.getResourceAsStream("/online/learn-content.seed.json")) {
+            if (input == null) {
+                return defaultLearnContentSeed();
+            }
+            Map<String, Object> parsed = mapper.readValue(input, new TypeReference<Map<String, Object>>() { });
+            Map<String, Object> normalized = new LinkedHashMap<String, Object>();
+            normalized.put("tutorials", asList(parsed.get("tutorials")));
+            normalized.put("puzzles", asList(parsed.get("puzzles")));
+            normalized.put("recommendedPractice", asList(parsed.get("recommendedPractice")));
+            return normalized;
+        } catch (IOException ex) {
+            throw new IllegalStateException("failed to load learn seed data", ex);
+        }
+    }
+
+    private Map<String, Object> defaultLearnContentSeed() {
+        Map<String, Object> seed = new LinkedHashMap<String, Object>();
+        seed.put("tutorials", new ArrayList<Object>());
+        seed.put("puzzles", new ArrayList<Object>());
+        seed.put("recommendedPractice", new ArrayList<Object>());
+        return seed;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> asList(Object value) {
+        if (value instanceof List) {
+            return (List<Object>) value;
+        }
+        return new ArrayList<Object>();
+    }
+
+    private Map<String, Object> deepCopy(Map<String, Object> source) {
+        if (source == null) {
+            return Collections.emptyMap();
+        }
+        return mapper.convertValue(source, new TypeReference<Map<String, Object>>() { });
     }
 
     private static String readSchemaSql() throws IOException {
@@ -432,6 +752,18 @@ public final class OnlineStore {
             return (Boolean) value;
         }
         return value != null && Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private Timestamp parseMoveCreatedAt(Object raw) {
+        String text = asString(raw);
+        if (text.isEmpty()) {
+            return Timestamp.from(Instant.now());
+        }
+        try {
+            return Timestamp.from(Instant.parse(text));
+        } catch (Exception ignored) {
+            return Timestamp.from(Instant.now());
+        }
     }
 
     private void attachReplayData(Map<String, Object> analysis) {

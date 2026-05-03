@@ -52,6 +52,15 @@ create table if not exists game_moves (
   created_at timestamp not null
 );
 
+create table if not exists learn_progress (
+  user_id varchar(64) not null,
+  content_type varchar(16) not null,
+  content_id varchar(96) not null,
+  completed_at timestamp not null,
+  updated_at timestamp not null,
+  primary key (user_id, content_type, content_id)
+);
+
 alter table games add column if not exists initial_time_seconds int not null default 0;
 alter table games add column if not exists first_remaining_seconds int not null default 0;
 alter table games add column if not exists second_remaining_seconds int not null default 0;
@@ -60,3 +69,5 @@ alter table games add column if not exists is_training boolean not null default 
 alter table games add column if not exists opponent_type varchar(32) not null default 'HUMAN';
 alter table games add column if not exists ai_engine varchar(64);
 alter table games add column if not exists difficulty varchar(16);
+
+alter table learn_progress add column if not exists updated_at timestamp not null default current_timestamp;

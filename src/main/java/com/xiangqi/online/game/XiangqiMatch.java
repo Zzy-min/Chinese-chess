@@ -16,9 +16,13 @@ public class XiangqiMatch implements OnlineMatchEngine {
     private final Board board;
 
     public XiangqiMatch(MatchPlayer red, MatchPlayer black) {
+        this(red, black, null);
+    }
+
+    public XiangqiMatch(MatchPlayer red, MatchPlayer black, Board initialBoard) {
         this.red = red;
         this.black = black;
-        this.board = new Board();
+        this.board = initialBoard == null ? new Board() : new Board(initialBoard);
     }
 
     @Override

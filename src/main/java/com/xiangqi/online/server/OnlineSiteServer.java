@@ -32,8 +32,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -74,6 +77,10 @@ public final class OnlineSiteServer {
             .get("/api/games/{gameId}", this::handleGameById)
             .get("/api/games/{gameId}/analysis", this::handleGameAnalysis)
             .get("/api/learn/practice-games/{gameId}", this::handlePracticeGameById)
+            .get("/api/learn/content", this::handleLearnContent)
+            .get("/api/learn/progress", this::handleLearnProgress)
+            .get("/api/watch/overview", this::handleWatchOverview)
+            .get("/api/community/leaderboard", this::handleCommunityLeaderboard)
             .get("/api/profile/summary", this::handleProfileSummary)
             .post("/api/auth/register", this::handleRegister)
             .post("/api/auth/login", this::handleLogin)
@@ -88,7 +95,9 @@ public final class OnlineSiteServer {
             .post("/api/games/{gameId}/draw-response", this::handleDrawResponse)
             .post("/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
-            .post("/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign);
+            .post("/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
+            .post("/api/learn/puzzles/{id}/complete", this::handleCompletePuzzle)
+            .post("/api/learn/tutorials/{id}/complete", this::handleCompleteTutorial);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
             .addExactPath("/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
@@ -173,6 +182,85 @@ public final class OnlineSiteServer {
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.NOT_FOUND, ex.getMessage());
         }
+    }
+
+    private void handleLearnContent(HttpServerExchange exchange) {
+        sendJson(exchange, store.learnContent());
+    }
+
+    private void handleLearnProgress(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        sendJson(exchange, store.learnProgress(user.get().id()));
+    }
+
+    private void handleCompletePuzzle(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "PUZZLE");
+    }
+
+    private void handleCompleteTutorial(HttpServerExchange exchange) {
+        completeLearnItem(exchange, "TUTORIAL");
+    }
+
+    private void completeLearnItem(HttpServerExchange exchange, String contentType) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            store.markLearnProgress(user.get().id(), contentType, pathParam(exchange, "id"));
+            Map<String, Object> body = new LinkedHashMap<String, Object>();
+            body.put("ok", true);
+            body.put("contentType", contentType);
+            body.put("contentId", pathParam(exchange, "id"));
+            sendJson(exchange, body);
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handleWatchOverview(HttpServerExchange exchange) {
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("publicRooms", watchPublicRooms());
+        body.put("archivedGames", store.watchableGames(limit));
+        body.put("generatedAt", Instant.now().toString());
+        sendJson(exchange, body);
+    }
+
+    private void handleCommunityLeaderboard(HttpServerExchange exchange) {
+        int windowDays = asInt(queryParam(exchange, "windowDays", "30"), 30);
+        int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        sendJson(exchange, store.communityLeaderboard(windowDays, limit));
+    }
+
+    private List<Map<String, Object>> watchPublicRooms() {
+        List<Map<String, Object>> rooms = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> room : roomHub.publicRoomSummaries()) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("roomId", asString(room.get("roomId")));
+            item.put("roomCode", asString(room.get("roomCode")));
+            item.put("gameId", asString(room.get("gameId")));
+            item.put("gameType", asString(room.get("gameType")));
+            item.put("status", asString(room.get("status")));
+            item.put("updatedAt", asString(room.get("updatedAt")));
+            Map<String, Object> players = new LinkedHashMap<String, Object>();
+            Map<String, Object> first = new LinkedHashMap<String, Object>();
+            first.put("username", asString(room.get("hostUsername")));
+            first.put("side", "");
+            Map<String, Object> second = new LinkedHashMap<String, Object>();
+            second.put("username", asString(room.get("guestUsername")));
+            second.put("side", "");
+            players.put("first", first);
+            players.put("second", second);
+            item.put("players", players);
+            rooms.add(item);
+        }
+        return rooms;
     }
 
     private void handleProfileSummary(HttpServerExchange exchange) {
@@ -374,7 +462,8 @@ public final class OnlineSiteServer {
                 GameType.valueOf(asString(payload.get("gameType"))),
                 asString(payload.get("difficulty")),
                 asBoolean(payload.get("humanFirst")),
-                asString(payload.get("preferredEngine"))
+                asString(payload.get("preferredEngine")),
+                asString(payload.get("initialFen"))
             ));
             sendJson(exchange, game);
         } catch (Exception ex) {
@@ -515,6 +604,13 @@ public final class OnlineSiteServer {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private String queryParam(HttpServerExchange exchange, String key, String fallback) {
+        if (!exchange.getQueryParameters().containsKey(key) || exchange.getQueryParameters().get(key).isEmpty()) {
+            return fallback;
+        }
+        return exchange.getQueryParameters().get(key).getFirst();
     }
 
     private int asInt(Object value, int fallback) {

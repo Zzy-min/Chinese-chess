@@ -16,9 +16,13 @@ public class GomokuMatch implements OnlineMatchEngine {
     private final GomokuBoard board;
 
     public GomokuMatch(MatchPlayer black, MatchPlayer white) {
+        this(black, white, null);
+    }
+
+    public GomokuMatch(MatchPlayer black, MatchPlayer white, GomokuBoard initialBoard) {
         this.black = black;
         this.white = white;
-        this.board = new GomokuBoard();
+        this.board = initialBoard == null ? new GomokuBoard() : new GomokuBoard(initialBoard);
     }
 
     @Override

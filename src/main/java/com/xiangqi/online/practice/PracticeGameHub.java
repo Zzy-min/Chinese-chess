@@ -60,6 +60,10 @@ public final class PracticeGameHub {
         if (request.gameType() == GameType.GO) {
             throw new IllegalArgumentException("GO practice is not yet available");
         }
+        String initialFen = request.initialFen() == null ? "" : request.initialFen().trim();
+        if (request.gameType() == GameType.GOMOKU && !initialFen.isEmpty()) {
+            throw new IllegalArgumentException("initial FEN is only supported for XIANGQI");
+        }
 
         ActivePracticeGame game = new ActivePracticeGame();
         game.gameId = UUID.randomUUID().toString();
@@ -71,6 +75,7 @@ public final class PracticeGameHub {
         game.updatedAt = Instant.now();
         game.status = "PLAYING";
         game.opponentType = "AI";
+        game.initialFen = initialFen;
 
         if (request.gameType() == GameType.GOMOKU) {
             if (request.humanFirst()) {
@@ -90,24 +95,32 @@ public final class PracticeGameHub {
             }
             game.gomokuEngine = new ConfigurableGomokuEngine();
             game.gomokuEngine.setPreferredEngine(game.enginePreference);
+            game.initialGomokuBoard = new GomokuBoard(((GomokuMatch) game.match).boardState());
         } else {
+            Board initialBoard = null;
+            if (!initialFen.isEmpty()) {
+                initialBoard = XiangqiFenParser.parse(initialFen);
+            }
             if (request.humanFirst()) {
                 game.humanSide = "RED";
                 game.aiSide = "BLACK";
                 game.match = new XiangqiMatch(
                     new MatchPlayer(user.id(), user.username(), PlayerSide.RED),
-                    new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.BLACK)
+                    new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.BLACK),
+                    initialBoard
                 );
             } else {
                 game.humanSide = "BLACK";
                 game.aiSide = "RED";
                 game.match = new XiangqiMatch(
                     new MatchPlayer(game.aiUser.id(), game.aiUser.username(), PlayerSide.RED),
-                    new MatchPlayer(user.id(), user.username(), PlayerSide.BLACK)
+                    new MatchPlayer(user.id(), user.username(), PlayerSide.BLACK),
+                    initialBoard
                 );
             }
             game.xiangqiEngine = new ConfigurableXiangqiEngine();
             game.xiangqiEngine.setPreferredEngine(game.enginePreference);
+            game.initialXiangqiBoard = new Board(((XiangqiMatch) game.match).boardState());
         }
 
         game.currentTurn = game.match.currentTurnKey();
@@ -186,6 +199,31 @@ public final class PracticeGameHub {
             ensurePlayable(game);
             finalizeGame(game, game.aiSide, actor.username() + " resigned", "RESIGN");
             return snapshot(game, actor);
+        }
+    }
+
+    public Map<String, Object> undo(String gameId, AuthUser actor) {
+        ActivePracticeGame game = game(gameId);
+        synchronized (game) {
+            ensureHumanParticipant(game, actor);
+            if (!"PLAYING".equals(game.status)) {
+                throw new IllegalArgumentException("only playing practice game can undo");
+            }
+            if (game.aiPending) {
+                throw new IllegalArgumentException("AI is thinking, cannot undo now");
+            }
+            int keepCount = keepMoveCountBeforeLatestHumanMove(game);
+            if (keepCount < 0) {
+                throw new IllegalArgumentException("at least one human move is required before undo");
+            }
+            rebuildPracticeGameToPrefix(game, keepCount);
+            Map<String, Object> latest = snapshot(game, actor);
+            store.rewriteGameMoves(game.gameId, game.moves, latest);
+            LOG.info(() -> "practice.undo gameId=" + game.gameId
+                + " actor=" + actor.username()
+                + " keepMoves=" + keepCount
+                + " remaining=" + game.moves.size());
+            return latest;
         }
     }
 
@@ -308,6 +346,90 @@ public final class PracticeGameHub {
         game.updatedAt = Instant.now();
     }
 
+    private int keepMoveCountBeforeLatestHumanMove(ActivePracticeGame game) {
+        for (int idx = game.moves.size() - 1; idx >= 0; idx--) {
+            Map<String, Object> move = game.moves.get(idx);
+            if (game.humanSide.equals(asString(move.get("side")))) {
+                return idx;
+            }
+        }
+        return -1;
+    }
+
+    private void rebuildPracticeGameToPrefix(ActivePracticeGame game, int keepCount) {
+        OnlineMatchEngine replay = createReplayMatch(game);
+        List<Map<String, Object>> replayMoves = copyMovesPrefix(game.moves, keepCount);
+        String firstSide = firstSide(game);
+        String firstActor = firstUser(game).id();
+        String secondActor = secondUser(game).id();
+        for (Map<String, Object> move : replayMoves) {
+            String actor = firstSide.equals(asString(move.get("side"))) ? firstActor : secondActor;
+            MatchEvent event = replay.applyMove(actor, payloadOf(move));
+            if (!event.accepted()) {
+                throw new IllegalStateException("failed to replay move during undo: " + event.message());
+            }
+        }
+        game.match = replay;
+        game.moves.clear();
+        game.moves.addAll(replayMoves);
+        game.aiPending = false;
+        game.aiFuture = null;
+        game.aiStartedAtNanos = 0L;
+        syncStateFromMatch(game);
+        game.terminationReason = game.match.finished() ? "GAME_OVER" : "";
+    }
+
+    private OnlineMatchEngine createReplayMatch(ActivePracticeGame game) {
+        if (game.gameType == GameType.GOMOKU) {
+            return game.initialGomokuBoard == null
+                ? new GomokuMatch(
+                    new MatchPlayer(firstUser(game).id(), firstUser(game).username(), "BLACK".equals(firstSide(game)) ? PlayerSide.BLACK : PlayerSide.WHITE),
+                    new MatchPlayer(secondUser(game).id(), secondUser(game).username(), "BLACK".equals(secondSide(game)) ? PlayerSide.BLACK : PlayerSide.WHITE)
+                )
+                : new GomokuMatch(
+                    new MatchPlayer(firstUser(game).id(), firstUser(game).username(), "BLACK".equals(firstSide(game)) ? PlayerSide.BLACK : PlayerSide.WHITE),
+                    new MatchPlayer(secondUser(game).id(), secondUser(game).username(), "BLACK".equals(secondSide(game)) ? PlayerSide.BLACK : PlayerSide.WHITE),
+                    new GomokuBoard(game.initialGomokuBoard)
+                );
+        }
+        return game.initialXiangqiBoard == null
+            ? new XiangqiMatch(
+                new MatchPlayer(firstUser(game).id(), firstUser(game).username(), "RED".equals(firstSide(game)) ? PlayerSide.RED : PlayerSide.BLACK),
+                new MatchPlayer(secondUser(game).id(), secondUser(game).username(), "RED".equals(secondSide(game)) ? PlayerSide.RED : PlayerSide.BLACK)
+            )
+            : new XiangqiMatch(
+                new MatchPlayer(firstUser(game).id(), firstUser(game).username(), "RED".equals(firstSide(game)) ? PlayerSide.RED : PlayerSide.BLACK),
+                new MatchPlayer(secondUser(game).id(), secondUser(game).username(), "RED".equals(secondSide(game)) ? PlayerSide.RED : PlayerSide.BLACK),
+                new Board(game.initialXiangqiBoard)
+            );
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> payloadOf(Map<String, Object> move) {
+        Object payload = move.get("payload");
+        if (payload instanceof Map) {
+            return new LinkedHashMap<String, Object>((Map<String, Object>) payload);
+        }
+        return new LinkedHashMap<String, Object>();
+    }
+
+    private List<Map<String, Object>> copyMovesPrefix(List<Map<String, Object>> source, int keepCount) {
+        int safeCount = Math.max(0, Math.min(source.size(), keepCount));
+        List<Map<String, Object>> copied = new ArrayList<Map<String, Object>>(safeCount);
+        for (int idx = 0; idx < safeCount; idx++) {
+            Map<String, Object> src = source.get(idx);
+            Map<String, Object> move = new LinkedHashMap<String, Object>();
+            move.put("index", idx + 1);
+            move.put("side", src.get("side"));
+            move.put("notation", src.get("notation"));
+            move.put("payload", payloadOf(src));
+            move.put("actorUserId", src.get("actorUserId"));
+            move.put("createdAt", src.get("createdAt"));
+            copied.add(move);
+        }
+        return copied;
+    }
+
     private void ensurePlayable(ActivePracticeGame game) {
         if ("FINISHED".equals(game.status)) {
             throw new IllegalArgumentException("game already finished");
@@ -407,6 +529,7 @@ public final class PracticeGameHub {
         snapshot.put("aiEngine", aiEngineId(game));
         snapshot.put("difficulty", game.difficulty.name());
         snapshot.put("ai", aiMap(game));
+        snapshot.put("initialFen", game.initialFen);
         Map<String, Object> players = new LinkedHashMap<String, Object>();
         players.put("first", playerMap(game, firstUser(game), firstSide(game)));
         players.put("second", playerMap(game, secondUser(game), secondSide(game)));
@@ -414,30 +537,42 @@ public final class PracticeGameHub {
         if (viewer != null && game.human.id().equals(viewer.id())) {
             snapshot.put("viewerSide", game.humanSide);
         }
-        attachReplayBoards(snapshot);
+        attachReplayBoards(snapshot, game);
         return snapshot;
     }
 
     @SuppressWarnings("unchecked")
-    private void attachReplayBoards(Map<String, Object> snapshot) {
+    private void attachReplayBoards(Map<String, Object> snapshot, ActivePracticeGame game) {
         List<Map<String, Object>> moves = (List<Map<String, Object>>) snapshot.get("moves");
-        List<List<List<String>>> boards = buildReplayBoards(asString(snapshot.get("gameType")), moves);
+        List<List<List<String>>> boards = buildReplayBoards(game, asString(snapshot.get("gameType")), moves);
         snapshot.put("initialBoard", boards.isEmpty() ? new ArrayList<List<String>>() : boards.get(0));
         snapshot.put("historyBoards", boards);
     }
 
-    private List<List<List<String>>> buildReplayBoards(String gameType, List<Map<String, Object>> moves) {
+    private List<List<List<String>>> buildReplayBoards(ActivePracticeGame game, String gameType, List<Map<String, Object>> moves) {
         if ("GOMOKU".equals(gameType)) {
-            GomokuMatch replay = new GomokuMatch(
-                new MatchPlayer("replay-black", "replay-black", PlayerSide.BLACK),
-                new MatchPlayer("replay-white", "replay-white", PlayerSide.WHITE)
-            );
+            GomokuMatch replay = game.initialGomokuBoard == null
+                ? new GomokuMatch(
+                    new MatchPlayer("replay-black", "replay-black", PlayerSide.BLACK),
+                    new MatchPlayer("replay-white", "replay-white", PlayerSide.WHITE)
+                )
+                : new GomokuMatch(
+                    new MatchPlayer("replay-black", "replay-black", PlayerSide.BLACK),
+                    new MatchPlayer("replay-white", "replay-white", PlayerSide.WHITE),
+                    game.initialGomokuBoard
+                );
             return replayBoards(replay, moves, "BLACK", "replay-black", "replay-white");
         }
-        XiangqiMatch replay = new XiangqiMatch(
-            new MatchPlayer("replay-red", "replay-red", PlayerSide.RED),
-            new MatchPlayer("replay-black", "replay-black", PlayerSide.BLACK)
-        );
+        XiangqiMatch replay = game.initialXiangqiBoard == null
+            ? new XiangqiMatch(
+                new MatchPlayer("replay-red", "replay-red", PlayerSide.RED),
+                new MatchPlayer("replay-black", "replay-black", PlayerSide.BLACK)
+            )
+            : new XiangqiMatch(
+                new MatchPlayer("replay-red", "replay-red", PlayerSide.RED),
+                new MatchPlayer("replay-black", "replay-black", PlayerSide.BLACK),
+                game.initialXiangqiBoard
+            );
         return replayBoards(replay, moves, "RED", "replay-red", "replay-black");
     }
 
@@ -572,6 +707,9 @@ public final class PracticeGameHub {
         private String resultText;
         private String terminationReason;
         private String opponentType;
+        private String initialFen;
+        private Board initialXiangqiBoard;
+        private GomokuBoard initialGomokuBoard;
         private Instant updatedAt;
         private boolean aiPending;
         private long aiStartedAtNanos;

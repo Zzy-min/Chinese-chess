@@ -53,7 +53,8 @@ public final class LegacyHomeSessionHub {
                 gameType,
                 difficulty,
                 humanFirst,
-                preferredEngine
+                preferredEngine,
+                ""
             ));
             session.gameId = asString(game.get("gameId"));
             session.gameType = normalizeGameType(gameType == null ? "" : gameType.name());
