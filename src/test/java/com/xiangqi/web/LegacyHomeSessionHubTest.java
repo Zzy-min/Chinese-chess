@@ -10,9 +10,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyHomeSessionHubTest {
@@ -28,7 +30,7 @@ class LegacyHomeSessionHubTest {
         assertFalse(asBoolean(initial.get("started")));
         assertEquals("PVC", initial.get("mode"));
 
-        Map<String, Object> created = hub.newGame("sid-home", user, GameType.XIANGQI, "MEDIUM", true, "BUILTIN");
+        Map<String, Object> created = hub.newGame("sid-home", user, GameType.XIANGQI, "HARD", true, "BUILTIN");
 
         assertTrue(asBoolean(created.get("started")));
         assertEquals("PVC", created.get("mode"));
@@ -45,15 +47,25 @@ class LegacyHomeSessionHubTest {
         Map<String, Object> afterMove = hub.click("sid-home", user, 5, 0);
         assertEquals(-1, afterMove.get("selectedRow"));
         assertEquals(-1, afterMove.get("selectedCol"));
-        assertEquals("RED", afterMove.get("currentTurn"));
-        assertEquals(2, recentMoves(afterMove).size());
+        assertEquals("BLACK", afterMove.get("currentTurn"));
+        assertTrue(asBoolean(afterMove.get("aiPending")));
+        assertEquals(1, recentMoves(afterMove).size());
+
+        Map<String, Object> afterAi = waitUntil(() -> hub.state("sid-home", user), snapshot ->
+            !asBoolean(snapshot.get("aiPending")) && "RED".equals(snapshot.get("currentTurn")) && recentMoves(snapshot).size() == 2
+        );
+        assertEquals("RED", afterAi.get("currentTurn"));
+        assertEquals(2, recentMoves(afterAi).size());
 
         Map<String, Object> review = hub.reviewStart("sid-home", user);
         assertTrue(asBoolean(review.get("reviewMode")));
         assertEquals(0, review.get("reviewMoveIndex"));
+        assertEquals("帅", cell(review, 9, 4).get("name"));
+        assertEquals("BLACK", cell(review, 0, 4).get("color"));
 
         Map<String, Object> reviewNext = hub.reviewNext("sid-home", user);
         assertEquals(1, reviewNext.get("reviewMoveIndex"));
+        assertNotNull(cell(reviewNext, 5, 0));
 
         Map<String, Object> reviewExit = hub.reviewExit("sid-home", user);
         assertFalse(asBoolean(reviewExit.get("reviewMode")));
@@ -71,6 +83,19 @@ class LegacyHomeSessionHubTest {
 
     private boolean asBoolean(Object value) {
         return value instanceof Boolean && (Boolean) value;
+    }
+
+    private Map<String, Object> waitUntil(Supplier<Map<String, Object>> supplier, java.util.function.Predicate<Map<String, Object>> predicate) throws Exception {
+        long deadline = System.currentTimeMillis() + 5000L;
+        Map<String, Object> latest = supplier.get();
+        while (System.currentTimeMillis() < deadline) {
+            if (predicate.test(latest)) {
+                return latest;
+            }
+            Thread.sleep(50L);
+            latest = supplier.get();
+        }
+        return latest;
     }
 
     private OnlineStore newStore() throws Exception {

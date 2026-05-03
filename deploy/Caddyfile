@@ -1,0 +1,8 @@
+xiangqiarena.com {
+	redir https://www.xiangqiarena.com{uri} permanent
+}
+
+www.xiangqiarena.com {
+	encode zstd gzip
+	reverse_proxy app:18388
+}

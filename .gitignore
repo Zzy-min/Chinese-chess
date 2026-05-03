@@ -14,6 +14,7 @@ bin/
 Thumbs.db
 
 # Local scripts/logs
+.env
 *.log
 __pycache__/
 *.pyc
@@ -22,6 +23,7 @@ node_modules/
 .dev.vars
 .env.local
 services/go-engine/.katago/
+backups/
 
 # Local online-site database fallback
 data/*.mv.db

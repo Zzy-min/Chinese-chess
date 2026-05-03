@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -55,10 +56,18 @@ class PracticeGameHubTest {
 
         assertEquals("GOMOKU", game.get("gameType"));
         assertEquals("WHITE", game.get("viewerSide"));
-        assertEquals("WHITE", game.get("currentTurn"));
-        assertEquals(1, game.get("moveCount"));
-        assertEquals("BLACK", asMap(firstMove(game).get("payload")).get("side"));
-        assertEquals("builtin", asMap(game.get("ai")).get("engineId"));
+        assertEquals("BLACK", game.get("currentTurn"));
+        assertEquals(Boolean.TRUE, game.get("aiPending"));
+        assertEquals(0, game.get("moveCount"));
+
+        String gameId = asString(game.get("gameId"));
+        Map<String, Object> afterAi = waitUntil(() -> hub.gameSnapshotById(gameId, user), snapshot ->
+            Boolean.FALSE.equals(snapshot.get("aiPending")) && Integer.valueOf(1).equals(snapshot.get("moveCount"))
+        );
+        assertEquals("WHITE", afterAi.get("currentTurn"));
+        assertEquals(1, afterAi.get("moveCount"));
+        assertEquals("BLACK", asMap(firstMove(afterAi).get("payload")).get("side"));
+        assertEquals("builtin", asMap(afterAi.get("ai")).get("engineId"));
     }
 
     @Test
@@ -80,10 +89,19 @@ class PracticeGameHubTest {
             Map.of("fromRow", 6, "fromCol", 0, "toRow", 5, "toCol", 0)
         );
 
-        assertEquals(2, updated.get("moveCount"));
-        assertEquals("RED", updated.get("currentTurn"));
-        assertEquals("BLACK", asMap(lastMove(updated).get("payload")).get("side"));
-        assertEquals("builtin", asMap(updated.get("ai")).get("engineId"));
+        assertEquals(1, updated.get("moveCount"));
+        assertEquals("BLACK", updated.get("currentTurn"));
+        assertEquals(Boolean.TRUE, updated.get("aiPending"));
+        assertEquals("RED", asMap(lastMove(updated).get("payload")).get("side"));
+
+        String gameId = asString(updated.get("gameId"));
+        Map<String, Object> afterAi = waitUntil(() -> hub.gameSnapshotById(gameId, user), snapshot ->
+            Boolean.FALSE.equals(snapshot.get("aiPending")) && Integer.valueOf(2).equals(snapshot.get("moveCount"))
+        );
+        assertEquals(2, afterAi.get("moveCount"));
+        assertEquals("RED", afterAi.get("currentTurn"));
+        assertEquals("BLACK", asMap(lastMove(afterAi).get("payload")).get("side"));
+        assertEquals("builtin", asMap(afterAi.get("ai")).get("engineId"));
     }
 
     private OnlineStore newStore() throws Exception {
@@ -113,5 +131,18 @@ class PracticeGameHubTest {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private Map<String, Object> waitUntil(Supplier<Map<String, Object>> supplier, java.util.function.Predicate<Map<String, Object>> predicate) throws Exception {
+        long deadline = System.currentTimeMillis() + 5000L;
+        Map<String, Object> latest = supplier.get();
+        while (System.currentTimeMillis() < deadline) {
+            if (predicate.test(latest)) {
+                return latest;
+            }
+            Thread.sleep(50L);
+            latest = supplier.get();
+        }
+        return latest;
     }
 }
