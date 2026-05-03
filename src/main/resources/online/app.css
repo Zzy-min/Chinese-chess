@@ -49,9 +49,7 @@ button,input,select{font:inherit}
 .site.is-board-route .boardPane{overflow:auto}
 .site.is-board-route .recordPane{display:grid;grid-template-rows:auto 1fr;overflow:hidden}
 .site.is-board-route .recordPane .moves{max-height:none;height:100%;overflow:auto}
-.site.route-practice-locked .boardPane--practice{overflow:hidden;touch-action:none;overscroll-behavior:contain}
-.site.route-practice-locked .boardPane--practice .xiangqiBoard,
-.site.route-practice-locked .boardPane--practice .gomokuBoard{touch-action:none;overscroll-behavior:contain}
+.site.route-practice-locked .boardPane--practice{overflow:auto}
 .compactSplit{margin-top:0}
 .stack{display:grid;gap:18px}
 .field{display:grid;gap:8px}
@@ -410,3 +408,6 @@ button.move{width:100%;text-align:left;cursor:pointer}
   .xiangqiBoard{--xi-cell-size:clamp(28px,9vw,38px)}
   .gomokuBoard{--go-cell-size:clamp(18px,5.7vw,25px)}
 }
+  .site.route-practice-locked .boardPane--practice{overflow:hidden;touch-action:none;overscroll-behavior:contain}
+  .site.route-practice-locked .boardPane--practice .xiangqiBoard,
+  .site.route-practice-locked .boardPane--practice .gomokuBoard{touch-action:none;overscroll-behavior:contain}
