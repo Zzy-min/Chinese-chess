@@ -62,7 +62,8 @@ button,input,select{font:inherit}
   min-height:0;
   display:flex;
   align-items:flex-start;
-  justify-content:center
+  justify-content:center;
+  overflow:hidden
 }
 .site.is-board-route .boardPane,
 .site.is-board-route .boardPane .xiangqiBoard,
@@ -232,7 +233,7 @@ button,input,select{font:inherit}
   background:radial-gradient(circle at 32% 26%, #fff8e8 0, #f4d7a4 42%, #ddb479 76%, #bb8950 100%);
   border:1.8px solid #7a4f24;
   box-shadow:0 2px 6px rgba(37,25,13,.28), inset 0 1px 0 rgba(255,255,255,.78), inset 0 0 0 1px rgba(105,67,32,.28);
-  font-size:clamp(18px,2.05vw,27px);
+  font-size:clamp(10px,calc(var(--xi-cell-size) * 0.56),27px);
   line-height:1;
   text-align:center;
   font-weight:700;

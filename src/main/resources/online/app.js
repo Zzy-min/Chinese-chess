@@ -194,32 +194,34 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
     return;
   }
   window.requestAnimationFrame(() => {
-    const host = document.querySelector('.boardPane .boardHost');
-    const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
-    if (!host || !board) {
-      state.boardFitKey = '';
-      return;
-    }
-    const hostWidth = Math.floor(host.clientWidth);
-    const hostHeight = Math.floor(host.clientHeight);
-    if (hostWidth <= 0 || hostHeight <= 0) {
-      state.boardFitKey = '';
-      return;
-    }
-    const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
-    const contextId = route.page === 'analysis'
-      ? ((state.analysis && state.analysis.gameId) || route.id || '')
-      : ((state.game && state.game.gameId) || route.id || '');
-    const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${hostWidth}x${hostHeight}|${state.boardPaneTab}`;
-    if (!force && fitKey === state.boardFitKey) {
-      return;
-    }
-    if (boardType === 'XIANGQI') {
-      fitXiangqiBoardToHost(board, host);
-    } else {
-      fitGomokuBoardToHost(board, host);
-    }
-    state.boardFitKey = fitKey;
+    window.requestAnimationFrame(() => {
+      const host = document.querySelector('.boardPane .boardHost');
+      const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
+      if (!host || !board) {
+        state.boardFitKey = '';
+        return;
+      }
+      const hostWidth = Math.floor(host.clientWidth);
+      const hostHeight = Math.floor(host.clientHeight);
+      if (hostWidth <= 0 || hostHeight <= 0) {
+        state.boardFitKey = '';
+        return;
+      }
+      const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
+      const contextId = route.page === 'analysis'
+        ? ((state.analysis && state.analysis.gameId) || route.id || '')
+        : ((state.game && state.game.gameId) || route.id || '');
+      const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${hostWidth}x${hostHeight}|${state.boardPaneTab}`;
+      if (!force && fitKey === state.boardFitKey) {
+        return;
+      }
+      if (boardType === 'XIANGQI') {
+        fitXiangqiBoardToHost(board, host);
+      } else {
+        fitGomokuBoardToHost(board, host);
+      }
+      state.boardFitKey = fitKey;
+    });
   });
 }
 
