@@ -46,6 +46,8 @@ const state = {
   lastMoveSoundGameId: '',
   lastMoveSoundIndex: 0,
   lastFinishSoundKey: '',
+  lastXiCellPx: 0,
+  lastGoCellPx: 0,
   learnConfig: {
     gameType: 'XIANGQI',
     difficulty: 'MEDIUM',
@@ -254,17 +256,32 @@ function fitGomokuBoardToHost(board, host) {
 }
 
 function fitBoardToHost({ board, host, cssVar, cols, rows, fallbackCell, minCell }) {
-  board.style.removeProperty(cssVar);
+  const isXiangqi = cssVar === '--xi-cell-size';
+  const savedCell = isXiangqi ? state.lastXiCellPx : state.lastGoCellPx;
+  if (savedCell > 0) {
+    board.style.setProperty(cssVar, `${savedCell}px`);
+  } else {
+    board.style.removeProperty(cssVar);
+  }
   const baseCell = readBoardCellBase(board, cssVar, fallbackCell);
   const chrome = boardChromeSize(board);
-  const availableWidth = Math.max(0, host.clientWidth - 2);
-  const availableHeight = Math.max(0, host.clientHeight - 2);
+  const hostRect = host.getBoundingClientRect();
+  const availableWidth = Math.max(0, (hostRect.width > 0 ? hostRect.width : host.clientWidth) - 2);
+  let availableHeight = Math.max(0, (hostRect.height > 0 ? hostRect.height : host.clientHeight) - 2);
+  if (availableHeight < 50 && hostRect.top > 0) {
+    availableHeight = Math.max(50, window.innerHeight - hostRect.top - 60);
+  }
   const byWidth = Math.floor((availableWidth - chrome.width) / cols);
   const byHeight = Math.floor((availableHeight - chrome.height) / rows);
   const targetCell = Math.max(minCell, Math.min(Math.floor(baseCell), byWidth, byHeight));
   const initialCell = Number.isFinite(targetCell) && targetCell > 0 ? targetCell : minCell;
   board.style.setProperty(cssVar, `${initialCell}px`);
   shrinkBoardToHost(board, host, cssVar, minCell, initialCell);
+  if (isXiangqi) {
+    state.lastXiCellPx = initialCell;
+  } else {
+    state.lastGoCellPx = initialCell;
+  }
 }
 
 function readBoardCellBase(board, cssVar, fallbackCell) {
@@ -2204,6 +2221,14 @@ function refreshLiveBoardSurface(route = currentRoute()) {
   }
   state.boardFitKey = '';
   host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
+  const board = host.querySelector('.xiangqiBoard, .gomokuBoard');
+  if (board) {
+    const isXi = board.classList.contains('xiangqiBoard');
+    const saved = isXi ? state.lastXiCellPx : state.lastGoCellPx;
+    if (saved > 0) {
+      board.style.setProperty(isXi ? '--xi-cell-size' : '--go-cell-size', `${saved}px`);
+    }
+  }
   bindBoardCellEvents(host);
   fitBoardToViewport(route, true);
   return true;
