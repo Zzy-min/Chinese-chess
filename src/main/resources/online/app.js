@@ -24,7 +24,6 @@ const state = {
   selectedFrom: null,
   pendingMoveMarker: null,
   pendingMoveGameId: '',
-  boardFitKey: '',
   learnPuzzleTheme: 'ALL',
   boardPaneTab: 'board',
   moveInFlight: false,
@@ -46,8 +45,6 @@ const state = {
   lastMoveSoundGameId: '',
   lastMoveSoundIndex: 0,
   lastFinishSoundKey: '',
-  lastXiCellPx: 0,
-  lastGoCellPx: 0,
   learnConfig: {
     gameType: 'XIANGQI',
     difficulty: 'MEDIUM',
@@ -166,7 +163,6 @@ function render() {
   if (!isBoardRoute && state.boardPaneTab !== 'board') {
     state.boardPaneTab = 'board';
   }
-  state.boardFitKey = '';
   const siteClasses = ['site', `route-${route.page}`];
   if (isBoardRoute) {
     siteClasses.push('is-board-route', `mobile-pane-${state.boardPaneTab}`);
@@ -187,44 +183,24 @@ function render() {
   bindCommon(route);
   syncRealtime(route);
   syncPracticePolling(route);
-  fitBoardToViewport(route, false);
+  setTimeout(() => fitBoardToViewport(route, false), 0);
 }
 
-function fitBoardToViewport(route = currentRoute(), force = false) {
+function fitBoardToViewport(route) {
   if (!isBoardFitRoute(route)) {
-    state.boardFitKey = '';
     return;
   }
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => {
-      const host = document.querySelector('.boardPane .boardHost');
-      const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
-      if (!host || !board) {
-        state.boardFitKey = '';
-        return;
-      }
-      const hostWidth = Math.floor(host.clientWidth);
-      const hostHeight = Math.floor(host.clientHeight);
-      if (hostWidth <= 0 || hostHeight <= 0) {
-        state.boardFitKey = '';
-        return;
-      }
-      const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
-      const contextId = route.page === 'analysis'
-        ? ((state.analysis && state.analysis.gameId) || route.id || '')
-        : ((state.game && state.game.gameId) || route.id || '');
-      const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${hostWidth}x${hostHeight}|${state.boardPaneTab}`;
-      if (!force && fitKey === state.boardFitKey) {
-        return;
-      }
-      if (boardType === 'XIANGQI') {
-        fitXiangqiBoardToHost(board, host);
-      } else {
-        fitGomokuBoardToHost(board, host);
-      }
-      state.boardFitKey = fitKey;
-    });
-  });
+  const host = document.querySelector('.boardPane .boardHost');
+  const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
+  if (!host || !board) {
+    return;
+  }
+  const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
+  if (boardType === 'XIANGQI') {
+    fitXiangqiBoardToHost(board, host);
+  } else {
+    fitGomokuBoardToHost(board, host);
+  }
 }
 
 function isBoardFitRoute(route) {
@@ -238,7 +214,6 @@ function fitXiangqiBoardToHost(board, host) {
     cssVar: '--xi-cell-size',
     cols: XIANGQI_COLS,
     rows: XIANGQI_ROWS,
-    fallbackCell: 36,
     minCell: XIANGQI_MIN_CELL
   });
 }
@@ -250,50 +225,25 @@ function fitGomokuBoardToHost(board, host) {
     cssVar: '--go-cell-size',
     cols: GOMOKU_SIZE,
     rows: GOMOKU_SIZE,
-    fallbackCell: 24,
     minCell: GOMOKU_MIN_CELL
   });
 }
 
-function fitBoardToHost({ board, host, cssVar, cols, rows, fallbackCell, minCell }) {
-  const isXiangqi = cssVar === '--xi-cell-size';
-  const savedCell = isXiangqi ? state.lastXiCellPx : state.lastGoCellPx;
-  if (savedCell > 0) {
-    board.style.setProperty(cssVar, `${savedCell}px`);
-  } else {
-    board.style.removeProperty(cssVar);
-  }
-  const baseCell = readBoardCellBase(board, cssVar, fallbackCell);
+function fitBoardToHost({ board, host, cssVar, cols, rows, minCell }) {
   const chrome = boardChromeSize(board);
   const hostRect = host.getBoundingClientRect();
-  const availableWidth = Math.max(0, (hostRect.width > 0 ? hostRect.width : host.clientWidth) - 2);
-  let availableHeight = Math.max(0, (hostRect.height > 0 ? hostRect.height : host.clientHeight) - 2);
-  if (availableHeight < 50 && hostRect.top > 0) {
+  let availableWidth = Math.max(0, hostRect.width - 2);
+  let availableHeight = Math.max(0, hostRect.height - 2);
+  if (availableHeight < 50) {
     availableHeight = Math.max(50, window.innerHeight - hostRect.top - 60);
+  }
+  if (availableWidth < 50) {
+    availableWidth = Math.max(50, host.parentElement ? host.parentElement.clientWidth - 2 : availableWidth);
   }
   const byWidth = Math.floor((availableWidth - chrome.width) / cols);
   const byHeight = Math.floor((availableHeight - chrome.height) / rows);
-  const targetCell = Math.max(minCell, Math.min(Math.floor(baseCell), byWidth, byHeight));
-  const initialCell = Number.isFinite(targetCell) && targetCell > 0 ? targetCell : minCell;
-  board.style.setProperty(cssVar, `${initialCell}px`);
-  shrinkBoardToHost(board, host, cssVar, minCell, initialCell);
-  if (isXiangqi) {
-    state.lastXiCellPx = initialCell;
-  } else {
-    state.lastGoCellPx = initialCell;
-  }
-}
-
-function readBoardCellBase(board, cssVar, fallbackCell) {
-  const inlineValue = parseFloat(board.style.getPropertyValue(cssVar));
-  if (Number.isFinite(inlineValue) && inlineValue > 0) {
-    return inlineValue;
-  }
-  const computedValue = parseFloat(getComputedStyle(board).getPropertyValue(cssVar));
-  if (Number.isFinite(computedValue) && computedValue > 0) {
-    return computedValue;
-  }
-  return fallbackCell;
+  const cell = Math.max(minCell, Math.min(byWidth, byHeight));
+  board.style.setProperty(cssVar, `${cell}px`);
 }
 
 function boardChromeSize(board) {
@@ -307,14 +257,6 @@ function boardChromeSize(board) {
 function px(value) {
   const num = parseFloat(value);
   return Number.isFinite(num) ? num : 0;
-}
-
-function shrinkBoardToHost(board, host, cssVar, minCell, startCell) {
-  let cell = startCell;
-  while (cell > minCell && (board.offsetWidth > host.clientWidth || board.offsetHeight > host.clientHeight)) {
-    cell -= 1;
-    board.style.setProperty(cssVar, `${cell}px`);
-  }
 }
 
 function renderTopbar(active) {
@@ -2219,18 +2161,22 @@ function refreshLiveBoardSurface(route = currentRoute()) {
   if (!host) {
     return false;
   }
-  state.boardFitKey = '';
+  const hostRect = host.getBoundingClientRect();
   host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
   const board = host.querySelector('.xiangqiBoard, .gomokuBoard');
   if (board) {
     const isXi = board.classList.contains('xiangqiBoard');
-    const saved = isXi ? state.lastXiCellPx : state.lastGoCellPx;
-    if (saved > 0) {
-      board.style.setProperty(isXi ? '--xi-cell-size' : '--go-cell-size', `${saved}px`);
-    }
+    const cssVar = isXi ? '--xi-cell-size' : '--go-cell-size';
+    const cols = isXi ? XIANGQI_COLS : GOMOKU_SIZE;
+    const rows = isXi ? XIANGQI_ROWS : GOMOKU_SIZE;
+    const minCell = isXi ? XIANGQI_MIN_CELL : GOMOKU_MIN_CELL;
+    const chrome = boardChromeSize(board);
+    const aw = Math.max(0, hostRect.width - 2);
+    const ah = Math.max(0, hostRect.height > 10 ? hostRect.height : Math.max(50, window.innerHeight - hostRect.top - 60));
+    const cell = Math.max(minCell, Math.min(Math.floor((aw - chrome.width) / cols), Math.floor((ah - chrome.height) / rows)));
+    board.style.setProperty(cssVar, `${cell}px`);
   }
   bindBoardCellEvents(host);
-  fitBoardToViewport(route, true);
   return true;
 }
 
