@@ -231,15 +231,8 @@ function fitGomokuBoardToHost(board, host) {
 
 function fitBoardToHost({ board, host, cssVar, cols, rows, minCell }) {
   const chrome = boardChromeSize(board);
-  const hostRect = host.getBoundingClientRect();
-  let availableWidth = Math.max(0, hostRect.width - 2);
-  let availableHeight = Math.max(0, hostRect.height - 2);
-  if (availableHeight < 50) {
-    availableHeight = Math.max(50, window.innerHeight - hostRect.top - 60);
-  }
-  if (availableWidth < 50) {
-    availableWidth = Math.max(50, host.parentElement ? host.parentElement.clientWidth - 2 : availableWidth);
-  }
+  const availableWidth = host.clientWidth;
+  const availableHeight = host.clientHeight;
   const byWidth = Math.floor((availableWidth - chrome.width) / cols);
   const byHeight = Math.floor((availableHeight - chrome.height) / rows);
   const cell = Math.max(minCell, Math.min(byWidth, byHeight));
@@ -2161,19 +2154,21 @@ function refreshLiveBoardSurface(route = currentRoute()) {
   if (!host) {
     return false;
   }
-  const hostRect = host.getBoundingClientRect();
+  const savedW = host.clientWidth;
+  const savedH = host.clientHeight;
   host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
   const board = host.querySelector('.xiangqiBoard, .gomokuBoard');
-  if (board) {
+  if (board && savedW > 0 && savedH > 0) {
     const isXi = board.classList.contains('xiangqiBoard');
     const cssVar = isXi ? '--xi-cell-size' : '--go-cell-size';
     const cols = isXi ? XIANGQI_COLS : GOMOKU_SIZE;
     const rows = isXi ? XIANGQI_ROWS : GOMOKU_SIZE;
     const minCell = isXi ? XIANGQI_MIN_CELL : GOMOKU_MIN_CELL;
     const chrome = boardChromeSize(board);
-    const aw = Math.max(0, hostRect.width - 2);
-    const ah = Math.max(0, hostRect.height > 10 ? hostRect.height : Math.max(50, window.innerHeight - hostRect.top - 60));
-    const cell = Math.max(minCell, Math.min(Math.floor((aw - chrome.width) / cols), Math.floor((ah - chrome.height) / rows)));
+    const cell = Math.max(minCell, Math.min(
+      Math.floor((savedW - chrome.width) / cols),
+      Math.floor((savedH - chrome.height) / rows)
+    ));
     board.style.setProperty(cssVar, `${cell}px`);
   }
   bindBoardCellEvents(host);
