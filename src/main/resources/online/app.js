@@ -2202,8 +2202,10 @@ function refreshLiveBoardSurface(route = currentRoute()) {
   if (!host) {
     return false;
   }
+  state.boardFitKey = '';
   host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
   bindBoardCellEvents(host);
+  fitBoardToViewport(route, true);
   return true;
 }
 
