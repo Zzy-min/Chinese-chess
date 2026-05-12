@@ -164,6 +164,7 @@ function render() {
   if (!isBoardRoute && state.boardPaneTab !== 'board') {
     state.boardPaneTab = 'board';
   }
+  state.boardFitKey = '';
   const siteClasses = ['site', `route-${route.page}`];
   if (isBoardRoute) {
     siteClasses.push('is-board-route', `mobile-pane-${state.boardPaneTab}`);

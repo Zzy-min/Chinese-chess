@@ -223,8 +223,9 @@ button,input,select{font:inherit}
 .xiangqiCell.has-piece .xiangqiMarker{opacity:.8}
 .xiangqiCell .piece{
   position:relative;
-  display:grid;
-  place-items:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   width:82%;
   height:82%;
   border-radius:999px;
@@ -232,7 +233,8 @@ button,input,select{font:inherit}
   border:1.8px solid #7a4f24;
   box-shadow:0 2px 6px rgba(37,25,13,.28), inset 0 1px 0 rgba(255,255,255,.78), inset 0 0 0 1px rgba(105,67,32,.28);
   font-size:clamp(18px,2.05vw,27px);
-  line-height:1.02;
+  line-height:1;
+  text-align:center;
   font-weight:700;
   font-family:"KaiTi","STKaiti","Songti SC","SimSun","Noto Serif SC","Microsoft YaHei",serif;
   color:#a53222;
