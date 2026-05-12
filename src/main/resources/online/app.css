@@ -46,22 +46,27 @@ button,input,select{font:inherit}
 .boardPage{height:100%;min-height:0;display:grid;grid-template-rows:auto 1fr;gap:10px}
 .boardSplit{margin-top:0;height:100%;min-height:0;grid-template-columns:minmax(0,1.08fr) minmax(280px,.92fr)}
 .boardPane,.recordPane{min-height:0}
-.site.is-board-route .boardPane{overflow:auto}
+.site.is-board-route .boardPane{overflow:hidden}
 .site.is-board-route .recordPane{display:grid;grid-template-rows:auto 1fr;overflow:hidden}
 .site.is-board-route .recordPane .moves{max-height:none;height:100%;overflow:auto}
-.site.route-practice-locked .boardPane--practice{
-  overflow:hidden;
+.site.is-board-route .boardPane--game{
+  grid-template-rows:auto auto auto auto minmax(0,1fr) auto
+}
+.site.is-board-route .boardPane--practice{
   grid-template-rows:auto auto auto minmax(0,1fr) auto
 }
-.site.route-practice-locked .boardPane--practice [data-live-board-host]{
+.site.is-board-route .boardPane--analysis{
+  grid-template-rows:auto auto minmax(0,1fr) auto
+}
+.site.is-board-route .boardHost{
   min-height:0;
   display:flex;
   align-items:flex-start;
   justify-content:center
 }
-.site.route-practice-locked .boardPane--practice,
-.site.route-practice-locked .boardPane--practice .xiangqiBoard,
-.site.route-practice-locked .boardPane--practice .gomokuBoard{
+.site.is-board-route .boardPane,
+.site.is-board-route .boardPane .xiangqiBoard,
+.site.is-board-route .boardPane .gomokuBoard{
   touch-action:none;
   overscroll-behavior:contain
 }

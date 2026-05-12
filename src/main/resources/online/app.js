@@ -24,7 +24,7 @@ const state = {
   selectedFrom: null,
   pendingMoveMarker: null,
   pendingMoveGameId: '',
-  practiceBoardFitKey: '',
+  boardFitKey: '',
   learnPuzzleTheme: 'ALL',
   boardPaneTab: 'board',
   moveInFlight: false,
@@ -65,8 +65,8 @@ const PRACTICE_POLL_FAST_WINDOW_MS = 2000;
 const XIANGQI_ROWS = 10;
 const XIANGQI_COLS = 9;
 const GOMOKU_SIZE = 15;
-const XIANGQI_BOARD_CHROME = 32;
-const GOMOKU_BOARD_CHROME = 26;
+const XIANGQI_MIN_CELL = 12;
+const GOMOKU_MIN_CELL = 10;
 
 const onlineMoveAudio = createOnlineAudio('/assets/audio/move.wav');
 const onlineMateAudio = createOnlineAudio('/assets/audio/mate.wav');
@@ -76,7 +76,7 @@ const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn',
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
-window.addEventListener('resize', () => fitPracticeBoardToViewport(currentRoute(), true));
+window.addEventListener('resize', () => fitBoardToViewport(currentRoute(), true));
 window.setInterval(() => {
   const route = currentRoute();
   tickLiveGameClock(route);
@@ -184,63 +184,116 @@ function render() {
   bindCommon(route);
   syncRealtime(route);
   syncPracticePolling(route);
-  fitPracticeBoardToViewport(route, false);
+  fitBoardToViewport(route, false);
 }
 
-function fitPracticeBoardToViewport(route = currentRoute(), force = false) {
-  if (!route || route.page !== 'practice') {
-    state.practiceBoardFitKey = '';
+function fitBoardToViewport(route = currentRoute(), force = false) {
+  if (!isBoardFitRoute(route)) {
+    state.boardFitKey = '';
     return;
   }
   window.requestAnimationFrame(() => {
-    const pane = document.querySelector('.boardPane--practice');
-    const board = pane ? pane.querySelector('.xiangqiBoard, .gomokuBoard') : null;
-    const boardHost = board ? board.parentElement : null;
-    if (!pane || !board || !boardHost) {
+    const host = document.querySelector('.boardPane .boardHost');
+    const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
+    if (!host || !board) {
+      state.boardFitKey = '';
       return;
     }
-    const gameId = state.game && state.game.gameId ? state.game.gameId : '';
+    const hostWidth = Math.floor(host.clientWidth);
+    const hostHeight = Math.floor(host.clientHeight);
+    if (hostWidth <= 0 || hostHeight <= 0) {
+      state.boardFitKey = '';
+      return;
+    }
     const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
-    const hostRect = boardHost.getBoundingClientRect();
-    const fitKey = `${gameId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${Math.round(hostRect.width)}x${Math.round(hostRect.height)}`;
-    if (!force && fitKey === state.practiceBoardFitKey) {
+    const contextId = route.page === 'analysis'
+      ? ((state.analysis && state.analysis.gameId) || route.id || '')
+      : ((state.game && state.game.gameId) || route.id || '');
+    const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${hostWidth}x${hostHeight}|${state.boardPaneTab}`;
+    if (!force && fitKey === state.boardFitKey) {
       return;
     }
     if (boardType === 'XIANGQI') {
-      fitXiangqiPracticeBoard(board, boardHost);
-      state.practiceBoardFitKey = fitKey;
-      return;
+      fitXiangqiBoardToHost(board, host);
+    } else {
+      fitGomokuBoardToHost(board, host);
     }
-    fitGomokuPracticeBoard(board, boardHost);
-    state.practiceBoardFitKey = fitKey;
+    state.boardFitKey = fitKey;
   });
 }
 
-function fitXiangqiPracticeBoard(board, boardHost) {
-  board.style.removeProperty('--xi-cell-size');
-  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
-  const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--xi-cell-size')) || 36;
-  const availableWidth = Math.max(0, parentRect.width - 6);
-  const availableHeight = Math.max(0, parentRect.height - 6);
-  const byWidth = Math.floor((availableWidth - XIANGQI_BOARD_CHROME) / XIANGQI_COLS);
-  const byHeight = Math.floor((availableHeight - XIANGQI_BOARD_CHROME) / XIANGQI_ROWS);
-  const targetCell = Math.max(16, Math.min(Math.floor(baseCell), byHeight, byWidth));
-  if (targetCell > 0) {
-    board.style.setProperty('--xi-cell-size', `${targetCell}px`);
-  }
+function isBoardFitRoute(route) {
+  return !!route && (route.page === 'game' || route.page === 'practice' || route.page === 'analysis');
 }
 
-function fitGomokuPracticeBoard(board, boardHost) {
-  board.style.removeProperty('--go-cell-size');
-  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
-  const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--go-cell-size')) || 24;
-  const availableWidth = Math.max(0, parentRect.width - 6);
-  const availableHeight = Math.max(0, parentRect.height - 6);
-  const byWidth = Math.floor((availableWidth - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
-  const byHeight = Math.floor((availableHeight - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
-  const targetCell = Math.max(12, Math.min(Math.floor(baseCell), byHeight, byWidth));
-  if (targetCell > 0) {
-    board.style.setProperty('--go-cell-size', `${targetCell}px`);
+function fitXiangqiBoardToHost(board, host) {
+  fitBoardToHost({
+    board,
+    host,
+    cssVar: '--xi-cell-size',
+    cols: XIANGQI_COLS,
+    rows: XIANGQI_ROWS,
+    fallbackCell: 36,
+    minCell: XIANGQI_MIN_CELL
+  });
+}
+
+function fitGomokuBoardToHost(board, host) {
+  fitBoardToHost({
+    board,
+    host,
+    cssVar: '--go-cell-size',
+    cols: GOMOKU_SIZE,
+    rows: GOMOKU_SIZE,
+    fallbackCell: 24,
+    minCell: GOMOKU_MIN_CELL
+  });
+}
+
+function fitBoardToHost({ board, host, cssVar, cols, rows, fallbackCell, minCell }) {
+  board.style.removeProperty(cssVar);
+  const baseCell = readBoardCellBase(board, cssVar, fallbackCell);
+  const chrome = boardChromeSize(board);
+  const availableWidth = Math.max(0, host.clientWidth - 2);
+  const availableHeight = Math.max(0, host.clientHeight - 2);
+  const byWidth = Math.floor((availableWidth - chrome.width) / cols);
+  const byHeight = Math.floor((availableHeight - chrome.height) / rows);
+  const targetCell = Math.max(minCell, Math.min(Math.floor(baseCell), byWidth, byHeight));
+  const initialCell = Number.isFinite(targetCell) && targetCell > 0 ? targetCell : minCell;
+  board.style.setProperty(cssVar, `${initialCell}px`);
+  shrinkBoardToHost(board, host, cssVar, minCell, initialCell);
+}
+
+function readBoardCellBase(board, cssVar, fallbackCell) {
+  const inlineValue = parseFloat(board.style.getPropertyValue(cssVar));
+  if (Number.isFinite(inlineValue) && inlineValue > 0) {
+    return inlineValue;
+  }
+  const computedValue = parseFloat(getComputedStyle(board).getPropertyValue(cssVar));
+  if (Number.isFinite(computedValue) && computedValue > 0) {
+    return computedValue;
+  }
+  return fallbackCell;
+}
+
+function boardChromeSize(board) {
+  const styles = getComputedStyle(board);
+  return {
+    width: px(styles.paddingLeft) + px(styles.paddingRight) + px(styles.borderLeftWidth) + px(styles.borderRightWidth),
+    height: px(styles.paddingTop) + px(styles.paddingBottom) + px(styles.borderTopWidth) + px(styles.borderBottomWidth)
+  };
+}
+
+function px(value) {
+  const num = parseFloat(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function shrinkBoardToHost(board, host, cssVar, minCell, startCell) {
+  let cell = startCell;
+  while (cell > minCell && (board.offsetWidth > host.clientWidth || board.offsetHeight > host.clientHeight)) {
+    cell -= 1;
+    board.style.setProperty(cssVar, `${cell}px`);
   }
 }
 
@@ -1061,7 +1114,7 @@ function renderOnlineGameView(game) {
     <div class="boardPage">
       ${renderBoardPaneTabs()}
       <div class="split boardSplit">
-        <section class="boardWrap boardPane">
+        <section class="boardWrap boardPane boardPane--game">
           <div class="gameMetaRow">
             <span class="pill">${game.gameType}</span>
             <span class="pill" data-live-side-self>你执 ${sideLabel(game.gameType, viewerSide)}</span>
@@ -1076,7 +1129,7 @@ function renderOnlineGameView(game) {
           </div>
           <div class="status" data-live-status>${onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
-          <div data-live-board-host>${board}</div>
+          <div class="boardHost" data-live-board-host>${board}</div>
           <div class="roomRow" data-live-game-actions>
             ${renderOnlineGameActions(game, canOfferDraw)}
           </div>
@@ -1126,7 +1179,7 @@ function renderPracticeView(game) {
             <span class="pill">AI 方 ${escapeHtml(game.aiSide || ai.side || '-')}</span>
           </div>
           <div class="status" data-live-status>${practiceStatusText(game)}</div>
-          <div data-live-board-host>${board}</div>
+          <div class="boardHost" data-live-board-host>${board}</div>
           <div class="roomRow">
             <button class="ghost" data-nav="learn/practice">返回学习页</button>
             <button class="ghost" data-nav="analysis/${game.gameId}">进入分析</button>
@@ -1189,7 +1242,7 @@ function renderAnalysis(gameId) {
     <div class="boardPage">
       ${renderBoardPaneTabs()}
       <div class="split boardSplit">
-        <section class="boardWrap boardPane">
+        <section class="boardWrap boardPane boardPane--analysis">
           <div class="gameMetaRow">
             <span class="pill">${analysis.gameType}</span>
             ${analysis.isTraining ? '<span class="pill">AI 练习</span>' : ''}
@@ -1197,7 +1250,7 @@ function renderAnalysis(gameId) {
             <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
           </div>
           <div class="status">${analysis.isTraining ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
-          ${renderAnalysisBoardByGameType(analysis.gameType, board, marker)}
+          <div class="boardHost" data-analysis-board-host>${renderAnalysisBoardByGameType(analysis.gameType, board, marker)}</div>
           <div class="roomRow">
             <button class="ghost" data-analysis-step="0">开局</button>
             <button class="ghost" data-analysis-step="${Math.max(0, step - 1)}">上一步</button>
