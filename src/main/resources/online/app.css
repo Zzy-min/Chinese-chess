@@ -51,7 +51,7 @@ button,input,select{font:inherit}
 .site.is-board-route .recordPane .moves{max-height:none;height:100%;overflow:auto}
 .site.route-practice-locked .boardPane--practice{
   overflow:hidden;
-  grid-template-rows:auto auto auto minmax(0,1fr) auto
+  grid-template-rows:auto auto minmax(0,1fr) auto
 }
 .site.route-practice-locked .boardPane--practice [data-live-board-host]{
   min-height:0;
@@ -370,6 +370,18 @@ button.move{width:100%;text-align:left;cursor:pointer}
 .learnList{margin:0;padding-left:18px;display:grid;gap:3px;color:#47392b}
 .learnSummaryOneLine{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .practiceInfoLine{display:flex;gap:8px;flex-wrap:wrap}
+.practiceMetaLine{
+  display:flex;
+  gap:8px;
+  flex-wrap:nowrap;
+  align-items:center;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+  -ms-overflow-style:none
+}
+.practiceMetaLine::-webkit-scrollbar{display:none}
+.practiceMetaLine .pill{flex:0 0 auto}
 .placeholder{padding:24px;text-align:center;color:var(--muted)}
 .endGameOverlay{position:fixed;inset:0;background:rgba(18,13,10,.52);display:grid;place-items:center;padding:18px;z-index:35}
 .endGameCard{width:min(520px,100%);background:#fffefb;border:1px solid #e6d2b4;border-radius:22px;padding:20px 22px;box-shadow:0 25px 70px rgba(20,16,12,.28);display:grid;gap:8px}

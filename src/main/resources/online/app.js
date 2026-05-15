@@ -1154,14 +1154,12 @@ function renderPracticeView(game) {
       ${renderBoardPaneTabs()}
       <div class="split boardSplit">
         <section class="boardWrap boardPane boardPane--practice">
-          <div class="gameMetaRow">
+          <div class="practiceMetaLine">
             <span class="pill">AI 练习</span>
             <span class="pill">${game.gameType}</span>
             <span class="pill">${game.viewerSide || inferViewerSide(game)}</span>
             <span class="pill">轮到 ${game.currentTurn || '-'}</span>
             <span class="pill">${game.status}</span>
-          </div>
-          <div class="practiceInfoLine">
             <span class="pill">AI ${escapeHtml(ai.engineText || '-')}</span>
             <span class="pill">引擎 ${escapeHtml(ai.engineId || '-')}</span>
             <span class="pill">难度 ${escapeHtml(ai.difficulty || '-')}</span>
