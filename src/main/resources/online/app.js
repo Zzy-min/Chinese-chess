@@ -68,8 +68,9 @@ const GOMOKU_SIZE = 15;
 const XIANGQI_BOARD_CHROME = 32;
 const GOMOKU_BOARD_CHROME = 26;
 
-const onlineMoveAudio = createOnlineAudio('/assets/audio/move.wav');
-const onlineMateAudio = createOnlineAudio('/assets/audio/mate.wav');
+const ONLINE_AUDIO_ASSET_VERSION = '20260515f';
+const onlineMoveAudio = createOnlineAudio(`/assets/audio/move.wav?v=${ONLINE_AUDIO_ASSET_VERSION}`);
+const onlineMateAudio = createOnlineAudio(`/assets/audio/mate.wav?v=${ONLINE_AUDIO_ASSET_VERSION}`);
 
 const app = document.getElementById('app');
 const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me'];

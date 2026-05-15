@@ -35,6 +35,7 @@ import io.undertow.websockets.spi.WebSocketHttpExchange;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -805,8 +806,9 @@ public final class PublicSiteServer {
             }
             byte[] body = input.readAllBytes();
             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, contentType);
+            exchange.getResponseHeaders().put(Headers.CONTENT_LENGTH, String.valueOf(body.length));
             exchange.setStatusCode(StatusCodes.OK);
-            exchange.getResponseSender().send(new String(body, StandardCharsets.UTF_8));
+            exchange.getResponseSender().send(ByteBuffer.wrap(body));
         }
     }
 

@@ -4,6 +4,7 @@ import com.xiangqi.online.server.OnlineStore;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.URI;
@@ -13,7 +14,9 @@ import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PublicSiteServerTest {
@@ -280,6 +283,30 @@ class PublicSiteServerTest {
                 "{\"gameType\":\"BAD_TYPE\",\"isPublic\":false}", authCookie), HttpResponse.BodyHandlers.ofString());
             assertEquals(400, unsupported.statusCode());
             assertTrue(unsupported.body().contains("unsupported gameType: BAD_TYPE"));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void servesAudioAssetsWithoutCorruptingBinaryBytes() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            HttpResponse<byte[]> audio = client.send(request(port, "/assets/audio/move.wav"), HttpResponse.BodyHandlers.ofByteArray());
+            byte[] expected;
+            try (InputStream input = PublicSiteServerTest.class.getResourceAsStream("/audio/move.wav")) {
+                assertNotNull(input);
+                expected = input.readAllBytes();
+            }
+
+            assertEquals(200, audio.statusCode());
+            assertEquals("audio/wav", audio.headers().firstValue("Content-Type").orElse(""));
+            assertArrayEquals(expected, audio.body());
         } finally {
             server.stop();
         }
