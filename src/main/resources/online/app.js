@@ -24,6 +24,7 @@ const state = {
   selectedFrom: null,
   pendingMoveMarker: null,
   pendingMoveGameId: '',
+  practiceBoardFitKey: '',
   learnPuzzleTheme: 'ALL',
   boardPaneTab: 'board',
   moveInFlight: false,
@@ -64,8 +65,8 @@ const PRACTICE_POLL_FAST_WINDOW_MS = 2000;
 const XIANGQI_ROWS = 10;
 const XIANGQI_COLS = 9;
 const GOMOKU_SIZE = 15;
-const XIANGQI_MIN_CELL = 12;
-const GOMOKU_MIN_CELL = 10;
+const XIANGQI_BOARD_CHROME = 32;
+const GOMOKU_BOARD_CHROME = 26;
 
 const onlineMoveAudio = createOnlineAudio('/assets/audio/move.wav');
 const onlineMateAudio = createOnlineAudio('/assets/audio/mate.wav');
@@ -75,7 +76,7 @@ const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn',
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
-window.addEventListener('resize', () => fitBoardToViewport(currentRoute(), true));
+window.addEventListener('resize', () => fitPracticeBoardToViewport(currentRoute(), true));
 window.setInterval(() => {
   const route = currentRoute();
   tickLiveGameClock(route);
@@ -183,73 +184,64 @@ function render() {
   bindCommon(route);
   syncRealtime(route);
   syncPracticePolling(route);
-  setTimeout(() => fitBoardToViewport(route, false), 0);
+  fitPracticeBoardToViewport(route, false);
 }
 
-function fitBoardToViewport(route) {
-  if (!isBoardFitRoute(route)) {
+function fitPracticeBoardToViewport(route = currentRoute(), force = false) {
+  if (!route || route.page !== 'practice') {
+    state.practiceBoardFitKey = '';
     return;
   }
-  const host = document.querySelector('.boardPane .boardHost');
-  const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
-  if (!host || !board) {
-    return;
-  }
-  const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
-  if (boardType === 'XIANGQI') {
-    fitXiangqiBoardToHost(board, host);
-  } else {
-    fitGomokuBoardToHost(board, host);
-  }
-}
-
-function isBoardFitRoute(route) {
-  return !!route && (route.page === 'game' || route.page === 'practice' || route.page === 'analysis');
-}
-
-function fitXiangqiBoardToHost(board, host) {
-  fitBoardToHost({
-    board,
-    host,
-    cssVar: '--xi-cell-size',
-    cols: XIANGQI_COLS,
-    rows: XIANGQI_ROWS,
-    minCell: XIANGQI_MIN_CELL
+  window.requestAnimationFrame(() => {
+    const pane = document.querySelector('.boardPane--practice');
+    const board = pane ? pane.querySelector('.xiangqiBoard, .gomokuBoard') : null;
+    const boardHost = board ? board.parentElement : null;
+    if (!pane || !board || !boardHost) {
+      return;
+    }
+    const gameId = state.game && state.game.gameId ? state.game.gameId : '';
+    const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
+    const hostRect = boardHost.getBoundingClientRect();
+    const fitKey = `${gameId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${Math.round(hostRect.width)}x${Math.round(hostRect.height)}`;
+    if (!force && fitKey === state.practiceBoardFitKey) {
+      return;
+    }
+    if (boardType === 'XIANGQI') {
+      fitXiangqiPracticeBoard(board, boardHost);
+      state.practiceBoardFitKey = fitKey;
+      return;
+    }
+    fitGomokuPracticeBoard(board, boardHost);
+    state.practiceBoardFitKey = fitKey;
   });
 }
 
-function fitGomokuBoardToHost(board, host) {
-  fitBoardToHost({
-    board,
-    host,
-    cssVar: '--go-cell-size',
-    cols: GOMOKU_SIZE,
-    rows: GOMOKU_SIZE,
-    minCell: GOMOKU_MIN_CELL
-  });
+function fitXiangqiPracticeBoard(board, boardHost) {
+  board.style.removeProperty('--xi-cell-size');
+  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
+  const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--xi-cell-size')) || 36;
+  const availableWidth = Math.max(0, parentRect.width - 6);
+  const availableHeight = Math.max(0, parentRect.height - 6);
+  const byWidth = Math.floor((availableWidth - XIANGQI_BOARD_CHROME) / XIANGQI_COLS);
+  const byHeight = Math.floor((availableHeight - XIANGQI_BOARD_CHROME) / XIANGQI_ROWS);
+  const targetCell = Math.max(16, Math.min(Math.floor(baseCell), byHeight, byWidth));
+  if (targetCell > 0) {
+    board.style.setProperty('--xi-cell-size', `${targetCell}px`);
+  }
 }
 
-function fitBoardToHost({ board, host, cssVar, cols, rows, minCell }) {
-  const chrome = boardChromeSize(board);
-  const availableWidth = host.clientWidth;
-  const availableHeight = host.clientHeight;
-  const byWidth = Math.floor((availableWidth - chrome.width) / cols);
-  const byHeight = Math.floor((availableHeight - chrome.height) / rows);
-  const cell = Math.max(minCell, Math.min(byWidth, byHeight));
-  board.style.setProperty(cssVar, `${cell}px`);
-}
-
-function boardChromeSize(board) {
-  const styles = getComputedStyle(board);
-  return {
-    width: px(styles.paddingLeft) + px(styles.paddingRight) + px(styles.borderLeftWidth) + px(styles.borderRightWidth),
-    height: px(styles.paddingTop) + px(styles.paddingBottom) + px(styles.borderTopWidth) + px(styles.borderBottomWidth)
-  };
-}
-
-function px(value) {
-  const num = parseFloat(value);
-  return Number.isFinite(num) ? num : 0;
+function fitGomokuPracticeBoard(board, boardHost) {
+  board.style.removeProperty('--go-cell-size');
+  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
+  const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--go-cell-size')) || 24;
+  const availableWidth = Math.max(0, parentRect.width - 6);
+  const availableHeight = Math.max(0, parentRect.height - 6);
+  const byWidth = Math.floor((availableWidth - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
+  const byHeight = Math.floor((availableHeight - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
+  const targetCell = Math.max(12, Math.min(Math.floor(baseCell), byHeight, byWidth));
+  if (targetCell > 0) {
+    board.style.setProperty('--go-cell-size', `${targetCell}px`);
+  }
 }
 
 function renderTopbar(active) {
@@ -2154,22 +2146,19 @@ function refreshLiveBoardSurface(route = currentRoute()) {
   if (!host) {
     return false;
   }
-  const savedW = host.clientWidth;
-  const savedH = host.clientHeight;
+  const previousBoard = host.querySelector('.xiangqiBoard, .gomokuBoard');
+  const previousXiCell = previousBoard ? parseFloat(getComputedStyle(previousBoard).getPropertyValue('--xi-cell-size')) : 0;
+  const previousGoCell = previousBoard ? parseFloat(getComputedStyle(previousBoard).getPropertyValue('--go-cell-size')) : 0;
   host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
   const board = host.querySelector('.xiangqiBoard, .gomokuBoard');
-  if (board && savedW > 0 && savedH > 0) {
-    const isXi = board.classList.contains('xiangqiBoard');
-    const cssVar = isXi ? '--xi-cell-size' : '--go-cell-size';
-    const cols = isXi ? XIANGQI_COLS : GOMOKU_SIZE;
-    const rows = isXi ? XIANGQI_ROWS : GOMOKU_SIZE;
-    const minCell = isXi ? XIANGQI_MIN_CELL : GOMOKU_MIN_CELL;
-    const chrome = boardChromeSize(board);
-    const cell = Math.max(minCell, Math.min(
-      Math.floor((savedW - chrome.width) / cols),
-      Math.floor((savedH - chrome.height) / rows)
-    ));
-    board.style.setProperty(cssVar, `${cell}px`);
+  if (route.page === 'practice' && board) {
+    if (board.classList.contains('xiangqiBoard') && previousXiCell > 0) {
+      board.style.setProperty('--xi-cell-size', `${previousXiCell}px`);
+    }
+    if (board.classList.contains('gomokuBoard') && previousGoCell > 0) {
+      board.style.setProperty('--go-cell-size', `${previousGoCell}px`);
+    }
+    fitPracticeBoardToViewport(route, true);
   }
   bindBoardCellEvents(host);
   return true;
