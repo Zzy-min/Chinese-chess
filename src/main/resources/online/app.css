@@ -102,6 +102,9 @@ button,input,select{font:inherit}
   width:max-content;
   margin:0 auto
 }
+.xiangqiBoard--static{
+  --xi-cell-size:clamp(30px,4.5vw,46px) !important
+}
 .xiangqiBoardGrid{
   position:relative;
   display:grid;
@@ -429,5 +432,6 @@ button.move{width:100%;text-align:left;cursor:pointer}
   .site.route-practice-locked .pill{padding:5px 8px;font-size:12px}
   .site.route-practice-locked .practiceInfoLine{gap:6px}
   .xiangqiBoard{--xi-cell-size:clamp(28px,9vw,38px)}
+  .xiangqiBoard--static{--xi-cell-size:clamp(28px,9vw,38px) !important}
   .gomokuBoard{--go-cell-size:clamp(18px,5.7vw,25px)}
 }
