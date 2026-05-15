@@ -184,6 +184,9 @@ function render() {
   bindCommon(route);
   syncRealtime(route);
   syncPracticePolling(route);
+  if (route.page === 'practice') {
+    state.practiceBoardFitKey = '';
+  }
   fitPracticeBoardToViewport(route, false);
   normalizeAnalysisBoard(route);
 }
@@ -217,12 +220,34 @@ function fitPracticeBoardToViewport(route = currentRoute(), force = false) {
   });
 }
 
+function measurePracticeBoardSpace(board, boardHost) {
+  const host = boardHost || board.parentElement || board;
+  const fallbackRect = host.getBoundingClientRect();
+  const fallbackWidth = Math.max(0, fallbackRect.width - 6);
+  const fallbackHeight = Math.max(0, fallbackRect.height - 6);
+  const pane = host.closest('.boardPane--practice');
+  if (!pane || !boardHost) {
+    return { availableWidth: fallbackWidth, availableHeight: fallbackHeight };
+  }
+  const paneStyle = getComputedStyle(pane);
+  const rowGap = parseFloat(paneStyle.rowGap || paneStyle.gap) || 0;
+  const siblings = Array.from(pane.children).filter((child) => child !== boardHost);
+  const occupiedHeight = siblings.reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+  const totalGaps = Math.max(0, (pane.children.length - 1) * rowGap);
+  const paneWidth = boardHost.clientWidth || fallbackRect.width;
+  const paneHeight = pane.clientHeight - occupiedHeight - totalGaps;
+  return {
+    availableWidth: Math.max(0, paneWidth - 6),
+    availableHeight: Math.max(0, (paneHeight > 0 ? paneHeight : fallbackRect.height) - 6)
+  };
+}
+
 function fitXiangqiPracticeBoard(board, boardHost) {
   board.style.removeProperty('--xi-cell-size');
-  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
+  const space = measurePracticeBoardSpace(board, boardHost);
   const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--xi-cell-size')) || 36;
-  const availableWidth = Math.max(0, parentRect.width - 6);
-  const availableHeight = Math.max(0, parentRect.height - 6);
+  const availableWidth = space.availableWidth;
+  const availableHeight = space.availableHeight;
   const byWidth = Math.floor((availableWidth - XIANGQI_BOARD_CHROME) / XIANGQI_COLS);
   const byHeight = Math.floor((availableHeight - XIANGQI_BOARD_CHROME) / XIANGQI_ROWS);
   const targetCell = Math.max(16, Math.min(Math.floor(baseCell), byHeight, byWidth));
@@ -233,10 +258,10 @@ function fitXiangqiPracticeBoard(board, boardHost) {
 
 function fitGomokuPracticeBoard(board, boardHost) {
   board.style.removeProperty('--go-cell-size');
-  const parentRect = (boardHost || board.parentElement || board).getBoundingClientRect();
+  const space = measurePracticeBoardSpace(board, boardHost);
   const baseCell = parseFloat(getComputedStyle(board).getPropertyValue('--go-cell-size')) || 24;
-  const availableWidth = Math.max(0, parentRect.width - 6);
-  const availableHeight = Math.max(0, parentRect.height - 6);
+  const availableWidth = space.availableWidth;
+  const availableHeight = space.availableHeight;
   const byWidth = Math.floor((availableWidth - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
   const byHeight = Math.floor((availableHeight - GOMOKU_BOARD_CHROME) / GOMOKU_SIZE);
   const targetCell = Math.max(12, Math.min(Math.floor(baseCell), byHeight, byWidth));

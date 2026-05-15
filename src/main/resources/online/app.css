@@ -56,8 +56,10 @@ button,input,select{font:inherit}
 .site.route-practice-locked .boardPane--practice [data-live-board-host]{
   min-height:0;
   display:flex;
+  align-self:stretch;
   align-items:flex-start;
-  justify-content:center
+  justify-content:center;
+  overflow:hidden
 }
 .site.is-board-route .boardPane--analysis [data-analysis-board-host]{
   display:flex;
