@@ -185,6 +185,7 @@ function render() {
   syncRealtime(route);
   syncPracticePolling(route);
   fitPracticeBoardToViewport(route, false);
+  normalizeAnalysisBoard(route);
 }
 
 function fitPracticeBoardToViewport(route = currentRoute(), force = false) {
@@ -242,6 +243,23 @@ function fitGomokuPracticeBoard(board, boardHost) {
   if (targetCell > 0) {
     board.style.setProperty('--go-cell-size', `${targetCell}px`);
   }
+}
+
+function normalizeAnalysisBoard(route = currentRoute()) {
+  if (!route || route.page !== 'analysis') {
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const board = document.querySelector('[data-analysis-board-host] .xiangqiBoard, [data-analysis-board-host] .gomokuBoard');
+    if (!board) {
+      return;
+    }
+    board.style.removeProperty('--xi-cell-size');
+    board.style.removeProperty('--go-cell-size');
+    if (!board.getAttribute('style') || !board.getAttribute('style').trim()) {
+      board.removeAttribute('style');
+    }
+  });
 }
 
 function renderTopbar(active) {

@@ -59,6 +59,11 @@ button,input,select{font:inherit}
   align-items:flex-start;
   justify-content:center
 }
+.site.is-board-route .boardPane--analysis [data-analysis-board-host]{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center
+}
 .site.route-practice-locked .boardPane--practice,
 .site.route-practice-locked .boardPane--practice .xiangqiBoard,
 .site.route-practice-locked .boardPane--practice .gomokuBoard{
