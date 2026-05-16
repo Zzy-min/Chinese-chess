@@ -191,6 +191,7 @@ class PublicSiteServerTest {
             HttpResponse<String> move = client.send(postRequest(port, "/online/api/learn/practice-games/" + gameId + "/move", moveBody, authCookie), HttpResponse.BodyHandlers.ofString());
             assertEquals(200, move.statusCode());
             assertTrue(move.body().contains("\"aiPending\":true"));
+            assertTrue(move.body().contains("\"moveCount\":1"));
 
             long deadline = System.currentTimeMillis() + 5000L;
             HttpResponse<String> snapshot = client.send(getRequest(port, "/online/api/learn/practice-games/" + gameId, authCookie), HttpResponse.BodyHandlers.ofString());

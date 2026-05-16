@@ -2131,7 +2131,7 @@ async function sendGameAction(url, body) {
     if (!isPracticeAiPending(state.game) || state.game.status !== 'PLAYING') {
       stopPracticePolling();
     } else {
-      startPracticePolling(state.game.gameId, true);
+      startPracticePolling(state.game.gameId, false);
     }
     render();
     refreshBootstrapAndProfile().catch(() => null);
@@ -2395,7 +2395,7 @@ async function sendMove(payload) {
     state.moveInFlight = false;
     clearPendingMoveMarker();
     if (isPracticeAiPending(state.game)) {
-      startPracticePolling(state.game.gameId, true);
+      startPracticePolling(state.game.gameId, false);
     } else {
       stopPracticePolling();
     }
@@ -2940,7 +2940,7 @@ function practiceStatusText(game) {
   if (isPracticeAiPending(game)) {
     return 'AI 思考中...';
   }
-  return (game && game.resultText) || '轮到你落子后，后端会立刻返回 AI 应手。';
+  return (game && game.resultText) || '你落子后，AI 会思考并自动应手。';
 }
 
 function isPracticeAiPending(game) {
