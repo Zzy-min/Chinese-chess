@@ -1583,6 +1583,76 @@ function clearPendingMoveMarker() {
   state.pendingMoveGameId = '';
 }
 
+function applyOptimisticPracticeMove(game, payload) {
+  if (!game || !game.isTraining || !payload) {
+    return null;
+  }
+  const optimistic = JSON.parse(JSON.stringify(game));
+  const board = normalizeBoard(optimistic.board).map(row => row.slice());
+  const viewerSide = optimistic.viewerSide || inferViewerSide(optimistic);
+  if (game.gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
+    const fromRow = payload.fromRow;
+    const fromCol = payload.fromCol;
+    const toRow = payload.toRow;
+    const toCol = payload.toCol;
+    const sourceRow = Array.isArray(board[fromRow]) ? board[fromRow].slice() : [];
+    const targetRow = fromRow === toRow
+      ? sourceRow
+      : (Array.isArray(board[toRow]) ? board[toRow].slice() : []);
+    const movingPiece = sourceRow[fromCol];
+    if (!movingPiece) {
+      return null;
+    }
+    sourceRow[fromCol] = '';
+    targetRow[toCol] = movingPiece;
+    board[fromRow] = sourceRow;
+    board[toRow] = targetRow;
+  } else if (game.gameType === 'GOMOKU' && isGomokuMovePayload(payload)) {
+    const row = payload.row;
+    const col = payload.col;
+    const stone = viewerSide === 'WHITE' ? 'WHITE' : 'BLACK';
+    const targetRow = Array.isArray(board[row]) ? board[row].slice() : [];
+    targetRow[col] = stone;
+    board[row] = targetRow;
+  } else {
+    return null;
+  }
+  optimistic.board = board;
+  optimistic.updatedAt = new Date().toISOString();
+  optimistic.aiPending = false;
+  if (Array.isArray(optimistic.moves)) {
+    const nextIndex = optimistic.moves.length + 1;
+    optimistic.moves = optimistic.moves.slice();
+    optimistic.moves.push({
+      index: nextIndex,
+      side: viewerSide || optimistic.currentTurn || '',
+      notation: optimisticMoveNotation(game.gameType, payload),
+      payload: Object.assign({}, payload, viewerSide ? { side: viewerSide } : {}),
+      actorUserId: state.me && state.me.id ? state.me.id : '',
+      createdAt: optimistic.updatedAt
+    });
+    optimistic.moveCount = optimistic.moves.length;
+  } else {
+    optimistic.moves = [];
+    optimistic.moveCount = 0;
+  }
+  const opponentSide = resolveOpponentSide(optimistic, viewerSide);
+  if (opponentSide) {
+    optimistic.currentTurn = opponentSide;
+  }
+  return enrichGame(optimistic);
+}
+
+function optimisticMoveNotation(gameType, payload) {
+  if (gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
+    return `${payload.fromRow},${payload.fromCol} -> ${payload.toRow},${payload.toCol}`;
+  }
+  if (gameType === 'GOMOKU' && isGomokuMovePayload(payload)) {
+    return `${payload.row},${payload.col}`;
+  }
+  return 'pending';
+}
+
 function createMoveMarker(gameType, move, viewerSide) {
   if (!move || !move.payload) {
     return null;
@@ -2362,6 +2432,7 @@ function onGomokuCellClick(event) {
 async function sendMove(payload) {
   const gameBeforeMove = state.game;
   const routeBeforeMove = currentRoute();
+  const optimisticGame = applyOptimisticPracticeMove(gameBeforeMove, payload);
   if (state.moveInFlight) {
     state.status = '正在提交走子，请稍候...';
     if (!refreshLiveStatusLine(routeBeforeMove)) {
@@ -2383,6 +2454,9 @@ async function sendMove(payload) {
   state.status = '';
   state.pendingMoveGameId = gameBeforeMove && gameBeforeMove.gameId ? gameBeforeMove.gameId : '';
   state.pendingMoveMarker = createPendingMoveMarker(gameBeforeMove, payload);
+  if (optimisticGame) {
+    state.game = optimisticGame;
+  }
   if (!refreshGameInteractionUi(routeBeforeMove)) {
     render();
   }
@@ -2404,6 +2478,9 @@ async function sendMove(payload) {
   } catch (error) {
     if (requestToken !== state.moveRequestToken) {
       return;
+    }
+    if (optimisticGame) {
+      state.game = gameBeforeMove;
     }
     state.status = error.message;
     state.moveInFlight = false;
