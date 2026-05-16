@@ -1643,6 +1643,19 @@ function applyOptimisticPracticeMove(game, payload) {
   return enrichGame(optimistic);
 }
 
+function playOptimisticPracticeMoveSound(game) {
+  if (!game || !game.gameId || !game.isTraining) {
+    return;
+  }
+  const latestIndex = Number(game.moveCount || (Array.isArray(game.moves) ? game.moves.length : 0));
+  if (!Number.isFinite(latestIndex) || latestIndex <= 0) {
+    return;
+  }
+  state.lastMoveSoundGameId = game.gameId;
+  state.lastMoveSoundIndex = latestIndex;
+  playOnlineSound(onlineMoveAudio);
+}
+
 function optimisticMoveNotation(gameType, payload) {
   if (gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
     return `${payload.fromRow},${payload.fromCol} -> ${payload.toRow},${payload.toCol}`;
@@ -2456,6 +2469,7 @@ async function sendMove(payload) {
   state.pendingMoveMarker = createPendingMoveMarker(gameBeforeMove, payload);
   if (optimisticGame) {
     state.game = optimisticGame;
+    playOptimisticPracticeMoveSound(optimisticGame);
   }
   if (!refreshGameInteractionUi(routeBeforeMove)) {
     render();
@@ -3005,6 +3019,9 @@ function isSupportedGameType(gameType) {
 
 function practiceStatusText(game) {
   if (state.moveInFlight) {
+    if (game && game.isTraining && state.pendingMoveGameId && game.gameId === state.pendingMoveGameId) {
+      return '你的落子已落下，等待进入 AI 思考...';
+    }
     return '正在提交走子...';
   }
   if (state.status) {

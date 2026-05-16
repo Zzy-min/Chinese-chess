@@ -16,6 +16,8 @@ class OnlinePracticeAsyncMoveContractTest {
         String js = readResource("/online/app.js");
 
         assertTrue(js.contains("function applyOptimisticPracticeMove"));
+        assertTrue(js.contains("function playOptimisticPracticeMoveSound"));
+        assertTrue(js.contains("playOnlineSound(onlineMoveAudio)"));
         assertFalse(js.contains("startPracticePolling(state.game.gameId, true)"));
         assertTrue(js.contains("startPracticePolling(state.game.gameId, false)"));
         assertTrue(js.contains("AI 会思考并自动应手"));
