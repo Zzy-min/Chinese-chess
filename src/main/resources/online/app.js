@@ -187,7 +187,6 @@ function render() {
   syncRealtime(route);
   syncPracticePolling(route);
   fitBoardToViewport(route, false);
-  scheduleBoardRefit(route);
 }
 
 function fitBoardToViewport(route = currentRoute(), force = false) {
@@ -200,6 +199,7 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
     const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
     if (!host || !board) {
       state.boardFitKey = '';
+      queueBoardRefit(route);
       return;
     }
     const measured = measureBoardHostSpace(host);
@@ -207,6 +207,7 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
     const availableHeight = Math.floor(measured.availableHeight);
     if (availableWidth <= 0 || availableHeight <= 0) {
       state.boardFitKey = '';
+      queueBoardRefit(route);
       return;
     }
     const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
@@ -214,7 +215,8 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
       ? ((state.analysis && state.analysis.gameId) || route.id || '')
       : ((state.game && state.game.gameId) || route.id || '');
     const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${availableWidth}x${availableHeight}|${state.boardPaneTab}`;
-    if (!force && fitKey === state.boardFitKey) {
+    const boardAppliedKey = board.getAttribute('data-fit-key') || '';
+    if (!force && fitKey === state.boardFitKey && boardAppliedKey === fitKey) {
       return;
     }
     if (boardType === 'XIANGQI') {
@@ -222,14 +224,14 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
     } else {
       fitGomokuBoardToHost(board, host, measured);
     }
+    board.setAttribute('data-fit-key', fitKey);
     state.boardFitKey = fitKey;
   });
 }
 
-function scheduleBoardRefit(route) {
+function queueBoardRefit(route) {
   if (state.boardRefitTimer) {
-    window.clearTimeout(state.boardRefitTimer);
-    state.boardRefitTimer = 0;
+    return;
   }
   if (!isBoardFitRoute(route)) {
     return;
