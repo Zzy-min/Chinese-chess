@@ -200,9 +200,10 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
       state.boardFitKey = '';
       return;
     }
-    const hostWidth = Math.floor(host.clientWidth);
-    const hostHeight = Math.floor(host.clientHeight);
-    if (hostWidth <= 0 || hostHeight <= 0) {
+    const measured = measureBoardHostSpace(host);
+    const availableWidth = Math.floor(measured.availableWidth);
+    const availableHeight = Math.floor(measured.availableHeight);
+    if (availableWidth <= 0 || availableHeight <= 0) {
       state.boardFitKey = '';
       return;
     }
@@ -210,14 +211,14 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
     const contextId = route.page === 'analysis'
       ? ((state.analysis && state.analysis.gameId) || route.id || '')
       : ((state.game && state.game.gameId) || route.id || '');
-    const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${hostWidth}x${hostHeight}|${state.boardPaneTab}`;
+    const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${availableWidth}x${availableHeight}|${state.boardPaneTab}`;
     if (!force && fitKey === state.boardFitKey) {
       return;
     }
     if (boardType === 'XIANGQI') {
-      fitXiangqiBoardToHost(board, host);
+      fitXiangqiBoardToHost(board, host, measured);
     } else {
-      fitGomokuBoardToHost(board, host);
+      fitGomokuBoardToHost(board, host, measured);
     }
     state.boardFitKey = fitKey;
   });
@@ -227,10 +228,11 @@ function isBoardFitRoute(route) {
   return !!route && (route.page === 'game' || route.page === 'practice' || route.page === 'analysis');
 }
 
-function fitXiangqiBoardToHost(board, host) {
+function fitXiangqiBoardToHost(board, host, measured = null) {
   fitBoardToHost({
     board,
     host,
+    measured,
     cssVar: '--xi-cell-size',
     cols: XIANGQI_COLS,
     rows: XIANGQI_ROWS,
@@ -239,10 +241,11 @@ function fitXiangqiBoardToHost(board, host) {
   });
 }
 
-function fitGomokuBoardToHost(board, host) {
+function fitGomokuBoardToHost(board, host, measured = null) {
   fitBoardToHost({
     board,
     host,
+    measured,
     cssVar: '--go-cell-size',
     cols: GOMOKU_SIZE,
     rows: GOMOKU_SIZE,
@@ -251,18 +254,22 @@ function fitGomokuBoardToHost(board, host) {
   });
 }
 
-function fitBoardToHost({ board, host, cssVar, cols, rows, fallbackCell, minCell }) {
+function fitBoardToHost({ board, host, measured, cssVar, cols, rows, fallbackCell, minCell }) {
   board.style.removeProperty(cssVar);
   const baseCell = readBoardCellBase(board, cssVar, fallbackCell);
   const chrome = boardChromeSize(board);
-  const availableWidth = Math.max(0, host.clientWidth - 2);
-  const availableHeight = Math.max(0, host.clientHeight - 2);
+  const availableWidth = Math.max(0, measured && Number.isFinite(measured.availableWidth)
+    ? measured.availableWidth
+    : (host.clientWidth - 2));
+  const availableHeight = Math.max(0, measured && Number.isFinite(measured.availableHeight)
+    ? measured.availableHeight
+    : (host.clientHeight - 2));
   const byWidth = Math.floor((availableWidth - chrome.width) / cols);
   const byHeight = Math.floor((availableHeight - chrome.height) / rows);
   const targetCell = Math.max(minCell, Math.min(Math.floor(baseCell), byWidth, byHeight));
   const initialCell = Number.isFinite(targetCell) && targetCell > 0 ? targetCell : minCell;
   board.style.setProperty(cssVar, `${initialCell}px`, 'important');
-  shrinkBoardToHost(board, host, cssVar, minCell, initialCell);
+  shrinkBoardToHost(board, cssVar, minCell, initialCell, availableWidth, availableHeight);
 }
 
 function readBoardCellBase(board, cssVar, fallbackCell) {
@@ -290,12 +297,36 @@ function px(value) {
   return Number.isFinite(num) ? num : 0;
 }
 
-function shrinkBoardToHost(board, host, cssVar, minCell, startCell) {
+function shrinkBoardToHost(board, cssVar, minCell, startCell, limitWidth, limitHeight) {
   let cell = startCell;
-  while (cell > minCell && (board.offsetWidth > host.clientWidth || board.offsetHeight > host.clientHeight)) {
+  while (cell > minCell && (board.offsetWidth > limitWidth || board.offsetHeight > limitHeight)) {
     cell -= 1;
     board.style.setProperty(cssVar, `${cell}px`, 'important');
   }
+}
+
+function measureBoardHostSpace(host) {
+  const fallbackRect = host.getBoundingClientRect();
+  const fallbackWidth = Math.max(0, (host.clientWidth || fallbackRect.width) - 2);
+  const fallbackHeight = Math.max(0, (host.clientHeight || fallbackRect.height) - 2);
+  const pane = host.closest('.boardPane');
+  if (!pane) {
+    return {
+      availableWidth: fallbackWidth,
+      availableHeight: fallbackHeight
+    };
+  }
+  const paneStyle = getComputedStyle(pane);
+  const rowGap = parseFloat(paneStyle.rowGap || paneStyle.gap) || 0;
+  const siblings = Array.from(pane.children).filter((child) => child !== host);
+  const occupiedHeight = siblings.reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+  const totalGaps = Math.max(0, (pane.children.length - 1) * rowGap);
+  const paneRowHeight = pane.clientHeight - occupiedHeight - totalGaps;
+  const preferredWidth = host.clientWidth || pane.clientWidth || fallbackRect.width;
+  return {
+    availableWidth: Math.max(0, preferredWidth - 2),
+    availableHeight: Math.max(0, (paneRowHeight > 0 ? paneRowHeight : fallbackHeight) - 2)
+  };
 }
 
 function renderTopbar(active) {
