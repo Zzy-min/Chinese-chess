@@ -25,6 +25,7 @@ const state = {
   pendingMoveMarker: null,
   pendingMoveGameId: '',
   boardFitKey: '',
+  boardRefitTimer: 0,
   learnPuzzleTheme: 'ALL',
   boardPaneTab: 'board',
   moveInFlight: false,
@@ -186,6 +187,7 @@ function render() {
   syncRealtime(route);
   syncPracticePolling(route);
   fitBoardToViewport(route, false);
+  scheduleBoardRefit(route);
 }
 
 function fitBoardToViewport(route = currentRoute(), force = false) {
@@ -222,6 +224,26 @@ function fitBoardToViewport(route = currentRoute(), force = false) {
     }
     state.boardFitKey = fitKey;
   });
+}
+
+function scheduleBoardRefit(route) {
+  if (state.boardRefitTimer) {
+    window.clearTimeout(state.boardRefitTimer);
+    state.boardRefitTimer = 0;
+  }
+  if (!isBoardFitRoute(route)) {
+    return;
+  }
+  const routeKey = `${route.page}|${route.id || ''}|${route.leaf || ''}|${state.boardPaneTab}`;
+  state.boardRefitTimer = window.setTimeout(() => {
+    state.boardRefitTimer = 0;
+    const latest = currentRoute();
+    const latestKey = `${latest.page}|${latest.id || ''}|${latest.leaf || ''}|${state.boardPaneTab}`;
+    if (latestKey !== routeKey || !isBoardFitRoute(latest)) {
+      return;
+    }
+    fitBoardToViewport(latest, true);
+  }, 140);
 }
 
 function isBoardFitRoute(route) {
@@ -310,23 +332,53 @@ function measureBoardHostSpace(host) {
   const fallbackWidth = Math.max(0, (host.clientWidth || fallbackRect.width) - 2);
   const fallbackHeight = Math.max(0, (host.clientHeight || fallbackRect.height) - 2);
   const pane = host.closest('.boardPane');
-  if (!pane) {
-    return {
-      availableWidth: fallbackWidth,
-      availableHeight: fallbackHeight
-    };
+  const shell = host.closest('.shell') || document.querySelector('.shell');
+  const paneRect = pane ? pane.getBoundingClientRect() : null;
+  const shellRect = shell ? shell.getBoundingClientRect() : null;
+  const viewportHeight = (window.visualViewport && Number.isFinite(window.visualViewport.height))
+    ? window.visualViewport.height
+    : window.innerHeight;
+  const viewportWidth = (window.visualViewport && Number.isFinite(window.visualViewport.width))
+    ? window.visualViewport.width
+    : window.innerWidth;
+  const visibleBottom = tightestPositive([
+    viewportHeight,
+    paneRect ? paneRect.bottom : 0,
+    shellRect ? shellRect.bottom : 0
+  ], viewportHeight);
+  const visibleRight = tightestPositive([
+    viewportWidth,
+    paneRect ? paneRect.right : 0,
+    shellRect ? shellRect.right : 0
+  ], viewportWidth);
+  const viewportLimitedHeight = Math.max(0, visibleBottom - Math.max(0, fallbackRect.top) - 2);
+  const viewportLimitedWidth = Math.max(0, visibleRight - Math.max(0, fallbackRect.left) - 2);
+
+  let paneRowHeight = 0;
+  let preferredWidth = host.clientWidth || fallbackRect.width;
+  if (pane) {
+    const paneStyle = getComputedStyle(pane);
+    const rowGap = parseFloat(paneStyle.rowGap || paneStyle.gap) || 0;
+    const siblings = Array.from(pane.children).filter((child) => child !== host);
+    const occupiedHeight = siblings.reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+    const totalGaps = Math.max(0, (pane.children.length - 1) * rowGap);
+    paneRowHeight = pane.clientHeight - occupiedHeight - totalGaps;
+    preferredWidth = host.clientWidth || pane.clientWidth || fallbackRect.width;
   }
-  const paneStyle = getComputedStyle(pane);
-  const rowGap = parseFloat(paneStyle.rowGap || paneStyle.gap) || 0;
-  const siblings = Array.from(pane.children).filter((child) => child !== host);
-  const occupiedHeight = siblings.reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
-  const totalGaps = Math.max(0, (pane.children.length - 1) * rowGap);
-  const paneRowHeight = pane.clientHeight - occupiedHeight - totalGaps;
-  const preferredWidth = host.clientWidth || pane.clientWidth || fallbackRect.width;
+  const paneLimitedHeight = Math.max(0, paneRowHeight - 2);
+  const paneLimitedWidth = Math.max(0, preferredWidth - 2);
   return {
-    availableWidth: Math.max(0, preferredWidth - 2),
-    availableHeight: Math.max(0, (paneRowHeight > 0 ? paneRowHeight : fallbackHeight) - 2)
+    availableWidth: tightestPositive([paneLimitedWidth, viewportLimitedWidth], fallbackWidth),
+    availableHeight: tightestPositive([paneLimitedHeight, viewportLimitedHeight], fallbackHeight)
   };
+}
+
+function tightestPositive(values, fallback) {
+  const valid = values.filter((value) => Number.isFinite(value) && value > 0);
+  if (!valid.length) {
+    return Math.max(0, fallback);
+  }
+  return Math.max(0, Math.min(...valid));
 }
 
 function renderTopbar(active) {
