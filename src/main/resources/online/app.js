@@ -74,7 +74,7 @@ const onlineMoveAudio = createOnlineAudio(`/assets/audio/move.wav?v=${ONLINE_AUD
 const onlineMateAudio = createOnlineAudio(`/assets/audio/mate.wav?v=${ONLINE_AUDIO_ASSET_VERSION}`);
 
 const app = document.getElementById('app');
-const routes = ['home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me'];
+const routes = ['welcome', 'home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'help', 'me'];
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
@@ -179,6 +179,7 @@ function render() {
       <main class="shell">
         ${renderPage(route)}
       </main>
+      ${renderBottomNav(route.page)}
       ${renderGameEndModal()}
       ${shouldShowAuthOverlay(route) ? renderAuthOverlay() : ''}
     </div>
@@ -390,22 +391,22 @@ function renderTopbar(active) {
       <div class="brand">
         <div class="brandMark">棋</div>
         <div class="brandText">
-          <strong>轻棋局 Online</strong>
-          <span>在线房间对局大厅</span>
+          <strong>轻棋局</strong>
+          <span>在线对弈，AI 棋桌与复盘分析</span>
         </div>
       </div>
       <nav class="nav">
         ${navLink('home', '首页', active)}
         ${navLink('play', '对局', active)}
-        ${navLink('learn', '学习', active)}
-        ${navLink('watch', '观战', active)}
-        ${navLink('community', '社区', active)}
-        ${navLink('me', '个人', active)}
+        ${navLink('learn', '练习', active)}
+        ${navLink('community', '排行榜', active)}
+        ${navLink('watch', '社区', active)}
+        ${navLink('help', '帮助', active)}
       </nav>
       <div class="userBar">
         <button class="ghost" data-action="toggle-sound">音效：${state.soundEnabled ? '开' : '关'}</button>
-        <span class="muted">${me ? `@${me.username}` : '未登录'}</span>
-        ${me ? '<button class="ghost" data-action="logout">退出</button>' : '<button class="btn" data-action="show-auth">登录 / 注册</button>'}
+        ${me ? `<button class="ghost topbarProfile" data-nav="me">@${me.username}</button>` : '<span class="muted">未登录</span>'}
+        ${me ? '<button class="ghost" data-action="logout">退出</button>' : '<button class="ghost" data-auth-mode="login">登录</button><button class="btn" data-auth-mode="register">注册</button>'}
       </div>
     </header>
   `;
@@ -449,7 +450,8 @@ function navLink(page, label, active) {
 }
 
 const pageRegistry = {
-  home: renderHomePage,
+  welcome: renderWelcomePage,
+  home: renderHomePageGuofeng,
   play: route => renderPlay(route),
   room: route => renderRoom(route.id),
   game: route => renderGame(route.id),
@@ -458,6 +460,7 @@ const pageRegistry = {
   learn: route => renderLearnPage(route),
   watch: renderWatchPage,
   community: renderCommunityPage,
+  help: renderHelpPage,
   me: renderProfilePage
 };
 
@@ -586,6 +589,10 @@ function onlineGameStatusText(game) {
 function shouldShowAuthOverlay(route) {
   if (state.me) return false;
   if (state.showAuthModal) return true;
+  const pagePath = route.page + (route.id ? '/' + route.id : '');
+  if (pagePath === 'play/xiangqi' || pagePath === 'play/gomoku') {
+    return false;
+  }
   return ['play', 'room', 'game', 'practice', 'me'].includes(route.page);
 }
 
@@ -1096,40 +1103,14 @@ function renderActivityBanner(room, game) {
   `;
 }
 
-function renderPlay() {
-  const rooms = (state.lobby && state.lobby.rooms) || [];
-  return `
-    <div class="split">
-      <section class="panel">
-        <h2 class="sectionTitle">创建房间</h2>
-        <div class="stack">
-          <div class="field"><label>棋种</label><select id="createGameType"><option value="XIANGQI">中国象棋</option><option value="GOMOKU">五子棋</option><option value="GO" disabled>围棋（即将开放）</option></select></div>
-          <div class="field"><label>基础时长（秒）</label><select id="createTime"><option value="300">5 分钟</option><option value="600" selected>10 分钟</option><option value="900">15 分钟</option></select></div>
-          <div class="field"><label>公开房间</label><select id="createPublic"><option value="true">是</option><option value="false" selected>否</option></select></div>
-          <button class="btn" data-action="create-room">创建在线房间</button>
-          <div class="status">${state.status || ''}</div>
-        </div>
-      </section>
-      <section class="panel">
-        <h2 class="sectionTitle">加入房间</h2>
-        <div class="stack">
-          <div class="field"><label>邀请码</label><input id="joinCode" placeholder="输入 8 位房间码" /></div>
-          <button class="btn" data-action="join-by-code">通过邀请码加入</button>
-          <h3>公开房间</h3>
-          <div class="moves">
-            ${rooms.length ? rooms.map(room => `
-              <div class="move">
-                <div>
-                  <strong>${room.gameType}</strong>
-                  <div class="muted">${room.hostUsername}${room.guestUsername ? ` vs ${room.guestUsername}` : ' · 等待加入'}</div>
-                </div>
-                <button class="ghost" data-nav="room/${room.roomId}">查看</button>
-              </div>`).join('') : '<div class="banner">当前没有公开房间，创建一个新的也可以。</div>'}
-          </div>
-        </div>
-      </section>
-    </div>
-  `;
+function renderPlay(route) {
+  if (route && route.id === 'xiangqi') {
+    return renderPlayXiangqi();
+  }
+  if (route && route.id === 'gomoku') {
+    return renderPlayGomoku();
+  }
+  return renderPlayLobbyDesk();
 }
 
 function renderRoom(roomId) {
@@ -1196,11 +1177,37 @@ function renderOnlineGameView(game) {
   const opponentSide = resolveOpponentSide(game, viewerSide);
   const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
   const canOfferDraw = game.status === 'PLAYING' && !drawOffer;
+  const firstPlayer = (game.players && game.players.first) || {};
+  const secondPlayer = (game.players && game.players.second) || {};
   return `
-    <div class="boardPage">
+    <div class="boardPage boardPage--desk">
       ${renderBoardPaneTabs()}
-      <div class="split boardSplit">
-        <section class="boardWrap boardPane boardPane--game">
+      <div class="boardDesk boardDesk--game">
+        <aside class="panel boardRail boardRail--players">
+          <div class="boardRailHeader">
+            <div>
+              <div class="meta">在线对局</div>
+              <h2 class="sectionTitle">对局桌</h2>
+            </div>
+            <span class="pill">${game.gameType === 'XIANGQI' ? '象棋' : '五子棋'}</span>
+          </div>
+          <div class="boardPlayerCard ${game.status === 'PLAYING' && game.currentTurn === firstPlayer.side ? 'is-active' : ''}">
+            <div class="boardPlayerMeta">${sideLabel(game.gameType, firstPlayer.side)}</div>
+            <strong>${escapeHtml(firstPlayer.username || '先手')}</strong>
+            <div class="boardPlayerClock">${formatClock(effectiveRemaining(game, game.firstRemainingSeconds, firstPlayer.side))}</div>
+          </div>
+          <div class="boardPlayerCard ${game.status === 'PLAYING' && game.currentTurn === secondPlayer.side ? 'is-active' : ''}">
+            <div class="boardPlayerMeta">${sideLabel(game.gameType, secondPlayer.side)}</div>
+            <strong>${escapeHtml(secondPlayer.username || '后手')}</strong>
+            <div class="boardPlayerClock">${formatClock(effectiveRemaining(game, game.secondRemainingSeconds, secondPlayer.side))}</div>
+          </div>
+          <div class="boardRailNote">
+            <div>你当前执 <strong>${sideLabel(game.gameType, viewerSide)}</strong></div>
+            <div>对手执 <strong>${sideLabel(game.gameType, opponentSide)}</strong></div>
+            <div>当前轮次 <strong>${turnTextForViewer(game, viewerSide)}</strong></div>
+          </div>
+        </aside>
+        <section class="boardWrap boardPane boardPane--game boardStage">
           <div class="gameMetaRow">
             <span class="pill">${game.gameType}</span>
             <span class="pill" data-live-side-self>你执 ${sideLabel(game.gameType, viewerSide)}</span>
@@ -1209,10 +1216,6 @@ function renderOnlineGameView(game) {
             <span class="pill" data-live-game-status>${game.status}</span>
             <span class="pill" data-live-game-termination>${game.terminationReason || 'LIVE'}</span>
           </div>
-          <div class="clockGrid" data-live-clock-grid>
-            ${renderClockCard(game, 'first')}
-            ${renderClockCard(game, 'second')}
-          </div>
           <div class="status" data-live-status>${onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
@@ -1220,8 +1223,13 @@ function renderOnlineGameView(game) {
             ${renderOnlineGameActions(game, canOfferDraw)}
           </div>
         </section>
-        <section class="panel recordPane">
-          <h2 class="sectionTitle">走子记录</h2>
+        <section class="panel recordPane boardSidebar">
+          <div class="boardRailHeader">
+            <div>
+              <div class="meta">棋谱</div>
+              <h2 class="sectionTitle">走子记录</h2>
+            </div>
+          </div>
           <div class="moves" data-live-moves>
             ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
           </div>
@@ -1245,15 +1253,40 @@ function renderPracticeView(game) {
   const ai = practiceAiMeta(game);
   const undoDisabledReason = practiceUndoDisabledReason(game);
   const undoDisabled = !!undoDisabledReason;
+  const viewerSide = game.viewerSide || inferViewerSide(game);
   return `
-    <div class="boardPage boardPage--practice">
+    <div class="boardPage boardPage--practice boardPage--desk">
       ${renderBoardPaneTabs()}
-      <div class="split boardSplit">
-        <section class="boardWrap boardPane boardPane--practice">
+      <div class="boardDesk boardDesk--practice">
+        <aside class="panel boardRail boardRail--practice">
+          <div class="boardRailHeader">
+            <div>
+              <div class="meta">AI 棋桌</div>
+              <h2 class="sectionTitle">练习信息</h2>
+            </div>
+            <span class="pill">${game.gameType === 'XIANGQI' ? '象棋' : '五子棋'}</span>
+          </div>
+          <div class="boardPlayerCard is-active">
+            <div class="boardPlayerMeta">你的阵营</div>
+            <strong>${sideLabel(game.gameType, viewerSide)}</strong>
+            <div class="boardPlayerHint">${escapeHtml(state.me ? state.me.username : '当前用户')}</div>
+          </div>
+          <div class="boardPlayerCard">
+            <div class="boardPlayerMeta">AI 对手</div>
+            <strong>${escapeHtml(practiceOpponent(game))}</strong>
+            <div class="boardPlayerHint">${escapeHtml(ai.engineText || ai.engineId || '内置 AI')} · ${escapeHtml(ai.difficulty || '-')}</div>
+          </div>
+          <div class="boardRailNote">
+            <div>当前轮到 <strong>${sideLabel(game.gameType, game.currentTurn || '')}</strong></div>
+            <div>AI 方 <strong>${sideLabel(game.gameType, game.aiSide || ai.side || '')}</strong></div>
+            <div>${escapeHtml(practiceStatusText(game))}</div>
+          </div>
+        </aside>
+        <section class="boardWrap boardPane boardPane--practice boardStage">
           <div class="practiceMetaLine">
             <span class="pill">AI 练习</span>
             <span class="pill">${game.gameType}</span>
-            <span class="pill">${game.viewerSide || inferViewerSide(game)}</span>
+            <span class="pill">${viewerSide}</span>
             <span class="pill">轮到 ${game.currentTurn || '-'}</span>
             <span class="pill">${game.status}</span>
             <span class="pill">AI ${escapeHtml(ai.engineText || '-')}</span>
@@ -1272,8 +1305,13 @@ function renderPracticeView(game) {
               : '<button class="btn" data-action="practice-rematch">再开一局</button>'}
           </div>
         </section>
-        <section class="panel recordPane">
-          <h2 class="sectionTitle">练习记录</h2>
+        <section class="panel recordPane boardSidebar">
+          <div class="boardRailHeader">
+            <div>
+              <div class="meta">棋谱</div>
+              <h2 class="sectionTitle">练习记录</h2>
+            </div>
+          </div>
           <div class="moves">
             ${(game.moves || []).length ? game.moves.map(renderMoveRow).join('') : '<div class="banner">等待第一步落子。</div>'}
           </div>
@@ -1322,18 +1360,39 @@ function renderAnalysis(gameId) {
   const board = boards[step] || analysis.board || [];
   const move = step === 0 ? null : (analysis.moves || [])[step - 1];
   const marker = createMoveMarker(analysis.gameType, move, analysis.viewerSide || '');
+  const summaryText = analysis.isTraining
+    ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}`
+    : '归档对局回放';
   return `
-    <div class="boardPage">
+    <div class="boardPage boardPage--desk">
       ${renderBoardPaneTabs()}
-      <div class="split boardSplit">
-        <section class="boardWrap boardPane boardPane--analysis">
+      <div class="boardDesk boardDesk--analysis">
+        <aside class="panel boardRail boardRail--analysis">
+          <div class="boardRailHeader">
+            <div>
+              <div class="meta">复盘分析</div>
+              <h2 class="sectionTitle">局面概览</h2>
+            </div>
+            <span class="pill">${analysis.gameType === 'XIANGQI' ? '象棋' : '五子棋'}</span>
+          </div>
+          <div class="boardPlayerCard">
+            <div class="boardPlayerMeta">状态</div>
+            <strong>${escapeHtml(analysis.status || '-')}</strong>
+            <div class="boardPlayerHint">${escapeHtml(summaryText)}</div>
+          </div>
+          <div class="boardRailNote">
+            <div>当前步数 <strong>${step}/${Math.max(0, boards.length - 1)}</strong></div>
+            <div>${move ? `${escapeHtml(move.side)} · ${escapeHtml(move.notation)}` : '开局局面'}</div>
+          </div>
+        </aside>
+        <section class="boardWrap boardPane boardPane--analysis boardStage">
           <div class="gameMetaRow">
             <span class="pill">${analysis.gameType}</span>
             ${analysis.isTraining ? '<span class="pill">AI 练习</span>' : ''}
             <span class="pill">${analysis.status}</span>
             <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
           </div>
-          <div class="status">${analysis.isTraining ? `${practiceOpponent(analysis)} · ${analysis.aiEngine || '-'} · ${analysis.difficulty || '-'}` : '归档对局回放'}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
+          <div class="status">${summaryText}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
           <div class="boardHost" data-analysis-board-host>${renderAnalysisBoardByGameType(analysis.gameType, board, marker)}</div>
           <div class="roomRow">
             <button class="ghost" data-analysis-step="0">开局</button>
@@ -1342,8 +1401,13 @@ function renderAnalysis(gameId) {
             <button class="ghost" data-analysis-step="${boards.length - 1}">终局</button>
           </div>
         </section>
-        <section class="panel recordPane">
-          <h2 class="sectionTitle">全部着法</h2>
+        <section class="panel recordPane boardSidebar">
+          <div class="boardRailHeader">
+            <div>
+              <div class="meta">棋谱</div>
+              <h2 class="sectionTitle">全部着法</h2>
+            </div>
+          </div>
           <div class="moves">
             ${(analysis.moves || []).length ? analysis.moves.map(moveItem => `
               <button class="move ${step === moveItem.index ? 'is-current' : ''}" data-analysis-step="${moveItem.index}">
@@ -1896,7 +1960,12 @@ function bindCommon(route) {
   on('[data-action="toggle-sound"]', toggleOnlineSound);
   on('[data-action="submit-auth"]', submitAuth);
   on('[data-action="quick-start-ai-practice"]', quickStartAiPractice);
+  on('[data-action="quick-start-gomoku-practice"]', quickStartGomokuPractice);
   on('[data-action="create-room"]', createRoom);
+  on('[data-action="create-room-xiangqi"]', () => createRoomWithPreset({ gameType: 'XIANGQI', initialTimeSeconds: 900, isPublic: false }));
+  on('[data-action="create-room-gomoku"]', () => createRoomWithPreset({ gameType: 'GOMOKU', initialTimeSeconds: 600, isPublic: false }));
+  on('[data-action="start-xiangqi-game"]', () => createRoomWithPreset({ gameType: 'XIANGQI', initialTimeSeconds: 300, isPublic: true }));
+  on('[data-action="start-gomoku-game"]', () => createRoomWithPreset({ gameType: 'GOMOKU', initialTimeSeconds: 300, isPublic: true }));
   on('[data-action="join-by-code"]', joinByCode);
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
@@ -1941,8 +2010,11 @@ function bindCommon(route) {
     state.analysisStep = Number(el.getAttribute('data-analysis-step'));
     render();
   }));
-  if (route.page === 'play' && !state.lobby) {
+  if ((route.page === 'play' || route.page === 'home') && !state.lobby) {
     loadLobby();
+  }
+  if ((route.page === 'play' || route.page === 'home' || route.page === 'community') && !state.communityLeaderboard) {
+    loadCommunityLeaderboard();
   }
 }
 
@@ -2092,6 +2164,33 @@ async function createRoom() {
   }
 }
 
+async function createRoomWithPreset(preset) {
+  if (!state.me) {
+    state.showAuthModal = true;
+    state.authError = '请先登录，再创建或发起对局。';
+    render();
+    return;
+  }
+  try {
+    state.status = '';
+    const room = await fetchJson(`${API_BASE}/rooms`, {
+      method: 'POST',
+      body: JSON.stringify({
+        gameType: preset.gameType,
+        initialTimeSeconds: Number(preset.initialTimeSeconds || 600),
+        isPublic: preset.isPublic !== false
+      })
+    });
+    state.room = room;
+    state.lobby = null;
+    await refreshBootstrapAndProfile();
+    navTo(`room/${room.roomId}`);
+  } catch (error) {
+    state.status = error.message;
+    render();
+  }
+}
+
 async function createPracticeGame(overrideConfig = null) {
   const payload = overrideConfig ? { ...state.learnConfig, ...overrideConfig } : state.learnConfig;
   try {
@@ -2119,6 +2218,22 @@ async function quickStartAiPractice() {
   }
   state.learnConfig = {
     gameType: 'XIANGQI',
+    difficulty: 'MEDIUM',
+    humanFirst: true,
+    preferredEngine: 'BUILTIN'
+  };
+  await createPracticeGame();
+}
+
+async function quickStartGomokuPractice() {
+  if (!state.me) {
+    state.showAuthModal = true;
+    state.authError = '请先登录，再直接进入 AI 对局。';
+    render();
+    return;
+  }
+  state.learnConfig = {
+    gameType: 'GOMOKU',
     difficulty: 'MEDIUM',
     humanFirst: true,
     preferredEngine: 'BUILTIN'
@@ -3283,3 +3398,424 @@ async function fetchJson(url, options = {}) {
   }
   return data;
 }
+
+
+/* ==================== Guofeng Water Ink Rendering Functions ==================== */
+
+function renderWelcomePage() {
+  return `
+    <div class="welcomePane">
+      <div class="welcomeHeader">
+        <div class="stampLogo">棋</div>
+        <h1 class="welcomeTitle">轻棋局<span class="onlineStamp">Online</span></h1>
+      </div>
+      <div class="illustCircle bg-welcome_illust"></div>
+      <div class="welcomeText">
+        <h2>落子之间，自有风雅</h2>
+        <p>在线象棋与五子棋对局，轻松开局，随时对弈</p>
+      </div>
+      <div class="sliderDots">
+        <span class="dot active"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+      <div class="welcomeActions">
+        <button class="btn welcomeBtn" data-nav="home">开始对局</button>
+        <div class="loginHint">已有账号？<a href="#/me">登录</a></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderHomePageGuofeng() {
+  const b = state.bootstrap || { recentGames: [], activeRooms: 0, totalUsers: 0, totalGames: 0 };
+  const rooms = (state.lobby && state.lobby.rooms) || [];
+  const leaderboard = state.communityLeaderboard || { winBoard: [], activityBoard: [] };
+  const me = state.me;
+  return `
+    <div class="deskHome">
+      <section class="deskHero panel">
+        <div class="deskHeroCopy">
+          <div class="meta">首页</div>
+          <h1>落子之间，自有风雅</h1>
+          <p>在线象棋与五子棋同台并行，保留现有对局、AI 练习、复盘与排行能力，只把网页端换成更完整的桌面国风界面。</p>
+          <div class="deskHeroActions">
+            <button class="deskModeCard deskModeCard--red" data-nav="play/xiangqi">
+              <strong>象棋对局</strong>
+              <span>楚河汉界，以局会友</span>
+            </button>
+            <button class="deskModeCard deskModeCard--green" data-nav="play/gomoku">
+              <strong>五子棋对局</strong>
+              <span>黑白落点，东风入手</span>
+            </button>
+          </div>
+        </div>
+        <div class="deskHeroStats">
+          <div class="deskStat"><strong>${b.activeRooms || rooms.length}</strong><span>活动房间</span></div>
+          <div class="deskStat"><strong>${b.totalUsers || 0}</strong><span>棋友数量</span></div>
+          <div class="deskStat"><strong>${b.totalGames || 0}</strong><span>已归档对局</span></div>
+        </div>
+      </section>
+      <div class="deskFeatureGrid">
+        <section class="panel">
+          <div class="deskSectionHeader"><h3>快捷入口</h3></div>
+          <div class="deskQuickGrid">
+            <button class="deskQuickItem" data-action="quick-start-ai-practice"><strong>快速匹配</strong><span>AI 象棋练习</span></button>
+            <button class="deskQuickItem" data-action="create-room-xiangqi"><strong>智能约局</strong><span>创建私密象棋房</span></button>
+            <button class="deskQuickItem" data-nav="learn/puzzles/ALL"><strong>赛事活动</strong><span>残局与训练入口</span></button>
+            <button class="deskQuickItem" data-nav="watch"><strong>棋友社区</strong><span>公开房间与观战</span></button>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="deskSectionHeader"><h3>赛事实况</h3></div>
+          <div class="deskList">
+            ${rooms.slice(0, 4).map(room => `
+              <div class="deskListRow" data-nav="room/${room.roomId}">
+                <div>
+                  <strong>${room.gameType === 'XIANGQI' ? '象棋房' : '五子棋房'}</strong>
+                  <div class="muted">${escapeHtml(room.hostUsername || '-')} ${room.guestUsername ? `vs ${escapeHtml(room.guestUsername)}` : '· 等待加入'}</div>
+                </div>
+                <span class="pill">${room.status || 'WAITING'}</span>
+              </div>
+            `).join('') || '<div class="banner">当前暂无公开房间，可从对局大厅创建新房。</div>'}
+          </div>
+        </section>
+        <section class="panel">
+          <div class="deskSectionHeader">
+            <h3>排行榜</h3>
+            <button class="ghost" data-nav="community">查看全部</button>
+          </div>
+          <div class="deskRankList">
+            ${(leaderboard.winBoard || []).slice(0, 4).map((item, index) => `
+              <div class="deskRankRow">
+                <span>${index + 1}</span>
+                <strong>${escapeHtml(item.username || '-')}</strong>
+                <span>${item.score || item.wins || 0}</span>
+              </div>
+            `).join('') || '<div class="banner">排行榜加载中。</div>'}
+          </div>
+        </section>
+      </div>
+      <section class="panel deskRecentPanel">
+        <div class="deskSectionHeader">
+          <h3>最近对局</h3>
+          <button class="ghost" data-nav="me">进入个人页</button>
+        </div>
+        <div class="deskRecentGrid">
+          ${(b.recentGames || []).slice(0, 4).map(game => `
+            <div class="deskRecentCard" data-nav="analysis/${game.gameId}">
+              <div class="deskRecentType ${game.gameType === 'XIANGQI' ? 'xiangqi' : 'gomoku'}">${game.gameType === 'XIANGQI' ? '帅' : '五'}</div>
+              <div>
+                <strong>${game.gameType === 'XIANGQI' ? '中国象棋' : '五子棋'}</strong>
+                <div class="muted">对手：${escapeHtml(me && me.username === game.firstUsername ? game.secondUsername : game.firstUsername)}</div>
+              </div>
+              <button class="ghost">复盘</button>
+            </div>
+          `).join('') || '<div class="banner">你还没有最近对局，先开始一局。</div>'}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderPlayLobbyDesk() {
+  const rooms = (state.lobby && state.lobby.rooms) || [];
+  const recentGames = ((state.bootstrap && state.bootstrap.recentGames) || []).slice(0, 5);
+  const leaderboard = state.communityLeaderboard || { winBoard: [] };
+  return `
+    <div class="deskLobby">
+      <aside class="panel deskSidebar">
+        <button class="deskSidebarItem is-active" data-nav="play">首页</button>
+        <button class="deskSidebarItem" data-nav="play/xiangqi">对弈大厅</button>
+        <button class="deskSidebarItem" data-nav="watch">公开观战</button>
+        <button class="deskSidebarItem" data-nav="learn/puzzles/ALL">残局练习</button>
+        <button class="deskSidebarItem" data-nav="me">战绩总览</button>
+        <button class="deskSidebarItem" data-nav="community">排行榜</button>
+        <button class="deskSidebarItem" data-nav="help">设置 / 帮助</button>
+      </aside>
+      <section class="deskLobbyMain">
+        <div class="panel deskLobbySearch">
+          <div class="searchBar">
+            <span class="searchIcon">🔍</span>
+            <input type="text" placeholder="搜索房间码、棋友、房间号..." readonly />
+            <span class="msgIcon">⌘</span>
+          </div>
+          <div class="deskLobbyTabs">
+            <button class="pill is-hot">全部</button>
+            <button class="pill" data-nav="play/xiangqi">象棋</button>
+            <button class="pill" data-nav="play/gomoku">五子棋</button>
+            <button class="pill" data-nav="learn/practice">练习</button>
+            <button class="pill" data-nav="watch">好友房</button>
+          </div>
+        </div>
+        <div class="deskLobbyCards">
+          <div class="panel deskModePanel deskModePanel--red" data-nav="play/xiangqi">
+            <div class="deskModePanelCopy">
+              <div class="meta">在线象棋</div>
+              <h3>在线象棋</h3>
+              <p>楚河汉界，智谋对决</p>
+              <button class="btn" data-action="start-xiangqi-game">进入大厅</button>
+            </div>
+            <div class="deskModePanelBg bg-detail_xiangqi"></div>
+          </div>
+          <div class="panel deskModePanel deskModePanel--green" data-nav="play/gomoku">
+            <div class="deskModePanelCopy">
+              <div class="meta">五子棋</div>
+              <h3>五子棋</h3>
+              <p>五子连珠，东风在野</p>
+              <button class="btn" data-action="quick-start-gomoku-practice">进入大厅</button>
+            </div>
+            <div class="deskModePanelBg bg-detail_gomoku"></div>
+          </div>
+        </div>
+        <section class="panel deskLobbyRecent">
+          <div class="deskSectionHeader"><h3>最近对局</h3></div>
+          <div class="deskList">
+            ${recentGames.map(game => `
+              <div class="deskListRow" data-nav="analysis/${game.gameId}">
+                <div>
+                  <strong>${game.gameType === 'XIANGQI' ? '象棋' : '五子棋'} · ${escapeHtml(game.resultText || '已归档')}</strong>
+                  <div class="muted">${escapeHtml(game.firstUsername || '-')} vs ${escapeHtml(game.secondUsername || '-')}</div>
+                </div>
+                <span>${escapeHtml(game.terminationReason || '')}</span>
+              </div>
+            `).join('') || '<div class="banner">暂无近期对局。</div>'}
+          </div>
+        </section>
+      </section>
+      <aside class="panel deskLobbyAside">
+        <div class="deskSectionHeader"><h3>创建或加入房间</h3></div>
+        <div class="deskActionStack">
+          <button class="deskActionCard" data-action="create-room-xiangqi"><strong>创建房间</strong><span>自定义规则，邀请码约战</span></button>
+          <button class="deskActionCard" data-action="create-room-gomoku"><strong>创建五子棋房</strong><span>好友对局，随时开桌</span></button>
+          <div class="field">
+            <label>邀请码</label>
+            <input id="joinCode" placeholder="输入 8 位房间码" />
+          </div>
+          <button class="btn" data-action="join-by-code">通过邀请码加入</button>
+        </div>
+        <div class="deskSectionHeader"><h3>排行榜</h3></div>
+        <div class="deskRankList">
+          ${(leaderboard.winBoard || []).slice(0, 5).map((item, index) => `
+            <div class="deskRankRow">
+              <span>${index + 1}</span>
+              <strong>${escapeHtml(item.username || '-')}</strong>
+              <span>${item.score || item.wins || 0}</span>
+            </div>
+          `).join('') || '<div class="banner">排行榜加载中。</div>'}
+        </div>
+      </aside>
+    </div>
+  `;
+}
+
+function renderHelpPage() {
+  return `
+    <section class="panel deskHelpPanel">
+      <div class="meta">帮助</div>
+      <h2 class="sectionTitle">使用说明</h2>
+      <div class="deskHelpGrid">
+        <div class="card">
+          <h3>在线对局</h3>
+          <p>从“对局”进入大厅，可创建私密房或公开房，双方准备后自动开局。</p>
+        </div>
+        <div class="card">
+          <h3>AI 练习</h3>
+          <p>从“练习”或首页快捷入口开始 AI 对战，支持象棋与五子棋，复盘入口保持不变。</p>
+        </div>
+        <div class="card">
+          <h3>分析复盘</h3>
+          <p>每局结束后都能进入分析页，按步数回看局面，不增加会员门槛。</p>
+        </div>
+        <div class="card">
+          <h3>账号与音效</h3>
+          <p>右上角保留登录、注册、个人页和音效开关。当前版本不提供会员功能。</p>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderPlayXiangqi() {
+  return `
+    <div class="modeSelectPage xiangqiTheme">
+      <div class="modeTopIllust bg-detail_xiangqi">
+        <div class="modeHeaderNav">
+          <div class="btn-back-custom" data-nav="home">ㄑ</div>
+          <div class="btn-star-custom">☆</div>
+        </div>
+        <div class="stampTitleWrap">
+          <h1 class="stampTitle">楚河 汉界</h1>
+          <span class="stampTextDecor">象棋模式</span>
+        </div>
+      </div>
+      
+      <div class="modeDetailCard">
+        <h2>在线象棋</h2>
+        <p class="subtitle">真人匹配，好友对弈，残局练习，享受从容对弈之趣。</p>
+        
+        <div class="quickActions">
+          <div class="actionBox" data-action="quick-start-ai-practice" style="cursor:pointer;">
+            ⚡
+            <span>实时匹配</span>
+          </div>
+          <div class="actionBox" data-action="create-room-xiangqi" style="cursor:pointer;">
+            👥
+            <span>好友约战</span>
+          </div>
+          <div class="actionBox" data-nav="learn/puzzles/ALL" style="cursor:pointer;">
+            📖
+            <span>残局练习</span>
+          </div>
+          <div class="actionBox" data-nav="community" style="cursor:pointer;">
+            🏆
+            <span>段位排行</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modeContentSplit">
+        <div class="benefitList">
+          <h4>你将获得</h4>
+          <ul>
+            <li><span>🛡️</span> 多种对局模式，满足不同场景</li>
+            <li><span>⚖️</span> 智能匹配系统，实力相当的对手</li>
+            <li><span>🧩</span> 丰富残局题库，提升棋力与思维</li>
+            <li><span>📈</span> 段位成长体系，见证每一步进阶</li>
+          </ul>
+        </div>
+        <div class="modeOptions">
+          <h4>选择模式</h4>
+          <div class="optionCard active">
+            <h5>标准模式</h5>
+            <span>20分钟场，从容对弈</span>
+          </div>
+          <div class="optionCard" data-action="start-xiangqi-game">
+            <h5>3分钟快棋</h5>
+            <span>快速对局，脑力风暴</span>
+          </div>
+          <div class="optionCard" data-action="create-room-xiangqi">
+            <h5>友谊对局</h5>
+            <span>邀请好友，切磋对决</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modeBottomActions">
+        <button class="btn-block btn-red" data-action="start-xiangqi-game">立即开局</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderPlayGomoku() {
+  return `
+    <div class="modeSelectPage gomokuTheme">
+      <div class="modeTopIllust bg-detail_gomoku">
+        <div class="modeHeaderNav">
+          <div class="btn-back-custom" data-nav="home">ㄑ</div>
+          <div class="btn-star-custom">☆</div>
+        </div>
+        <div class="stampTitleWrap">
+          <h1 class="stampTitle" style="color:var(--brand-green);">黑白 乾坤</h1>
+          <span class="stampTextDecor" style="background:var(--brand-green);">五子棋模式</span>
+        </div>
+      </div>
+      
+      <div class="modeDetailCard">
+        <h2>五子棋</h2>
+        <p class="subtitle">轻松上手，节奏明快，随时开启一局黑白之间的思考较量。</p>
+        
+        <div class="statsGrid">
+          <div class="statBox">
+            <strong>3-15分</strong>
+            <span>时长</span>
+          </div>
+          <div class="statBox">
+            <strong>多级可选</strong>
+            <span>难度</span>
+          </div>
+          <div class="statBox">
+            <strong>4.8分</strong>
+            <span>评分</span>
+          </div>
+          <div class="statBox">
+            <strong>1023人</strong>
+            <span>在线</span>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <h4>核心功能</h4>
+        <div class="featuresGrid">
+          <div class="featureCard" data-action="quick-start-gomoku-practice" style="cursor:pointer;">
+            <div class="cardIcon green">🤖</div>
+            <div class="cardInfo">
+              <h5>人机对战</h5>
+              <p>挑战智能 AI 练习</p>
+            </div>
+          </div>
+          <div class="featureCard" data-action="create-room-gomoku" style="cursor:pointer;">
+            <div class="cardIcon green">👥</div>
+            <div class="cardInfo">
+              <h5>双人联机</h5>
+              <p>好友随时对局</p>
+            </div>
+          </div>
+          <div class="featureCard" data-nav="me" style="cursor:pointer;">
+            <div class="cardIcon green">📜</div>
+            <div class="cardInfo">
+              <h5>复盘记录</h5>
+              <p>对局复盘回顾</p>
+            </div>
+          </div>
+          <div class="featureCard" data-nav="community" style="cursor:pointer;">
+            <div class="cardIcon green">📊</div>
+            <div class="cardInfo">
+              <h5>胜率统计</h5>
+              <p>对局胜率分析</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modeBottomActions">
+        <button class="btn-block btn-green" data-action="quick-start-gomoku-practice">开始对局</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderBottomNav(activePage) {
+  if (isBoardRoutePage(activePage) || activePage === 'welcome') {
+    return '';
+  }
+  return `
+    <div class="bottomNav">
+      <a href="#/home" class="navItem ${activePage === 'home' ? 'active' : ''}">
+        <span class="navIcon">🏠</span>
+        <span class="navText">首页</span>
+      </a>
+      <a href="#/play" class="navItem ${activePage === 'play' ? 'active' : ''}">
+        <span class="navIcon">⚔️</span>
+        <span class="navText">对局</span>
+      </a>
+      <a href="#/play" class="navItem navItem-create">
+        <span class="navIcon navIcon-plus">+</span>
+        <span class="navText">创建</span>
+      </a>
+      <a href="#/learn/puzzles/ALL" class="navItem ${activePage === 'learn' ? 'active' : ''}">
+        <span class="navIcon">📚</span>
+        <span class="navText">学习</span>
+      </a>
+      <a href="#/me" class="navItem ${activePage === 'me' ? 'active' : ''}">
+        <span class="navIcon">👤</span>
+        <span class="navText">我的</span>
+      </a>
+    </div>
+  `;
+}
+
+
+
