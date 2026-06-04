@@ -2492,6 +2492,7 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 
 .boardRailNote {
   margin-top: auto;
+  margin-bottom: 24px;
   padding: 14px;
   border: 1px dashed var(--line);
   border-radius: 12px;
@@ -2710,4 +2711,387 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 .boardPage--desk {
   padding: 24px 30px !important;
   min-height: calc(100vh - 80px);
+}
+
+/* ==========================================
+   古雅水墨国风 UI 增强样式追加
+   ========================================== */
+
+/* 视觉背景主题：清雅水墨 (theme-ink) */
+.theme-ink {
+  --bg: #ece9df;
+  --panel: #fcfbf7;
+  --line: #c5bba8;
+  --ink: #1a1612;
+  --muted: #5c5348;
+}
+.theme-ink .xiangqiBoard {
+  background: linear-gradient(180deg, #dccab0 0, #caa780 100%);
+  border-color: #2b231d;
+}
+.theme-ink .boardHost {
+  background: #fdfcf7;
+  border: 1px solid var(--line);
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+
+/* 首页每日任务与每日签到样式 */
+.signinRow {
+  background: rgba(140, 46, 33, 0.05);
+  border: 1px solid rgba(140, 46, 33, 0.15);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.signinCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.signinIcon {
+  font-size: 24px;
+}
+.signinText {
+  display: flex;
+  flex-direction: column;
+}
+.signinText strong {
+  font-size: 14px;
+  color: var(--brand-red);
+}
+.signinText span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.taskRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.taskInfo {
+  display: flex;
+  flex-direction: column;
+}
+.taskInfo strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+.taskInfo span {
+  font-size: 12px;
+  color: var(--brand-red);
+  margin-top: 2px;
+}
+
+/* 排行榜徽章 */
+.rankNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 12px;
+  color: var(--muted);
+  background: #f0ede6;
+}
+.rankNum.num-1 {
+  background: #d4af37;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(212, 175, 55, 0.3);
+}
+.rankNum.num-2 {
+  background: #c0c0c0;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(192, 192, 192, 0.3);
+}
+.rankNum.num-3 {
+  background: #cd7f32;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(205, 127, 50, 0.3);
+}
+
+/* 个人中心 Profile Page */
+.profilePage {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.profileSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+}
+.profileSidebarItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.profileSidebarItem:hover, .profileSidebarItem.is-active {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.profileMain {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.profileHeaderCard {
+  padding: 24px;
+}
+.profileUserRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.profileUserRow .avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid var(--brand);
+}
+.profileUserMeta {
+  display: flex;
+  flex-direction: column;
+}
+.profileUserMeta strong {
+  font-size: 20px;
+}
+.profileUserMeta span {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.profileEditBtn {
+  margin-left: auto;
+}
+.profileStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  text-align: center;
+}
+.statBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.statBox strong {
+  font-size: 24px;
+  color: var(--brand);
+}
+.statBox span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.profileMedalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.medalCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+.medalIcon {
+  font-size: 32px;
+  width: 50px;
+  height: 50px;
+  background: #fdfbf7;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.medalInfo {
+  display: flex;
+  flex-direction: column;
+}
+.medalInfo strong {
+  font-size: 15px;
+}
+.medalInfo span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 棋局右栏选项卡 gameSidebarTabs */
+.gameSidebarTabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--line);
+  background: #fbf9f4;
+  border-radius: 14px 14px 0 0;
+  margin: -22px -22px 20px -22px;
+}
+.gameSidebarTabs .tab-btn {
+  border: none;
+  background: transparent;
+  padding: 12px 6px;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+}
+.gameSidebarTabs .tab-btn:hover {
+  color: var(--brand-red);
+}
+.gameSidebarTabs .tab-btn.active {
+  color: var(--brand-red);
+  border-bottom-color: var(--brand-red);
+  background: var(--panel);
+}
+.tabContainer {
+  height: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+}
+.tabContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tabContent.scrollable {
+  overflow-y: auto;
+}
+.statusField {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.statusField .label {
+  color: var(--muted);
+  font-size: 13px;
+}
+.statusField .val {
+  font-weight: bold;
+  font-size: 13px;
+  color: var(--ink);
+}
+.analysisBanner {
+  background: var(--brand-soft);
+  border: 1px solid rgba(140,46,33,0.1);
+  padding: 12px 14px;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.analysisBanner .icon {
+  font-size: 18px;
+}
+.analysisBanner p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--brand-red);
+  line-height: 1.5;
+}
+.trendChart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.trendTitle {
+  font-size: 13px;
+  font-weight: bold;
+}
+.trendBarWrap {
+  display: flex;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 11px;
+  color: #fff;
+  font-weight: bold;
+}
+.trendBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.trendBar.red {
+  background: var(--brand-red);
+}
+.trendBar.black {
+  background: #2a2720;
+}
+.settingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+/* 播放器组件 playbackControls */
+.playbackControls {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbf9f4;
+  margin-top: 14px;
+}
+.playback-btn {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.playback-btn:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.playback-btn-center {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* 移动端与桌面端的排版微调 */
+@media (max-width: 768px) {
+  .profilePage {
+    grid-template-columns: 1fr;
+  }
 }
