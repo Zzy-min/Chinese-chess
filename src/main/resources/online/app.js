@@ -1115,9 +1115,6 @@ function renderPlay(route) {
 
 function renderRoom(roomId) {
   const room = state.room;
-
-function renderRoom(roomId) {
-  const room = state.room;
   if (!room || room.roomId !== roomId) {
     loadRoom(roomId);
     return '<section class="panel"><h2 class="sectionTitle">房间加载中</h2></section>';
