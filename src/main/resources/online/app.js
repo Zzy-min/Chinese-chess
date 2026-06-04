@@ -534,7 +534,10 @@ function resolveBoardRenderOptions(game, route) {
   }
   const page = route && route.page ? route.page : String(route || '');
   const onlineGameRoute = page === 'game' && !game.isTraining;
-  const flipped = onlineGameRoute && shouldFlipOnlineBoardForViewer(game);
+  let flipped = onlineGameRoute && shouldFlipOnlineBoardForViewer(game);
+  if (state.boardFlipped) {
+    flipped = !flipped;
+  }
   return {
     flipped: !!flipped,
     riverText: flipped ? '汉界　楚河' : '楚河　汉界'
@@ -2259,26 +2262,33 @@ function bindCommon(route) {
   }
   
   // 绑定对局右栏 Tab 切换
-  document.querySelectorAll('[data-game-tab]').forEach(el => el.addEventListener('click', () => {
-    state.gameRightTab = el.getAttribute('data-game-tab');
-    render();
-  }));
+  document.querySelectorAll('[data-game-tab]').forEach(el => {
+    if (el.dataset.boundGameTab === '1') return;
+    el.dataset.boundGameTab = '1';
+    el.addEventListener('click', () => {
+      state.gameRightTab = el.getAttribute('data-game-tab');
+      render();
+    });
+  });
 
   // 绑定对局设置选项
-  document.querySelectorAll('[data-action="toggle-sound"]').forEach(el => el.addEventListener('click', () => {
-    state.soundEnabled = state.soundEnabled === false ? true : false;
-    render();
-  }));
+  document.querySelectorAll('[data-action="toggle-theme"]').forEach(el => {
+    if (el.dataset.boundToggleTheme === '1') return;
+    el.dataset.boundToggleTheme = '1';
+    el.addEventListener('click', () => {
+      state.boardTheme = state.boardTheme === 'ink' ? 'ink' : 'wood';
+      render();
+    });
+  });
 
-  document.querySelectorAll('[data-action="toggle-theme"]').forEach(el => el.addEventListener('click', () => {
-    state.boardTheme = state.boardTheme === 'ink' ? 'ink' : 'wood';
-    render();
-  }));
-
-  document.querySelectorAll('[data-action="flip-board"]').forEach(el => el.addEventListener('click', () => {
-    state.boardFlipped = !state.boardFlipped;
-    render();
-  }));
+  document.querySelectorAll('[data-action="flip-board"]').forEach(el => {
+    if (el.dataset.boundFlipBoard === '1') return;
+    el.dataset.boundFlipBoard = '1';
+    el.addEventListener('click', () => {
+      state.boardFlipped = !state.boardFlipped;
+      render();
+    });
+  });
 }
 
 function updateLearnConfig(input) {
@@ -2300,10 +2310,14 @@ function updateLearnConfig(input) {
 }
 
 function on(selector, handler) {
-  const element = document.querySelector(selector);
-  if (element) {
+  document.querySelectorAll(selector).forEach(element => {
+    const boundKey = 'bound_' + selector.replace(/[^a-zA-Z0-9]/g, '_');
+    if (element.dataset[boundKey] === '1') {
+      return;
+    }
+    element.dataset[boundKey] = '1';
     element.addEventListener('click', handler);
-  }
+  });
 }
 
 async function submitAuth() {
