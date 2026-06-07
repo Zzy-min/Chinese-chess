@@ -134,6 +134,45 @@ class PublicSiteServerTest {
     }
 
     @Test
+    void profilePreferencesRequireLoginAndCanBeSavedAfterRegister() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            HttpResponse<String> guest = client.send(getRequest(port, "/online/api/profile/preferences", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, guest.statusCode());
+
+            String username = "pref_" + Instant.now().toEpochMilli();
+            String registerBody = "{\"username\":\"" + username + "\",\"password\":\"Passw0rd123!\"}";
+            HttpResponse<String> register = client.send(postRequest(port, "/online/api/auth/register", registerBody, ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, register.statusCode());
+            String authCookie = register.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            HttpResponse<String> defaults = client.send(getRequest(port, "/online/api/profile/preferences", authCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, defaults.statusCode());
+            assertTrue(defaults.body().contains("\"boardTheme\":\"wood\""));
+            assertTrue(defaults.body().contains("\"soundEnabled\":true"));
+
+            HttpResponse<String> saved = client.send(postRequest(port, "/online/api/profile/preferences",
+                "{\"soundEnabled\":false,\"boardTheme\":\"ink\",\"boardFlipped\":true}", authCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, saved.statusCode());
+            assertTrue(saved.body().contains("\"soundEnabled\":false"));
+            assertTrue(saved.body().contains("\"boardTheme\":\"ink\""));
+            assertTrue(saved.body().contains("\"boardFlipped\":true"));
+
+            HttpResponse<String> invalid = client.send(postRequest(port, "/online/api/profile/preferences",
+                "{\"boardTheme\":\"bad\"}", authCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(400, invalid.statusCode());
+            assertTrue(invalid.body().contains("boardTheme must be wood or ink"));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
     void createsPracticeGameFromInitialFenAndRejectsInvalidFenPayload() throws Exception {
         OnlineStore store = newStore();
         PublicSiteServer server = new PublicSiteServer(store);
@@ -256,6 +295,262 @@ class PublicSiteServerTest {
             assertTrue(watch.body().contains("\"roomCode\":\"" + roomCode + "\""));
             assertTrue(watch.body().contains("\"side\":\"RED\""));
             assertTrue(watch.body().contains("\"side\":\"BLACK\""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void communityLeaderboardResponseIncludesPerGameTypeBuckets() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            String u1 = "lb_u1_" + Instant.now().toEpochMilli();
+            String u2 = "lb_u2_" + Instant.now().toEpochMilli();
+            String u3 = "lb_u3_" + Instant.now().toEpochMilli();
+            HttpResponse<String> r1 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u1 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r2 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u2 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r3 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u3 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, r1.statusCode());
+            assertEquals(200, r2.statusCode());
+            assertEquals(200, r3.statusCode());
+            String c1 = r1.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String c2 = r2.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String c3 = r3.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            String room1 = extract(client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":false}", c1), HttpResponse.BodyHandlers.ofString()).body(), "roomId");
+            client.send(postRequest(port, "/online/api/rooms/" + room1 + "/join",
+                "{\"roomId\":\"" + room1 + "\"}", c2), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/rooms/" + room1 + "/ready", "{\"ready\":true}", c1), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/rooms/" + room1 + "/ready", "{\"ready\":true}", c2), HttpResponse.BodyHandlers.ofString());
+            String game1 = extract(client.send(getRequest(port, "/online/api/rooms/" + room1, c1), HttpResponse.BodyHandlers.ofString()).body(), "gameId");
+            client.send(postRequest(port, "/online/api/games/" + game1 + "/resign", "{}", c2), HttpResponse.BodyHandlers.ofString());
+
+            String room2 = extract(client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"GOMOKU\",\"initialTimeSeconds\":600,\"isPublic\":false}", c2), HttpResponse.BodyHandlers.ofString()).body(), "roomId");
+            client.send(postRequest(port, "/online/api/rooms/" + room2 + "/join",
+                "{\"roomId\":\"" + room2 + "\"}", c3), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/rooms/" + room2 + "/ready", "{\"ready\":true}", c2), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/rooms/" + room2 + "/ready", "{\"ready\":true}", c3), HttpResponse.BodyHandlers.ofString());
+            String game2 = extract(client.send(getRequest(port, "/online/api/rooms/" + room2, c2), HttpResponse.BodyHandlers.ofString()).body(), "gameId");
+            client.send(postRequest(port, "/online/api/games/" + game2 + "/resign", "{}", c3), HttpResponse.BodyHandlers.ofString());
+
+            HttpResponse<String> community = client.send(getRequest(port, "/online/api/community/leaderboard", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, community.statusCode());
+            assertTrue(community.body().contains("\"byGameType\""));
+            assertTrue(community.body().contains("\"XIANGQI\""));
+            assertTrue(community.body().contains("\"GOMOKU\""));
+            assertTrue(community.body().contains("\"gameType\":\"XIANGQI\""));
+            assertTrue(community.body().contains("\"gameType\":\"GOMOKU\""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void lobbySearchFindsMatchingPublicRoomsAndPlayers() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            String hostName = "SearchHost_" + Instant.now().toEpochMilli();
+            String guestName = "RiverGuest_" + Instant.now().toEpochMilli();
+            HttpResponse<String> host = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + hostName + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> guest = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + guestName + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, host.statusCode());
+            assertEquals(200, guest.statusCode());
+            String hostCookie = host.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String guestCookie = guest.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            HttpResponse<String> created = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":true}", hostCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, created.statusCode());
+            String roomCode = extract(created.body(), "roomCode");
+            String roomId = extract(created.body(), "roomId");
+            assertTrue(!roomCode.isEmpty());
+
+            HttpResponse<String> joined = client.send(postRequest(port, "/online/api/rooms/" + roomId + "/join", "{}", guestCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, joined.statusCode());
+
+            HttpResponse<String> searchByCode = client.send(getRequest(port, "/online/api/lobby/search?q=" + roomCode, ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> searchByUser = client.send(getRequest(port, "/online/api/lobby/search?q=riverguest", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> empty = client.send(getRequest(port, "/online/api/lobby/search?q=", ""), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, searchByCode.statusCode());
+            assertTrue(searchByCode.body().contains("\"rooms\""));
+            assertTrue(searchByCode.body().contains("\"roomCode\":\"" + roomCode + "\""));
+            assertTrue(searchByCode.body().contains("\"hostUsername\":\"" + hostName.toLowerCase() + "\""));
+
+            assertEquals(200, searchByUser.statusCode());
+            assertTrue(searchByUser.body().contains("\"players\""));
+            assertTrue(searchByUser.body().contains("\"username\":\"" + guestName.toLowerCase() + "\""));
+            assertTrue(searchByUser.body().contains("\"guestUsername\":\"" + guestName.toLowerCase() + "\""));
+
+            assertEquals(200, empty.statusCode());
+            assertTrue(empty.body().contains("\"rooms\":[]"));
+            assertTrue(empty.body().contains("\"players\":[]"));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void quickMatchCreatesWaitingRoomThenMatchesSecondPlayerIntoGame() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            HttpResponse<String> guestQuickMatch = client.send(postRequest(port, "/online/api/rooms/quick-match",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":300}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, guestQuickMatch.statusCode());
+
+            String u1 = "qm_u1_" + Instant.now().toEpochMilli();
+            String u2 = "qm_u2_" + Instant.now().toEpochMilli();
+            HttpResponse<String> r1 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u1 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r2 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u2 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, r1.statusCode());
+            assertEquals(200, r2.statusCode());
+            String c1 = r1.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String c2 = r2.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            HttpResponse<String> first = client.send(postRequest(port, "/online/api/rooms/quick-match",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":300}", c1), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, first.statusCode());
+            assertTrue(first.body().contains("\"matched\":false"));
+            assertTrue(first.body().contains("\"isPublic\":true"));
+            assertTrue(first.body().contains("\"hostReady\":true"));
+            assertTrue(first.body().contains("\"guest\":null"));
+            String roomId = extract(first.body(), "roomId");
+            assertTrue(!roomId.isEmpty());
+
+            HttpResponse<String> second = client.send(postRequest(port, "/online/api/rooms/quick-match",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":300}", c2), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, second.statusCode());
+            assertTrue(second.body().contains("\"matched\":true"));
+            assertTrue(second.body().contains("\"roomId\":\"" + roomId + "\""));
+            assertTrue(second.body().contains("\"guestReady\":true"));
+            assertTrue(second.body().contains("\"status\":\"PLAYING\""));
+            assertTrue(second.body().contains("\"game\""));
+            String gameId = extract(second.body(), "gameId");
+            assertTrue(!gameId.isEmpty());
+
+            HttpResponse<String> room = client.send(getRequest(port, "/online/api/rooms/" + roomId, c1), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, room.statusCode());
+            assertTrue(room.body().contains("\"gameId\":\"" + gameId + "\""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void bootstrapIncludesPerGameTypeStatsAndRecentGameTimes() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            String u1 = "boot_u1_" + Instant.now().toEpochMilli();
+            String u2 = "boot_u2_" + Instant.now().toEpochMilli();
+            HttpResponse<String> r1 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u1 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r2 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + u2 + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, r1.statusCode());
+            assertEquals(200, r2.statusCode());
+            String c1 = r1.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String c2 = r2.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            HttpResponse<String> created = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"GOMOKU\",\"initialTimeSeconds\":600,\"isPublic\":true}", c1), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, created.statusCode());
+            String roomCode = extract(created.body(), "roomCode");
+            String roomId = extract(created.body(), "roomId");
+            assertTrue(!roomCode.isEmpty());
+            assertTrue(!roomId.isEmpty());
+
+            HttpResponse<String> joined = client.send(postRequest(port, "/online/api/rooms/" + roomId + "/join", "{}", c2), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, joined.statusCode());
+            client.send(postRequest(port, "/online/api/rooms/" + roomId + "/ready", "{\"ready\":true}", c1), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/rooms/" + roomId + "/ready", "{\"ready\":true}", c2), HttpResponse.BodyHandlers.ofString());
+            String gameId = extract(client.send(getRequest(port, "/online/api/rooms/" + roomId, c1), HttpResponse.BodyHandlers.ofString()).body(), "gameId");
+            assertTrue(!gameId.isEmpty());
+            client.send(postRequest(port, "/online/api/games/" + gameId + "/resign", "{}", c2), HttpResponse.BodyHandlers.ofString());
+
+            HttpResponse<String> bootstrap = client.send(getRequest(port, "/online/api/site/bootstrap", ""), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, bootstrap.statusCode());
+            assertTrue(bootstrap.body().contains("\"gameStats\""));
+            assertTrue(bootstrap.body().contains("\"GOMOKU\""));
+            assertTrue(bootstrap.body().contains("\"activePublicRooms\""));
+            assertTrue(bootstrap.body().contains("\"startedAt\""));
+            assertTrue(bootstrap.body().contains("\"updatedAt\""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void profileDashboardAggregatesNotificationsAchievementsAndPreferences() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            String username = "dash_" + Instant.now().toEpochMilli();
+
+            HttpResponse<String> guest = client.send(getRequest(port, "/online/api/profile/dashboard", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, guest.statusCode());
+
+            HttpResponse<String> register = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + username + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, register.statusCode());
+            String authCookie = register.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            client.send(postRequest(port, "/online/api/profile/preferences",
+                "{\"soundEnabled\":false,\"boardTheme\":\"ink\",\"boardFlipped\":true}", authCookie), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/learn/tutorials/tutorial-001/complete", "{}", authCookie), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/learn/puzzles/puzzle-001/complete", "{}", authCookie), HttpResponse.BodyHandlers.ofString());
+
+            HttpResponse<String> created = client.send(postRequest(port, "/online/api/learn/practice-games",
+                "{\"gameType\":\"XIANGQI\",\"difficulty\":\"EASY\",\"humanFirst\":true,\"preferredEngine\":\"BUILTIN\"}", authCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, created.statusCode());
+            String gameId = extract(created.body(), "gameId");
+            assertTrue(!gameId.isEmpty());
+            client.send(postRequest(port, "/online/api/learn/practice-games/" + gameId + "/resign", "{}", authCookie), HttpResponse.BodyHandlers.ofString());
+
+            HttpResponse<String> dashboard = client.send(getRequest(port, "/online/api/profile/dashboard", authCookie), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(200, dashboard.statusCode());
+            assertTrue(dashboard.body().contains("\"preferences\""));
+            assertTrue(dashboard.body().contains("\"learnProgress\""));
+            assertTrue(dashboard.body().contains("\"achievements\""));
+            assertTrue(dashboard.body().contains("\"notifications\""));
+            assertTrue(dashboard.body().contains("\"path\":\"me/settings\""));
+            assertTrue(dashboard.body().contains("\"path\":\"me/study\""));
+            assertTrue(dashboard.body().contains("\"path\":\"analysis/" + gameId + "\""));
+            assertTrue(dashboard.body().contains("\"boardTheme\":\"ink\""));
+            assertTrue(dashboard.body().contains("\"earned\":true"));
         } finally {
             server.stop();
         }

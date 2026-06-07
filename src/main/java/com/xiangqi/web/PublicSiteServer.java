@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -115,12 +116,14 @@ public final class PublicSiteServer {
             .post("/api/auth/logout", this::handleLogout)
             .get("/online", this::handleOnlineIndex)
             .add(Methods.HEAD, "/online", this::handleOnlineIndex)
+            .get("/online/index.html", this::handleOnlineIndex)
             .get("/online/assets/site/app.css", this::handleOnlineCss)
             .get("/online/assets/site/app.js", this::handleOnlineJs)
             .get("/online/assets/site/board.js", this::handleOnlineBoardJs)
             .get("/online/api/site/bootstrap", this::handleBootstrap)
             .get("/online/api/auth/me", this::handleMe)
             .get("/online/api/lobby/overview", this::handleLobby)
+            .get("/online/api/lobby/search", this::handleLobbySearch)
             .get("/online/api/rooms/{roomId}", this::handleRoomById)
             .get("/online/api/games/{gameId}", this::handleGameById)
             .get("/online/api/games/{gameId}/analysis", this::handleGameAnalysis)
@@ -130,10 +133,14 @@ public final class PublicSiteServer {
             .get("/online/api/watch/overview", this::handleWatchOverview)
             .get("/online/api/community/leaderboard", this::handleCommunityLeaderboard)
             .get("/online/api/profile/summary", this::handleProfileSummary)
+            .get("/online/api/profile/dashboard", this::handleProfileDashboard)
+            .get("/online/api/profile/preferences", this::handleProfilePreferences)
             .post("/online/api/auth/register", this::handleRegister)
             .post("/online/api/auth/login", this::handleLogin)
             .post("/online/api/auth/logout", this::handleLogout)
+            .post("/online/api/profile/preferences", this::handleSaveProfilePreferences)
             .post("/online/api/rooms", this::handleCreateRoom)
+            .post("/online/api/rooms/quick-match", this::handleQuickMatch)
             .post("/online/api/rooms/join-by-code", this::handleJoinByCode)
             .post("/online/api/rooms/{roomId}/join", this::handleJoinRoom)
             .post("/online/api/rooms/{roomId}/ready", this::handleReady)
@@ -309,6 +316,8 @@ public final class PublicSiteServer {
 
     private void handleBootstrap(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
+        List<Map<String, Object>> publicRooms = roomHub.publicRoomSummaries();
+        Map<String, Object> gameStats = withActivePublicRooms(store.gameTypeStats(), publicRooms);
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("siteName", "轻棋局 Online");
         body.put("games", supportedGames());
@@ -316,6 +325,7 @@ public final class PublicSiteServer {
         body.put("totalUsers", store.countUsers());
         body.put("totalGames", store.countGames());
         body.put("recentGames", store.recentGames(8));
+        body.put("gameStats", gameStats);
         body.put("me", user.map(this::userMap).orElse(null));
         body.put("activity", user.map(value -> roomHub.activityForUser(value.id())).orElse(Collections.emptyMap()));
         sendJson(exchange, body);
@@ -329,6 +339,17 @@ public final class PublicSiteServer {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("games", supportedGames());
         body.put("rooms", roomHub.publicRoomSummaries());
+        sendJson(exchange, body);
+    }
+
+    private void handleLobbySearch(HttpServerExchange exchange) {
+        String query = asString(queryParam(exchange, "q", "")).trim();
+        int limit = Math.max(1, asInt(queryParam(exchange, "limit", "8"), 8));
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("query", query);
+        body.put("rooms", searchPublicRooms(query, limit));
+        body.put("players", store.searchUsers(query, limit));
+        body.put("generatedAt", Instant.now().toString());
         sendJson(exchange, body);
     }
 
@@ -452,6 +473,50 @@ public final class PublicSiteServer {
         return rooms;
     }
 
+    private List<Map<String, Object>> searchPublicRooms(String query, int limit) {
+        String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Map<String, Object>> matches = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> room : roomHub.publicRoomSummaries()) {
+            if (matches.size() >= limit) {
+                break;
+            }
+            if (containsIgnoreCase(room.get("roomCode"), normalized)
+                || containsIgnoreCase(room.get("hostUsername"), normalized)
+                || containsIgnoreCase(room.get("guestUsername"), normalized)
+                || containsIgnoreCase(room.get("gameType"), normalized)) {
+                matches.add(room);
+            }
+        }
+        return matches;
+    }
+
+    private Map<String, Object> withActivePublicRooms(Map<String, Object> gameStats, List<Map<String, Object>> publicRooms) {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.putAll(gameStats);
+        Map<String, Integer> activeCounts = new LinkedHashMap<String, Integer>();
+        activeCounts.put("XIANGQI", 0);
+        activeCounts.put("GOMOKU", 0);
+        for (Map<String, Object> room : publicRooms) {
+            String gameType = asString(room.get("gameType")).trim().toUpperCase(Locale.ROOT);
+            if (!activeCounts.containsKey(gameType)) {
+                activeCounts.put(gameType, 0);
+            }
+            activeCounts.put(gameType, activeCounts.get(gameType) + 1);
+        }
+        for (Map.Entry<String, Object> entry : body.entrySet()) {
+            if (!(entry.getValue() instanceof Map)) {
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> stat = (Map<String, Object>) entry.getValue();
+            stat.put("activePublicRooms", activeCounts.getOrDefault(entry.getKey(), 0));
+        }
+        return body;
+    }
+
     private void handleProfileSummary(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
@@ -464,6 +529,208 @@ public final class PublicSiteServer {
         body.put("recentGames", store.recentGamesForUser(user.get().id(), 10));
         body.put("activity", roomHub.activityForUser(user.get().id()));
         sendJson(exchange, body);
+    }
+
+    private void handleProfileDashboard(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        sendJson(exchange, buildProfileDashboard(user.get()));
+    }
+
+    private void handleProfilePreferences(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        sendJson(exchange, store.profilePreferences(user.get().id()));
+    }
+
+    private void handleSaveProfilePreferences(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            Map<String, Object> payload = readJson(exchange);
+            sendJson(exchange, store.saveProfilePreferences(user.get().id(), sanitizePreferencesPatch(payload)));
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private Map<String, Object> sanitizePreferencesPatch(Map<String, Object> payload) {
+        Map<String, Object> safe = new LinkedHashMap<String, Object>();
+        if (payload == null) {
+            return safe;
+        }
+        if (payload.containsKey("soundEnabled")) {
+            Object raw = payload.get("soundEnabled");
+            if (!(raw instanceof Boolean)) {
+                throw new IllegalArgumentException("soundEnabled must be boolean");
+            }
+            safe.put("soundEnabled", raw);
+        }
+        if (payload.containsKey("boardFlipped")) {
+            Object raw = payload.get("boardFlipped");
+            if (!(raw instanceof Boolean)) {
+                throw new IllegalArgumentException("boardFlipped must be boolean");
+            }
+            safe.put("boardFlipped", raw);
+        }
+        if (payload.containsKey("boardTheme")) {
+            String theme = asString(payload.get("boardTheme")).trim().toLowerCase();
+            if (!"wood".equals(theme) && !"ink".equals(theme)) {
+                throw new IllegalArgumentException("boardTheme must be wood or ink");
+            }
+            safe.put("boardTheme", theme);
+        }
+        return safe;
+    }
+
+    private Map<String, Object> buildProfileDashboard(AuthUser user) {
+        Map<String, Object> summary = store.profileSummary(user.id());
+        List<Map<String, Object>> recentGames = store.recentGamesForUser(user.id(), 12);
+        Map<String, Object> activity = roomHub.activityForUser(user.id());
+        Map<String, Object> preferences = store.profilePreferences(user.id());
+        Map<String, Object> learnProgress = store.learnProgress(user.id());
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("user", userMap(user));
+        body.put("summary", summary);
+        body.put("recentGames", recentGames);
+        body.put("activity", activity);
+        body.put("preferences", preferences);
+        body.put("learnProgress", learnProgress);
+        body.put("achievements", buildProfileAchievements(summary, learnProgress));
+        body.put("notifications", buildProfileNotifications(summary, recentGames, activity, preferences, learnProgress));
+        return body;
+    }
+
+    private List<Map<String, Object>> buildProfileAchievements(Map<String, Object> summary, Map<String, Object> learnProgress) {
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        int totalGames = asInt(summary.get("totalGames"), 0);
+        int wins = asInt(summary.get("wins"), 0);
+        int learnDone = learnProgressCount(learnProgress);
+        items.add(profileAchievement("first-game", "初次对局", "完成 1 局正式或练习对局。", totalGames >= 1, Math.min(totalGames, 1), 1));
+        items.add(profileAchievement("first-win", "拿下首胜", "至少取得 1 局胜利。", wins >= 1, Math.min(wins, 1), 1));
+        items.add(profileAchievement("study-starter", "学习起步", "完成任意教程或残局题。", learnDone >= 1, Math.min(learnDone, 1), 1));
+        items.add(profileAchievement("steady-practice", "持续练习", "累计完成 5 项学习或对局。", totalGames + learnDone >= 5, Math.min(totalGames + learnDone, 5), 5));
+        return items;
+    }
+
+    private Map<String, Object> profileAchievement(String id, String title, String description, boolean earned, int current, int target) {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("id", id);
+        body.put("title", title);
+        body.put("description", description);
+        body.put("earned", earned);
+        body.put("current", current);
+        body.put("target", target);
+        return body;
+    }
+
+    private List<Map<String, Object>> buildProfileNotifications(
+        Map<String, Object> summary,
+        List<Map<String, Object>> recentGames,
+        Map<String, Object> activity,
+        Map<String, Object> preferences,
+        Map<String, Object> learnProgress
+    ) {
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        Object room = activity.get("room");
+        if (room instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> roomMap = (Map<String, Object>) room;
+            String roomId = asString(roomMap.get("roomId"));
+            items.add(profileNotification(
+                "active-room",
+                "房间仍在进行中",
+                "你当前仍在房间中，可继续准备、等待或回到对局。",
+                "activity",
+                roomId.isEmpty() ? "play" : "room/" + roomId,
+                asString(roomMap.get("updatedAt"))
+            ));
+        }
+        Object game = activity.get("game");
+        if (game instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> gameMap = (Map<String, Object>) game;
+            String gameId = asString(gameMap.get("gameId"));
+            items.add(profileNotification(
+                "active-game",
+                "当前有进行中的棋局",
+                "你的对局仍可继续，直接回到棋桌即可恢复操作。",
+                "game",
+                gameId.isEmpty() ? "play" : "game/" + gameId,
+                asString(gameMap.get("updatedAt"))
+            ));
+        }
+        if (!recentGames.isEmpty()) {
+            Map<String, Object> latest = recentGames.get(0);
+            String gameId = asString(latest.get("gameId"));
+            items.add(profileNotification(
+                "latest-archive",
+                "最近对局已归档",
+                "最新一局已经可进入分析页复盘。",
+                "analysis",
+                gameId.isEmpty() ? "me/records" : "analysis/" + gameId,
+                firstNonEmpty(asString(latest.get("finishedAt")), asString(summary.get("lastGameAt")))
+            ));
+        }
+        if (!asString(preferences.get("updatedAt")).isEmpty()) {
+            items.add(profileNotification(
+                "settings-synced",
+                "棋桌设置已同步",
+                "音效、主题与翻转偏好已保存在当前账号下。",
+                "settings",
+                "me/settings",
+                asString(preferences.get("updatedAt"))
+            ));
+        }
+        if (learnProgressCount(learnProgress) > 0) {
+            items.add(profileNotification(
+                "study-progress",
+                "学习档案有新进展",
+                "你的教程或残局进度已记录，可继续从上次位置开始。",
+                "study",
+                "me/study",
+                asString(learnProgress.get("updatedAt"))
+            ));
+        }
+        return items;
+    }
+
+    private Map<String, Object> profileNotification(String id, String title, String bodyText, String kind, String path, String createdAt) {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("id", id);
+        body.put("title", title);
+        body.put("body", bodyText);
+        body.put("kind", kind);
+        body.put("path", path);
+        body.put("createdAt", createdAt == null ? "" : createdAt);
+        return body;
+    }
+
+    private int learnProgressCount(Map<String, Object> progress) {
+        return mapListSize(progress.get("tutorialsCompleted")) + mapListSize(progress.get("puzzlesCompleted"));
+    }
+
+    private int mapListSize(Object value) {
+        if (value instanceof List) {
+            return ((List<?>) value).size();
+        }
+        return 0;
+    }
+
+    private String firstNonEmpty(String first, String second) {
+        if (first != null && !first.isEmpty()) {
+            return first;
+        }
+        return second == null ? "" : second;
     }
 
     private void handleRegister(HttpServerExchange exchange) {
@@ -531,6 +798,35 @@ public final class PublicSiteServer {
             ));
             wsHub.broadcastRoom(asString(room.get("roomId")), roomEvent(asString(room.get("roomId"))));
             sendJson(exchange, room);
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handleQuickMatch(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        String ip = clientIp(exchange);
+        if (!createRoomLimiter.allow(ip + ":quick-match")) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+            return;
+        }
+        try {
+            Map<String, Object> payload = readJson(exchange);
+            GameType gameType = parseGameType(payload.get("gameType"));
+            Map<String, Object> result = roomHub.quickMatch(user.get(), new CreateRoomRequest(
+                gameType,
+                asInt(payload.get("initialTimeSeconds"), 300),
+                true
+            ));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> room = (Map<String, Object>) result.get("room");
+            String roomId = asString(room.get("roomId"));
+            wsHub.broadcastRoom(roomId, roomEvent(roomId));
+            sendJson(exchange, result);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }
@@ -855,6 +1151,13 @@ public final class PublicSiteServer {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private boolean containsIgnoreCase(Object value, String normalizedNeedle) {
+        if (normalizedNeedle == null || normalizedNeedle.isEmpty()) {
+            return false;
+        }
+        return asString(value).toLowerCase(Locale.ROOT).contains(normalizedNeedle);
     }
 
     private GameType parseGameType(Object raw) {

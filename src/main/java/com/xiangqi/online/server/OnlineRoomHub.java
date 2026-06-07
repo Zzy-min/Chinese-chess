@@ -56,6 +56,42 @@ public final class OnlineRoomHub {
         return roomSnapshot(room);
     }
 
+    public Map<String, Object> quickMatch(AuthUser user, CreateRoomRequest request) {
+        if (request.gameType() == GameType.GO) {
+            throw new IllegalArgumentException("GO online is not yet available");
+        }
+        for (ActiveRoom room : roomsById.values()) {
+            if (!canQuickMatch(room, user, request.gameType())) {
+                continue;
+            }
+            synchronized (room) {
+                if (!canQuickMatch(room, user, request.gameType())) {
+                    continue;
+                }
+                room.guest = user;
+                room.guestReady = true;
+                room.status = RoomStatus.FULL.name();
+                if (room.hostReady && room.gameId == null) {
+                    startGame(room);
+                }
+                room.updatedAt = now();
+                return quickMatchResult(true, room, user);
+            }
+        }
+
+        Map<String, Object> created = createRoom(user, new CreateRoomRequest(
+            request.gameType(),
+            request.initialTimeSeconds(),
+            true
+        ));
+        ActiveRoom room = room(asString(created.get("roomId")));
+        synchronized (room) {
+            room.hostReady = true;
+            room.updatedAt = now();
+            return quickMatchResult(false, room, user);
+        }
+    }
+
     public Map<String, Object> joinByCode(String roomCode, AuthUser user) {
         ActiveRoom room = roomsByCode.get(roomCode == null ? "" : roomCode.trim().toUpperCase());
         if (room == null) {
@@ -318,6 +354,28 @@ public final class OnlineRoomHub {
         item.put("guestUsername", room.guest == null ? "" : room.guest.username());
         item.put("updatedAt", room.updatedAt.toString());
         return item;
+    }
+
+    private boolean canQuickMatch(ActiveRoom room, AuthUser user, GameType gameType) {
+        return room.publicRoom
+            && room.gameType == gameType
+            && room.guest == null
+            && room.gameId == null
+            && RoomStatus.WAITING.name().equals(room.status)
+            && !room.host.id().equals(user.id());
+    }
+
+    private Map<String, Object> quickMatchResult(boolean matched, ActiveRoom room, AuthUser viewer) {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("matched", matched);
+        body.put("room", roomSnapshot(room));
+        if (room.gameId != null && !room.gameId.isEmpty()) {
+            ActiveGame game = gamesById.get(room.gameId);
+            if (game != null) {
+                body.put("game", gameSnapshot(game, viewer));
+            }
+        }
+        return body;
     }
 
     private Map<String, Object> gameSnapshot(ActiveGame game, AuthUser viewer) {

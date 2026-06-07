@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 chcp 65001 >nul
 cd /d "%~dp0"
 
@@ -7,7 +7,7 @@ set "MAIN_CLASS=com.xiangqi.web.PublicWebMain"
 set "CLASSPATH_VALUE=target/classes;target/dependency/*"
 set "LOG_DIR=logs"
 set "LOG_FILE=%LOG_DIR%\web_server.log"
-set "BIND_HOST=127.0.0.1"
+set "BIND_HOST=0.0.0.0"
 if "%XQ_GO_ENGINE%"=="" set "XQ_GO_ENGINE=AUTO"
 if "%XQ_GO_ENGINE_URL%"=="" set "XQ_GO_ENGINE_URL=http://127.0.0.1:2718"
 

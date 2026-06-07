@@ -2735,7 +2735,7 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
 }
 
-/* 首页每日任务与每日签到样式 */
+/* 历史卡片样式 */
 .signinRow {
   background: rgba(140, 46, 33, 0.05);
   border: 1px solid rgba(140, 46, 33, 0.15);
@@ -2938,6 +2938,58 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   font-size: 12px;
   color: var(--muted);
 }
+.profileSectionSplit {
+  align-items: stretch;
+}
+.profileSettingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.profileSectionCard {
+  padding: 18px 20px;
+}
+.profileStatList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.profileTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.profileAchievementGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.profileAchievementCard {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  background: rgba(255, 251, 246, 0.82);
+}
+.profileAchievementCard.is-earned {
+  border-color: rgba(143, 69, 44, 0.35);
+  box-shadow: 0 10px 24px rgba(143, 69, 44, 0.08);
+}
+.profileAchievementBar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: rgba(143, 69, 44, 0.12);
+  overflow: hidden;
+}
+.profileAchievementBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b85d38 0%, #d8a55f 100%);
+}
 
 /* 棋局右栏选项卡 gameSidebarTabs */
 .gameSidebarTabs {
@@ -3089,9 +3141,333 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   text-align: center;
 }
 
+/* 2026-06-05 桌面国风去会员化精修 */
+.topbar{
+  padding:18px 28px;
+  background:rgba(255,252,246,.96);
+}
+.nav{
+  gap:24px;
+}
+.nav a{
+  padding:10px 0;
+  border-radius:0;
+  border-bottom:2px solid transparent;
+  background:none;
+}
+.nav a.is-active,.nav a:hover{
+  background:none;
+  color:var(--brand);
+  border-bottom-color:var(--brand);
+}
+.topbarProfile{
+  min-width:120px;
+}
+.deskHero{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 280px;
+  gap:28px;
+  overflow:hidden;
+}
+.deskHeroCopy{
+  max-width:none;
+}
+.deskHeroFacts{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:16px;
+}
+.deskHomeThreeCol{
+  grid-template-columns:1.02fr 1fr .82fr;
+  align-items:start;
+}
+.quickPortalGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.quickPortalCard{
+  border:1px solid rgba(221,202,173,.92);
+  border-radius:18px;
+  background:rgba(255,251,246,.94);
+  padding:18px 16px;
+  text-align:left;
+  cursor:pointer;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.quickPortalCard strong{
+  display:block;
+  margin-bottom:8px;
+  font-size:17px;
+}
+.quickPortalCard span{
+  color:var(--muted);
+  font-size:13px;
+}
+.quickPortalCard:hover{
+  transform:translateY(-1px);
+  border-color:rgba(180,102,42,.6);
+  box-shadow:0 14px 28px rgba(120,90,42,.08);
+}
+.activityList{
+  display:grid;
+  gap:12px;
+}
+.activityRow{
+  width:100%;
+  border:1px solid rgba(221,202,173,.92);
+  border-radius:18px;
+  background:rgba(255,251,246,.92);
+  padding:16px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  text-align:left;
+  cursor:pointer;
+}
+.activityRow strong{
+  display:block;
+  margin-bottom:4px;
+  font-size:16px;
+}
+.activityRow .pill{
+  flex:none;
+}
+.deskSidebar{
+  gap:10px;
+}
+.deskSidebarItem{
+  text-align:left;
+}
+.deskLobbyAside .field input{
+  background:rgba(255,251,246,.95);
+}
+.profileEditBtn{
+  min-width:112px;
+}
+
 /* 移动端与桌面端的排版微调 */
 @media (max-width: 768px) {
   .profilePage {
     grid-template-columns: 1fr;
+  }
+  .profileSettingsGrid,
+  .profileAchievementGrid,
+  .profileStatList {
+    grid-template-columns: 1fr;
+  }
+
+  /* 0. 基础包裹层自适应 */
+  .shell, .wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 8px 80px 8px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 1. 首页 (deskHome) */
+  .deskHome {
+    gap: 16px !important;
+  }
+  
+  /* 隐藏插图，避免把中间文字挤压或遮挡 */
+  .deskHeroIllustLeft,
+  .deskHeroIllustRight {
+    display: none !important;
+  }
+  
+  .deskHero {
+    padding: 24px 16px !important;
+    min-height: auto !important;
+    text-align: center !important;
+    grid-template-columns: 1fr !important;
+  }
+  
+  .deskHeroCopy h1 {
+    font-size: 28px !important;
+    line-height: 1.2 !important;
+  }
+  
+  .deskHeroCopy p {
+    font-size: 14px !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .deskHeroActions {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+  
+  .deskModeCard {
+    width: 100% !important;
+    max-width: 280px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 快速匹配网格，改用2列排版 */
+  .deskQuickGrid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  
+  .deskQuickGrid button.deskQuickItem {
+    padding: 12px !important;
+    gap: 8px !important;
+    border-radius: 12px !important;
+  }
+  
+  .deskQuickGrid button.deskQuickItem .icon {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+  }
+  
+  .deskQuickGrid button.deskQuickItem .text strong {
+    font-size: 14px !important;
+  }
+
+  /* 首页底部三栏改为纵向堆叠 */
+  .deskHomeThreeCol {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  .deskHomeThreeCol .panel {
+    padding: 16px !important;
+  }
+
+  /* 2. 大厅 (deskLobby) */
+  .deskLobby {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  
+  .deskSidebar {
+    display: none !important;
+  }
+  
+  .deskLobbyMain {
+    padding: 0 !important;
+  }
+  
+  .lobbyActionGrid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .deskLobbyCards {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 3. 对局页 (boardPage) */
+  .boardPage--desk .boardDesk {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  .boardPage--desk .boardSidebar {
+    display: none !important;
+  }
+  
+  .boardRail {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 14px !important;
+    background: var(--panel) !important;
+  }
+  
+  .boardRailHeader {
+    display: none !important;
+  }
+  
+  .boardPlayerCard {
+    width: 47% !important;
+    padding: 8px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  
+  .boardPlayerCardTop {
+    gap: 6px !important;
+  }
+  
+  .boardPlayerCard .avatar {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  
+  .boardPlayerCard .userMeta strong {
+    font-size: 13px !important;
+  }
+  
+  .boardPlayerCard .userMeta .vipBadge {
+    font-size: 9px !important;
+  }
+  
+  .boardPlayerClock {
+    font-size: 18px !important;
+    margin-top: 4px !important;
+  }
+  
+  .boardRailNote {
+    display: none !important;
+  }
+  
+  .boardWrap {
+    width: 100% !important;
+    padding: 8px !important;
+    box-sizing: border-box !important;
+  }
+  
+  .xiangqiBoard {
+    --xi-cell-size: clamp(28px, 9.2vw, 42px) !important;
+    padding: 8px !important;
+  }
+  
+  .gomokuBoard {
+    --go-cell-size: clamp(18px, 6vw, 26px) !important;
+    padding: 6px !important;
+  }
+  
+  .gameMetaRow {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .gameMetaRow .pill {
+    padding: 2px 6px !important;
+  }
+  
+  .status {
+    font-size: 14px !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .woodActions {
+    margin-top: 12px !important;
+    gap: 8px !important;
+    justify-content: center !important;
+  }
+  
+  .woodActions button {
+    flex: 1 !important;
+    max-width: 100px !important;
+    padding: 8px !important;
+    font-size: 13px !important;
   }
 }

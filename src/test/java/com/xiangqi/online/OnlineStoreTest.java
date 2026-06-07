@@ -120,6 +120,105 @@ class OnlineStoreTest {
     }
 
     @Test
+    void profilePreferencesPersistAndCommunityLeaderboardExposesBucketsByGameType() throws Exception {
+        OnlineStore store = newStore();
+        AuthService auth = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
+        OnlineRoomHub hub = new OnlineRoomHub(store);
+        AuthUser alice = auth.register("pref_alice", "Passw0rd123!").user();
+        AuthUser bob = auth.register("pref_bob", "Passw0rd123!").user();
+        AuthUser carol = auth.register("pref_carol", "Passw0rd123!").user();
+
+        Map<String, Object> defaults = store.profilePreferences(alice.id());
+        assertEquals(Boolean.TRUE, defaults.get("soundEnabled"));
+        assertEquals("wood", defaults.get("boardTheme"));
+        assertEquals(Boolean.FALSE, defaults.get("boardFlipped"));
+
+        Map<String, Object> saved = store.saveProfilePreferences(alice.id(), Map.of(
+            "soundEnabled", Boolean.FALSE,
+            "boardTheme", "ink",
+            "boardFlipped", Boolean.TRUE
+        ));
+        assertEquals(Boolean.FALSE, saved.get("soundEnabled"));
+        assertEquals("ink", saved.get("boardTheme"));
+        assertEquals(Boolean.TRUE, saved.get("boardFlipped"));
+        assertTrue(asString(saved.get("updatedAt")).length() >= 10);
+
+        String x1 = startXiangqiGame(hub, alice, bob);
+        hub.resign(x1, bob);
+        String x2 = startXiangqiGame(hub, alice, carol);
+        hub.resign(x2, carol);
+        String g1 = startGomokuGame(hub, bob, carol);
+        hub.resign(g1, carol);
+
+        Map<String, Object> leaderboard = store.communityLeaderboard(30, 10);
+        Map<String, Object> byGameType = asMap(leaderboard.get("byGameType"));
+        Map<String, Object> xiangqi = asMap(byGameType.get("XIANGQI"));
+        Map<String, Object> gomoku = asMap(byGameType.get("GOMOKU"));
+        List<Map<String, Object>> xiangqiWins = asMapList(xiangqi.get("winBoard"));
+        List<Map<String, Object>> gomokuWins = asMapList(gomoku.get("winBoard"));
+
+        assertEquals("XIANGQI", xiangqi.get("gameType"));
+        assertEquals("GOMOKU", gomoku.get("gameType"));
+        assertEquals("pref_alice", asString(xiangqiWins.get(0).get("username")));
+        assertEquals(2, ((Number) xiangqiWins.get(0).get("wins")).intValue());
+        assertEquals("pref_bob", asString(gomokuWins.get(0).get("username")));
+        assertEquals(1, ((Number) gomokuWins.get(0).get("wins")).intValue());
+    }
+
+    @Test
+    void searchUsersMatchesUsernamesCaseInsensitively() throws Exception {
+        OnlineStore store = newStore();
+        AuthService auth = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
+        auth.register("RiverHorse", "Passw0rd123!");
+        auth.register("riverStone", "Passw0rd123!");
+        auth.register("cloudGo", "Passw0rd123!");
+
+        List<Map<String, Object>> users = store.searchUsers("RIVER", 10);
+
+        assertEquals(2, users.size());
+        assertEquals("riverhorse", asString(users.get(0).get("username")));
+        assertEquals("riverstone", asString(users.get(1).get("username")));
+    }
+
+    @Test
+    void profileSummaryAndGameTypeStatsExposeDerivedMetrics() throws Exception {
+        OnlineStore store = newStore();
+        AuthService auth = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
+        OnlineRoomHub hub = new OnlineRoomHub(store);
+        AuthUser alice = auth.register("stats_alice", "Passw0rd123!").user();
+        AuthUser bob = auth.register("stats_bob", "Passw0rd123!").user();
+        AuthUser carol = auth.register("stats_carol", "Passw0rd123!").user();
+
+        String xiangqiGame = startXiangqiGame(hub, alice, bob);
+        hub.resign(xiangqiGame, bob);
+        String gomokuGame = startGomokuGame(hub, alice, carol);
+        hub.resign(gomokuGame, carol);
+
+        Map<String, Object> summary = store.profileSummary(alice.id());
+        Map<String, Object> stats = store.gameTypeStats();
+        Map<String, Object> xiangqi = asMap(stats.get("XIANGQI"));
+        Map<String, Object> gomoku = asMap(stats.get("GOMOKU"));
+        List<Map<String, Object>> recent = store.recentGames(5);
+
+        assertEquals(2, summary.get("totalGames"));
+        assertEquals(2, summary.get("wins"));
+        assertEquals(1020, ((Number) summary.get("ratingScore")).intValue());
+        assertTrue(asString(summary.get("lastGameAt")).length() >= 10);
+
+        assertEquals(1, ((Number) xiangqi.get("totalGames")).intValue());
+        assertEquals(1, ((Number) xiangqi.get("completedGames")).intValue());
+        assertEquals(2, ((Number) xiangqi.get("distinctPlayers")).intValue());
+
+        assertEquals(1, ((Number) gomoku.get("totalGames")).intValue());
+        assertEquals(1, ((Number) gomoku.get("completedGames")).intValue());
+        assertEquals(2, ((Number) gomoku.get("distinctPlayers")).intValue());
+
+        assertTrue(asString(recent.get(0).get("startedAt")).length() >= 10);
+        assertTrue(asString(recent.get(0).get("finishedAt")).length() >= 10);
+        assertTrue(asString(recent.get(0).get("updatedAt")).length() >= 10);
+    }
+
+    @Test
     void learnContentLoadsSeedAndReturnsSafeListDefaults() throws Exception {
         OnlineStore store = newStore();
 
@@ -164,6 +263,11 @@ class OnlineStoreTest {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        return value instanceof Map ? (Map<String, Object>) value : Map.of();
     }
 
     @SuppressWarnings("unchecked")

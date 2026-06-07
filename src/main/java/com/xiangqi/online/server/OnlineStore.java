@@ -239,7 +239,7 @@ public final class OnlineStore {
 
     public List<Map<String, Object>> recentGames(int limit) {
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
-        String sql = "select id, room_id, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_username, first_side, second_username, second_side, winner_side, result_text, move_count, finished_at from games order by started_at desc limit ?";
+        String sql = "select id, room_id, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_username, first_side, second_username, second_side, winner_side, result_text, move_count, started_at, finished_at from games order by started_at desc limit ?";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, limit);
             try (ResultSet rs = ps.executeQuery()) {
@@ -260,8 +260,12 @@ public final class OnlineStore {
                     item.put("winnerSide", rs.getString("winner_side"));
                     item.put("resultText", rs.getString("result_text"));
                     item.put("moveCount", rs.getInt("move_count"));
+                    Timestamp started = rs.getTimestamp("started_at");
                     Timestamp finished = rs.getTimestamp("finished_at");
+                    item.put("startedAt", started == null ? "" : started.toInstant().toString());
                     item.put("finishedAt", finished == null ? "" : finished.toInstant().toString());
+                    Timestamp updated = finished == null ? started : finished;
+                    item.put("updatedAt", updated == null ? "" : updated.toInstant().toString());
                     items.add(item);
                 }
             }
@@ -275,7 +279,8 @@ public final class OnlineStore {
         Map<String, Object> summary = new LinkedHashMap<String, Object>();
         String sql = "select count(*) as total, "
             + "sum(case when winner_side = first_side and first_user_id = ? then 1 when winner_side = second_side and second_user_id = ? then 1 else 0 end) as wins, "
-            + "sum(case when termination_reason = 'DRAW_AGREED' then 1 else 0 end) as draws "
+            + "sum(case when termination_reason = 'DRAW_AGREED' then 1 else 0 end) as draws, "
+            + "max(coalesce(finished_at, started_at)) as last_game_at "
             + "from games where first_user_id = ? or second_user_id = ?";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, userId);
@@ -290,7 +295,11 @@ public final class OnlineStore {
                     summary.put("totalGames", total);
                     summary.put("wins", wins);
                     summary.put("draws", draws);
-                    summary.put("losses", Math.max(0, total - wins - draws));
+                    int losses = Math.max(0, total - wins - draws);
+                    summary.put("losses", losses);
+                    summary.put("ratingScore", 1000 + wins * 10 - losses * 5);
+                    Timestamp lastGameAt = rs.getTimestamp("last_game_at");
+                    summary.put("lastGameAt", lastGameAt == null ? "" : lastGameAt.toInstant().toString());
                 }
             }
         } catch (SQLException ex) {
@@ -299,9 +308,72 @@ public final class OnlineStore {
         return summary;
     }
 
+    public Map<String, Object> gameTypeStats() {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("XIANGQI", gameTypeStat("XIANGQI"));
+        body.put("GOMOKU", gameTypeStat("GOMOKU"));
+        return body;
+    }
+
+    public Map<String, Object> profilePreferences(String userId) {
+        Map<String, Object> defaults = defaultProfilePreferences();
+        String sql = "select sound_enabled, board_theme, board_flipped, updated_at from user_preferences where user_id = ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return defaults;
+                }
+                Map<String, Object> body = new LinkedHashMap<String, Object>();
+                body.put("soundEnabled", rs.getBoolean("sound_enabled"));
+                body.put("boardTheme", normalizeBoardTheme(rs.getString("board_theme")));
+                body.put("boardFlipped", rs.getBoolean("board_flipped"));
+                Timestamp updatedAt = rs.getTimestamp("updated_at");
+                body.put("updatedAt", updatedAt == null ? "" : updatedAt.toInstant().toString());
+                return body;
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to load profile preferences", ex);
+        }
+    }
+
+    public Map<String, Object> saveProfilePreferences(String userId, Map<String, Object> patch) {
+        Map<String, Object> current = profilePreferences(userId);
+        boolean soundEnabled = patch.containsKey("soundEnabled") ? asBoolean(patch.get("soundEnabled")) : asBoolean(current.get("soundEnabled"));
+        boolean boardFlipped = patch.containsKey("boardFlipped") ? asBoolean(patch.get("boardFlipped")) : asBoolean(current.get("boardFlipped"));
+        String boardTheme = patch.containsKey("boardTheme") ? normalizeBoardTheme(asString(patch.get("boardTheme"))) : normalizeBoardTheme(asString(current.get("boardTheme")));
+        Instant now = Instant.now();
+        String updateSql = "update user_preferences set sound_enabled = ?, board_theme = ?, board_flipped = ?, updated_at = ? where user_id = ?";
+        String insertSql = "insert into user_preferences(user_id, sound_enabled, board_theme, board_flipped, updated_at) values (?, ?, ?, ?, ?)";
+        try (Connection connection = dataSource.getConnection()) {
+            int updated;
+            try (PreparedStatement ps = connection.prepareStatement(updateSql)) {
+                ps.setBoolean(1, soundEnabled);
+                ps.setString(2, boardTheme);
+                ps.setBoolean(3, boardFlipped);
+                ps.setTimestamp(4, Timestamp.from(now));
+                ps.setString(5, userId);
+                updated = ps.executeUpdate();
+            }
+            if (updated == 0) {
+                try (PreparedStatement ps = connection.prepareStatement(insertSql)) {
+                    ps.setString(1, userId);
+                    ps.setBoolean(2, soundEnabled);
+                    ps.setString(3, boardTheme);
+                    ps.setBoolean(4, boardFlipped);
+                    ps.setTimestamp(5, Timestamp.from(now));
+                    ps.executeUpdate();
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to save profile preferences", ex);
+        }
+        return profilePreferences(userId);
+    }
+
     public List<Map<String, Object>> recentGamesForUser(String userId, int limit) {
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
-        String sql = "select id, room_id, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_user_id, first_username, first_side, second_user_id, second_username, second_side, winner_side, result_text, termination_reason, move_count, finished_at "
+        String sql = "select id, room_id, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_user_id, first_username, first_side, second_user_id, second_username, second_side, winner_side, result_text, termination_reason, move_count, started_at, finished_at "
             + "from games where first_user_id = ? or second_user_id = ? order by started_at desc limit ?";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, userId);
@@ -325,8 +397,12 @@ public final class OnlineStore {
                     item.put("resultText", rs.getString("result_text"));
                     item.put("terminationReason", rs.getString("termination_reason"));
                     item.put("moveCount", rs.getInt("move_count"));
+                    Timestamp started = rs.getTimestamp("started_at");
                     Timestamp finished = rs.getTimestamp("finished_at");
+                    item.put("startedAt", started == null ? "" : started.toInstant().toString());
                     item.put("finishedAt", finished == null ? "" : finished.toInstant().toString());
+                    Timestamp updated = finished == null ? started : finished;
+                    item.put("updatedAt", updated == null ? "" : updated.toInstant().toString());
                     items.add(item);
                 }
             }
@@ -447,12 +523,12 @@ public final class OnlineStore {
     public Map<String, Object> communityLeaderboard(int windowDays, int limit) {
         int safeWindowDays = Math.max(1, windowDays);
         int safeLimit = Math.max(1, limit);
-        List<Map<String, Object>> winBoard = queryWinBoard(Integer.valueOf(safeWindowDays), safeLimit);
-        List<Map<String, Object>> activityBoard = queryActivityBoard(Integer.valueOf(safeWindowDays), safeLimit);
+        List<Map<String, Object>> winBoard = queryWinBoard(Integer.valueOf(safeWindowDays), safeLimit, null);
+        List<Map<String, Object>> activityBoard = queryActivityBoard(Integer.valueOf(safeWindowDays), safeLimit, null);
         boolean fallback = winBoard.isEmpty() && activityBoard.isEmpty();
         if (fallback) {
-            winBoard = queryWinBoard(null, safeLimit);
-            activityBoard = queryActivityBoard(null, safeLimit);
+            winBoard = queryWinBoard(null, safeLimit, null);
+            activityBoard = queryActivityBoard(null, safeLimit, null);
         }
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("requestedWindowDays", safeWindowDays);
@@ -462,6 +538,10 @@ public final class OnlineStore {
         body.put("generatedAt", Instant.now().toString());
         body.put("winBoard", winBoard);
         body.put("activityBoard", activityBoard);
+        Map<String, Object> byGameType = new LinkedHashMap<String, Object>();
+        byGameType.put("XIANGQI", leaderboardBucket(safeWindowDays, safeLimit, fallback, "XIANGQI"));
+        byGameType.put("GOMOKU", leaderboardBucket(safeWindowDays, safeLimit, fallback, "GOMOKU"));
+        body.put("byGameType", byGameType);
         return body;
     }
 
@@ -495,6 +575,73 @@ public final class OnlineStore {
         body.put("puzzlesCompleted", puzzles);
         body.put("updatedAt", Instant.now().toString());
         return body;
+    }
+
+    public List<Map<String, Object>> searchUsers(String query, int limit) {
+        String normalized = query == null ? "" : query.trim().toLowerCase();
+        if (normalized.isEmpty()) {
+            return Collections.emptyList();
+        }
+        int safeLimit = Math.max(1, limit);
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        String sql = "select id, username from users where lower(username) like ? order by lower(username) asc limit ?";
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, "%" + normalized + "%");
+            ps.setInt(2, safeLimit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> item = new LinkedHashMap<String, Object>();
+                    item.put("id", rs.getString("id"));
+                    item.put("username", rs.getString("username"));
+                    items.add(item);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to search users", ex);
+        }
+        return items;
+    }
+
+    private Map<String, Object> gameTypeStat(String gameType) {
+        Map<String, Object> item = new LinkedHashMap<String, Object>();
+        item.put("gameType", gameType);
+        item.put("totalGames", 0);
+        item.put("completedGames", 0);
+        item.put("trainingGames", 0);
+        item.put("distinctPlayers", 0);
+        String aggregateSql = "select count(*) as total_games, "
+            + "sum(case when status = 'FINISHED' then 1 else 0 end) as completed_games, "
+            + "sum(case when is_training then 1 else 0 end) as training_games "
+            + "from games where game_type = ?";
+        String distinctSql = "select count(distinct user_id) as distinct_players from ("
+            + "select first_user_id as user_id from games where game_type = ? and first_user_id <> '' "
+            + "union all "
+            + "select second_user_id as user_id from games where game_type = ? and second_user_id <> ''"
+            + ") t";
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement ps = connection.prepareStatement(aggregateSql)) {
+                ps.setString(1, gameType);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        item.put("totalGames", rs.getInt("total_games"));
+                        item.put("completedGames", rs.getInt("completed_games"));
+                        item.put("trainingGames", rs.getInt("training_games"));
+                    }
+                }
+            }
+            try (PreparedStatement ps = connection.prepareStatement(distinctSql)) {
+                ps.setString(1, gameType);
+                ps.setString(2, gameType);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        item.put("distinctPlayers", rs.getInt("distinct_players"));
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("failed to load game type stats", ex);
+        }
+        return item;
     }
 
     public void markLearnProgress(String userId, String contentType, String contentId) {
@@ -547,21 +694,43 @@ public final class OnlineStore {
         throw new IllegalArgumentException("unsupported content type");
     }
 
-    private List<Map<String, Object>> queryWinBoard(Integer windowDays, int limit) {
+    private Map<String, Object> leaderboardBucket(int windowDays, int limit, boolean fallbackToAllTime, String gameType) {
+        Integer effectiveWindow = fallbackToAllTime ? null : Integer.valueOf(windowDays);
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("gameType", gameType);
+        body.put("winBoard", queryWinBoard(effectiveWindow, limit, gameType));
+        body.put("activityBoard", queryActivityBoard(effectiveWindow, limit, gameType));
+        return body;
+    }
+
+    private Map<String, Object> defaultProfilePreferences() {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("soundEnabled", true);
+        body.put("boardTheme", "wood");
+        body.put("boardFlipped", false);
+        body.put("updatedAt", "");
+        return body;
+    }
+
+    private String normalizeBoardTheme(String raw) {
+        String value = raw == null ? "" : raw.trim().toLowerCase();
+        if ("ink".equals(value)) {
+            return "ink";
+        }
+        return "wood";
+    }
+
+    private List<Map<String, Object>> queryWinBoard(Integer windowDays, int limit, String gameType) {
         String sql = "select u.id as user_id, u.username as username, "
             + "count(g.id) as total_games, "
             + "sum(case when (g.first_user_id = u.id and g.winner_side = g.first_side) or (g.second_user_id = u.id and g.winner_side = g.second_side) then 1 else 0 end) as wins, "
             + "sum(case when g.termination_reason = 'DRAW_AGREED' then 1 else 0 end) as draws "
             + "from users u join games g on (g.first_user_id = u.id or g.second_user_id = u.id)"
-            + (windowDays == null ? " " : " where g.started_at >= ? ")
+            + leaderboardWhereClause(windowDays, gameType)
             + "group by u.id, u.username order by wins desc, total_games desc, u.username asc limit ?";
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
-            int index = 1;
-            if (windowDays != null) {
-                ps.setTimestamp(index++, Timestamp.from(Instant.now().minusSeconds(windowDays.intValue() * 24L * 3600L)));
-            }
-            ps.setInt(index, limit);
+            bindLeaderboardFilters(ps, windowDays, gameType, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 int rank = 1;
                 while (rs.next()) {
@@ -586,20 +755,16 @@ public final class OnlineStore {
         return items;
     }
 
-    private List<Map<String, Object>> queryActivityBoard(Integer windowDays, int limit) {
+    private List<Map<String, Object>> queryActivityBoard(Integer windowDays, int limit, String gameType) {
         String sql = "select u.id as user_id, u.username as username, "
             + "count(g.id) as activity_games, "
             + "sum(case when (g.first_user_id = u.id and g.winner_side = g.first_side) or (g.second_user_id = u.id and g.winner_side = g.second_side) then 1 else 0 end) as wins "
             + "from users u join games g on (g.first_user_id = u.id or g.second_user_id = u.id)"
-            + (windowDays == null ? " " : " where g.started_at >= ? ")
+            + leaderboardWhereClause(windowDays, gameType)
             + "group by u.id, u.username order by activity_games desc, wins desc, u.username asc limit ?";
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
-            int index = 1;
-            if (windowDays != null) {
-                ps.setTimestamp(index++, Timestamp.from(Instant.now().minusSeconds(windowDays.intValue() * 24L * 3600L)));
-            }
-            ps.setInt(index, limit);
+            bindLeaderboardFilters(ps, windowDays, gameType, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 int rank = 1;
                 while (rs.next()) {
@@ -616,6 +781,31 @@ public final class OnlineStore {
             throw new IllegalStateException("failed to query activity leaderboard", ex);
         }
         return items;
+    }
+
+    private String leaderboardWhereClause(Integer windowDays, String gameType) {
+        List<String> clauses = new ArrayList<String>();
+        if (windowDays != null) {
+            clauses.add("g.started_at >= ?");
+        }
+        if (gameType != null && !gameType.trim().isEmpty()) {
+            clauses.add("g.game_type = ?");
+        }
+        if (clauses.isEmpty()) {
+            return " ";
+        }
+        return " where " + String.join(" and ", clauses) + " ";
+    }
+
+    private void bindLeaderboardFilters(PreparedStatement ps, Integer windowDays, String gameType, int limit) throws SQLException {
+        int index = 1;
+        if (windowDays != null) {
+            ps.setTimestamp(index++, Timestamp.from(Instant.now().minusSeconds(windowDays.intValue() * 24L * 3600L)));
+        }
+        if (gameType != null && !gameType.trim().isEmpty()) {
+            ps.setString(index++, gameType.trim().toUpperCase());
+        }
+        ps.setInt(index, limit);
     }
 
     private Map<String, Object> ensureLearnContentSeed() {

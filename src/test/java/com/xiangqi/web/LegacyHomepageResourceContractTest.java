@@ -55,13 +55,13 @@ class LegacyHomepageResourceContractTest {
         assertTrue(onlineJs.contains("parts[2] || 'ALL'"));
         assertTrue(onlineJs.contains("route-practice-locked"));
         assertTrue(onlineJs.contains("boardPane--practice"));
-        assertTrue(onlineJs.contains("practiceInfoLine"));
+        assertTrue(onlineJs.contains("boardRailNote"));
         assertTrue(onlineJs.contains("learnSummaryOneLine"));
         assertTrue(onlineJs.contains("moveInFlight"));
         assertTrue(onlineJs.contains("moveRequestToken"));
         assertTrue(onlineJs.contains("pendingMoveMarker"));
         assertTrue(onlineJs.contains("function createPendingMoveMarker"));
-        assertTrue(onlineJs.contains("function fitPracticeBoardToViewport"));
+        assertTrue(onlineJs.contains("function fitBoardToViewport"));
         assertTrue(onlineJs.contains("function tickLiveGameClock"));
         assertTrue(onlineJs.contains("function syncPracticePolling"));
         assertTrue(onlineJs.contains("function startPracticePolling"));
@@ -96,8 +96,8 @@ class LegacyHomepageResourceContractTest {
         assertTrue(onlineJs.contains("function toggleOnlineSound"));
         assertTrue(onlineJs.contains("function playOnlineSound"));
         assertTrue(onlineJs.contains("xq_online_sound_enabled"));
-        assertTrue(js.contains("function applyOptimisticPracticeMove"));
-        assertTrue(js.contains("location.pathname==='\\/home-ai'") || js.contains("location.pathname === '/home-ai'"));
+        assertTrue(onlineJs.contains("function applyOptimisticPracticeMove"));
+        assertTrue(js.contains("console.log('[xq] app.js loaded") || js.contains("BASE_W=800"));
     }
 
     private String readResource(String path) throws IOException {

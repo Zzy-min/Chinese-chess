@@ -11,6 +11,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -83,7 +85,7 @@ fun ConfigScreen(
     initialUrl: String,
     onEnterGame: (String) -> Unit
 ) {
-    var inputUrl by remember { mutableStateOf(initialUrl) }
+    var inputUrl by remember(initialUrl) { mutableStateOf(initialUrl) }
 
     Box(
         modifier = Modifier
@@ -95,7 +97,9 @@ fun ConfigScreen(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
         ) {
             // 国风书法水墨感“棋”字圆形图标
             Box(
@@ -153,39 +157,67 @@ fun ConfigScreen(
                 onClick = { onEnterGame("https://www.xiangqiarena.com/online") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(42.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C2E21))
             ) {
-                Text("连接公网生产环境", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("连接公网生产环境", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 快速连接按钮：局域网模拟器环境 (绿)
             Button(
-                onClick = { onEnterGame("http://10.0.2.2:18488/online") },
+                onClick = { onEnterGame("http://10.0.2.2:18388/online/index.html") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(42.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E4D3E))
             ) {
-                Text("连接模拟器开发环境 (10.0.2.2)", fontSize = 16.sp, color = Color.White)
+                Text("连接模拟器开发环境 (10.0.2.2)", fontSize = 14.sp, color = Color.White)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 测试人机对弈按钮 (橙)
+            Button(
+                onClick = { onEnterGame("http://127.0.0.1:18388/online/index.html#/practice") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD88C3A))
+            ) {
+                Text("测试人机对局 (本地)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 测试大厅首页按钮 (蓝)
+            Button(
+                onClick = { onEnterGame("http://127.0.0.1:18388/online/index.html#/home") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3A8CD8))
+            ) {
+                Text("测试大厅首页 (本地)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 自定义 URL 连接按钮
             OutlinedButton(
                 onClick = { onEnterGame(inputUrl.trim()) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(42.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E1A16))
             ) {
-                Text("确认进入对弈", fontSize = 16.sp)
+                Text("确认进入对弈", fontSize = 14.sp)
             }
         }
     }

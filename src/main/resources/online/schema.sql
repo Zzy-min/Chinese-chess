@@ -61,6 +61,14 @@ create table if not exists learn_progress (
   primary key (user_id, content_type, content_id)
 );
 
+create table if not exists user_preferences (
+  user_id varchar(64) primary key,
+  sound_enabled boolean not null default true,
+  board_theme varchar(16) not null default 'wood',
+  board_flipped boolean not null default false,
+  updated_at timestamp not null
+);
+
 alter table games add column if not exists initial_time_seconds int not null default 0;
 alter table games add column if not exists first_remaining_seconds int not null default 0;
 alter table games add column if not exists second_remaining_seconds int not null default 0;
@@ -71,3 +79,7 @@ alter table games add column if not exists ai_engine varchar(64);
 alter table games add column if not exists difficulty varchar(16);
 
 alter table learn_progress add column if not exists updated_at timestamp not null default current_timestamp;
+alter table user_preferences add column if not exists sound_enabled boolean not null default true;
+alter table user_preferences add column if not exists board_theme varchar(16) not null default 'wood';
+alter table user_preferences add column if not exists board_flipped boolean not null default false;
+alter table user_preferences add column if not exists updated_at timestamp not null default current_timestamp;
