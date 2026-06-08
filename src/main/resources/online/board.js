@@ -171,10 +171,12 @@ class GomokuBoard {
         cell.dataset.col = c;
         cell.addEventListener('click', () => this._handleClick(r, c));
 
+        // 插入用于棋子的 span.gomokuStone
         const stone = document.createElement('span');
         stone.className = 'gomokuStone';
         cell.appendChild(stone);
 
+        // 插入用于最后一步指示器的 span.gomokuLastMove
         const lastMove = document.createElement('span');
         lastMove.className = 'gomokuLastMove';
         lastMove.style.display = 'none';
