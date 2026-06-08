@@ -11,16 +11,6 @@ const state = {
   learnProgress: null,
   watchOverview: null,
   communityLeaderboard: null,
-  lobbySearch: {
-    query: '',
-    rooms: [],
-    players: [],
-    loading: false,
-    error: ''
-  },
-  lobbySearchTimer: 0,
-  lobbySearchRequestId: 0,
-  leaderboardGameType: 'XIANGQI',
   watchFilters: {
     gameType: 'ALL',
     status: 'ALL'
@@ -37,6 +27,16 @@ const state = {
   boardFitKey: '',
   boardRefitTimer: 0,
   learnPuzzleTheme: 'ALL',
+  lobbySearch: {
+    query: '',
+    rooms: [],
+    players: [],
+    loading: false,
+    error: ''
+  },
+  lobbySearchTimer: 0,
+  lobbySearchRequestId: 0,
+  leaderboardGameType: 'XIANGQI',
   boardPaneTab: 'board',
   moveInFlight: false,
   moveRequestToken: 0,
@@ -161,25 +161,21 @@ function resetLobbySearch(renderAfter = false) {
 }
 
 async function loadLobbySearch(query, renderAfter = true) {
-  const normalized = String(query || '').trim();
-  if (!normalized) {
+  query = (query || '').trim();
+  state.lobbySearch.query = query;
+  if (!query) {
     resetLobbySearch(renderAfter);
     return;
   }
   const requestId = state.lobbySearchRequestId + 1;
   state.lobbySearchRequestId = requestId;
-  state.lobbySearch = {
-    query: normalized,
-    rooms: state.lobbySearch.rooms || [],
-    players: state.lobbySearch.players || [],
-    loading: true,
-    error: ''
-  };
+  state.lobbySearch.loading = true;
+  state.lobbySearch.error = '';
   if (renderAfter) {
     render();
   }
   try {
-    const res = await fetchJson(`${API_BASE}/lobby/search?q=${encodeURIComponent(normalized)}`);
+    const res = await fetchJson(`${API_BASE}/lobby/search?q=${encodeURIComponent(query)}`);
     if (state.lobbySearchRequestId === requestId) {
       state.lobbySearch.rooms = res.rooms || [];
       state.lobbySearch.players = res.players || [];
@@ -677,13 +673,9 @@ function renderHomePage() {
         <h2 class="sectionTitle">快速开始</h2>
         <div class="grid cards">
           <div class="card"><h3>在线房间对局</h3><p>创建房间、分享邀请码、实时对战，支持棋钟、求和、认输与局后分析。</p><button class="btn" data-nav="play">进入大厅</button></div>
-          <div class="card">
-            <h3>在线 AI 练习</h3>
-            <p>点击后直接进入中国象棋中等难度对局，或选择进入五子棋练习。</p>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <button class="btn" data-action="quick-start-ai-practice">进入象棋 AI 对局</button>
-              <button class="btn" data-action="quick-start-gomoku-practice">进入五子棋 AI 对局</button>
-            </div>
+          <div class="card"><h3>在线 AI 练习</h3><p>提供中国象棋与五子棋 AI 练习，点击后直接进入 AI 对局。</p>
+            <button class="btn" data-action="quick-start-ai-practice" style="margin-bottom: 8px;">象棋 AI 练习</button>
+            <button class="ghost" data-action="quick-start-gomoku-practice">五子棋 AI 练习</button>
           </div>
           <div class="card"><h3>围棋</h3><p>统一入口已保留，在线对战和 AI 练习都将在后续补齐。</p><button class="ghost" disabled>即将开放</button></div>
         </div>
@@ -788,10 +780,10 @@ function renderCommunityPage() {
     loadCommunityLeaderboard();
     return '<section class="panel"><h2 class="sectionTitle">社区榜单加载中</h2></section>';
   }
-  const board = state.communityLeaderboard || { winBoard: [], activityBoard: [], byGameType: {} };
+  const board = state.communityLeaderboard || { winBoard: [], activityBoard: [] };
+  const gameTypeData = (board.byGameType && board.byGameType[state.leaderboardGameType]) || board;
   const isWin = state.communityTab === 'win';
-  const gameData = (board.byGameType && board.byGameType[state.leaderboardGameType]) || { winBoard: [], activityBoard: [] };
-  const items = isWin ? (gameData.winBoard || []) : (gameData.activityBoard || []);
+  const items = isWin ? (gameTypeData.winBoard || []) : (gameTypeData.activityBoard || []);
   const title = isWin ? '胜局榜' : '活跃榜';
   const quickEntry = state.me
     ? '<div class="roomRow" style="margin-top:12px"><button class="btn" data-nav="me">查看我的主页</button><button class="ghost" data-nav="play">进入对局大厅</button></div>'
@@ -804,15 +796,13 @@ function renderCommunityPage() {
       ${quickEntry}
     </section>
     <section class="panel" style="margin-top:18px">
-      <div class="roomRow" style="margin-bottom:12px; justify-content: space-between; align-items: center;">
-        <div style="display:flex; gap:10px;">
-          <button class="${isWin ? 'btn' : 'ghost'}" data-community-tab="win">胜局榜</button>
-          <button class="${!isWin ? 'btn' : 'ghost'}" data-community-tab="activity">活跃榜</button>
-        </div>
-        <div style="display:flex; gap:10px;">
-          <button class="${state.leaderboardGameType === 'XIANGQI' ? 'btn' : 'ghost'}" data-community-game-type="XIANGQI">象棋</button>
-          <button class="${state.leaderboardGameType === 'GOMOKU' ? 'btn' : 'ghost'}" data-community-game-type="GOMOKU">五子棋</button>
-        </div>
+      <div class="roomRow" style="margin-bottom:12px">
+        <button class="${isWin ? 'btn' : 'ghost'}" data-community-tab="win">胜局榜</button>
+        <button class="${!isWin ? 'btn' : 'ghost'}" data-community-tab="activity">活跃榜</button>
+      </div>
+      <div class="roomRow" style="margin-bottom:12px; display: flex; gap: 8px;">
+        <button class="${state.leaderboardGameType === 'XIANGQI' ? 'btn' : 'ghost'}" data-community-game-type="XIANGQI">象棋</button>
+        <button class="${state.leaderboardGameType === 'GOMOKU' ? 'btn' : 'ghost'}" data-community-game-type="GOMOKU">五子棋</button>
       </div>
       ${board.fallbackToAllTime ? '<div class="banner">近 30 天样本较少，当前展示全量历史榜单。</div>' : ''}
       <h2 class="sectionTitle">${title}</h2>
@@ -1197,11 +1187,11 @@ function renderPlay() {
           <div class="field"><label>邀请码</label><input id="joinCode" placeholder="输入 8 位房间码" /></div>
           <button class="btn" data-action="join-by-code">通过邀请码加入</button>
           
-          <div class="field" style="margin-top:12px;">
+          <div class="field" style="margin-top: 12px; margin-bottom: 12px;">
             <label>搜索大厅</label>
-            <input id="lobbySearchInput" placeholder="输入房间ID或用户名" value="${escapeHtml(state.lobbySearch.query)}" />
+            <input type="text" id="lobbySearchInput" placeholder="输入房间ID或用户名搜索..." value="${escapeHtml(state.lobbySearch.query)}" style="width: 100%; box-sizing: border-box;" />
           </div>
-
+          
           <h3>${state.lobbySearch.query ? '搜索结果' : '公开房间'}</h3>
           <div class="moves">
             ${state.lobbySearch.query ? (
@@ -1212,10 +1202,11 @@ function renderPlay() {
                       ...state.lobbySearch.rooms.map(room => `
                         <div class="move">
                           <div>
-                            <strong>${escapeHtml(room.gameType)} (房间)</strong>
-                            <div class="muted">${escapeHtml(room.hostUsername)}${room.guestUsername ? ` vs ${escapeHtml(room.guestUsername)}` : ' · 等待加入'}</div>
+                            <strong>${room.gameType} (${room.roomCode})</strong>
+                            <div class="muted">${room.hostUsername}${room.guestUsername ? ` vs ${room.guestUsername}` : ' · 等待加入'}</div>
+                            <div class="muted">状态: ${room.status}</div>
                           </div>
-                          <button class="ghost" data-nav="room/${escapeHtml(room.roomId)}">查看</button>
+                          <button class="ghost" data-nav="room/${room.roomId}">查看</button>
                         </div>
                       `),
                       ...state.lobbySearch.players.map(player => `
@@ -1228,17 +1219,17 @@ function renderPlay() {
                         </div>
                       `)
                     ].join('')
-                  ) : '<div class="banner">未找到匹配的房间或玩家。</div>'
+                  ) : '<div class="banner">未找到匹配的公开房间或玩家。</div>'
                 )
               )
             ) : (
               rooms.length ? rooms.map(room => `
                 <div class="move">
                   <div>
-                    <strong>${escapeHtml(room.gameType)}</strong>
-                    <div class="muted">${escapeHtml(room.hostUsername)}${room.guestUsername ? ` vs ${escapeHtml(room.guestUsername)}` : ' · 等待加入'}</div>
+                    <strong>${room.gameType}</strong>
+                    <div class="muted">${room.hostUsername}${room.guestUsername ? ` vs ${room.guestUsername}` : ' · 等待加入'}</div>
                   </div>
-                  <button class="ghost" data-nav="room/${escapeHtml(room.roomId)}">查看</button>
+                  <button class="ghost" data-nav="room/${room.roomId}">查看</button>
                 </div>`).join('') : '<div class="banner">当前没有公开房间，创建一个新的也可以。</div>'
             )}
           </div>
@@ -2023,25 +2014,6 @@ function bindCommon(route) {
   on('[data-action="toggle-ready"]', toggleReady);
   on('[data-action="create-practice"]', createPracticeGame);
   on('[data-action="refresh-watch"]', () => loadWatchOverview(true));
-  
-  const searchInput = document.getElementById('lobbySearchInput');
-  if (searchInput) {
-    searchInput.addEventListener('input', event => {
-      const value = event.target.value;
-      if (state.lobbySearchTimer) {
-        window.clearTimeout(state.lobbySearchTimer);
-      }
-      state.lobbySearchTimer = window.setTimeout(() => {
-        loadLobbySearch(value);
-      }, 300);
-    });
-    if (state.lobbySearch.query) {
-      searchInput.focus();
-      const len = searchInput.value.length;
-      searchInput.setSelectionRange(len, len);
-    }
-  }
-
   document.querySelectorAll('[data-board-pane]').forEach(el => el.addEventListener('click', () => {
     const pane = el.getAttribute('data-board-pane');
     if (pane !== 'board' && pane !== 'moves') {
@@ -2083,6 +2055,24 @@ function bindCommon(route) {
   }));
   if (route.page === 'play' && !state.lobby) {
     loadLobby();
+  }
+  
+  const searchInput = document.getElementById('lobbySearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', event => {
+      const value = event.target.value;
+      state.lobbySearch.query = value;
+      if (state.lobbySearchTimer) {
+        window.clearTimeout(state.lobbySearchTimer);
+      }
+      state.lobbySearchTimer = window.setTimeout(() => {
+        loadLobbySearch(value);
+      }, 300);
+    });
+    if (state.lobbySearch.query) {
+      searchInput.focus();
+      searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    }
   }
 }
 
@@ -2269,7 +2259,7 @@ async function quickStartAiPractice() {
 async function quickStartGomokuPractice() {
   if (!state.me) {
     state.showAuthModal = true;
-    state.authError = '请先登录，再直接进入五子棋 AI 对局。';
+    state.authError = '请先登录，再直接进入 AI 对局。';
     render();
     return;
   }
