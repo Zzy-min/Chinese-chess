@@ -68,7 +68,11 @@ const state = {
     preferredEngine: 'BUILTIN'
   },
   learnFilter: 'all',
-  learnSearchQuery: ''
+  learnSearchQuery: '',
+  toasts: [],
+  toastSeq: 0,
+  actionBusy: '',
+  actionBusyLabel: ''
 };
 
 const API_BASE = '/online/api';
@@ -272,6 +276,107 @@ function navTo(path) {
   location.hash = path;
 }
 
+function showToast(message, type = 'info', durationMs = 2800) {
+  const text = String(message || '').trim();
+  if (!text) return;
+  const id = ++state.toastSeq;
+  state.toasts = [...(state.toasts || []).slice(-4), { id, text, type: type || 'info' }];
+  patchToastHost();
+  window.setTimeout(() => {
+    state.toasts = (state.toasts || []).filter(item => item.id !== id);
+    patchToastHost();
+  }, Math.max(1200, durationMs || 2800));
+}
+
+function patchToastHost() {
+  let host = document.getElementById('toastHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toastHost';
+    host.className = 'toastHost';
+    host.setAttribute('aria-live', 'polite');
+    host.setAttribute('aria-relevant', 'additions text');
+    document.body.appendChild(host);
+  }
+  host.innerHTML = (state.toasts || []).map(item => `
+    <div class="toast toast--${escapeHtml(item.type || 'info')}" role="status">${escapeHtml(item.text)}</div>
+  `).join('');
+}
+
+function isActionBusy(key) {
+  return !!state.actionBusy && (!key || state.actionBusy === key);
+}
+
+async function withActionBusy(key, label, work) {
+  if (state.actionBusy) {
+    showToast(state.actionBusyLabel ? `请稍候：${state.actionBusyLabel}` : '操作进行中，请稍候…', 'info', 1600);
+    return null;
+  }
+  state.actionBusy = key;
+  state.actionBusyLabel = label || '处理中';
+  patchBusyButtons();
+  try {
+    return await work();
+  } finally {
+    if (state.actionBusy === key) {
+      state.actionBusy = '';
+      state.actionBusyLabel = '';
+      patchBusyButtons();
+    }
+  }
+}
+
+function patchBusyButtons() {
+  document.querySelectorAll('[data-action]').forEach(el => {
+    const action = el.getAttribute('data-action') || '';
+    const busyKeys = (el.getAttribute('data-busy-key') || action).split(',').map(s => s.trim()).filter(Boolean);
+    const busy = state.actionBusy && busyKeys.includes(state.actionBusy);
+    if (busy) {
+      el.classList.add('is-busy');
+      el.setAttribute('aria-busy', 'true');
+      if ('disabled' in el) el.disabled = true;
+    } else if (el.classList.contains('is-busy')) {
+      el.classList.remove('is-busy');
+      el.removeAttribute('aria-busy');
+      if ('disabled' in el && !el.hasAttribute('data-keep-disabled')) el.disabled = false;
+    }
+  });
+  const bar = document.getElementById('actionBusyBar');
+  if (state.actionBusy && state.actionBusyLabel) {
+    if (!bar) {
+      const next = document.createElement('div');
+      next.id = 'actionBusyBar';
+      next.className = 'actionBusyBar';
+      next.setAttribute('role', 'status');
+      next.setAttribute('aria-live', 'polite');
+      next.textContent = state.actionBusyLabel;
+      document.body.appendChild(next);
+    } else {
+      bar.textContent = state.actionBusyLabel;
+      bar.hidden = false;
+    }
+  } else if (bar) {
+    bar.hidden = true;
+  }
+}
+
+function openAuthModal(message) {
+  state.showAuthModal = true;
+  state.authError = message || state.authError || '';
+  render();
+  window.requestAnimationFrame(() => {
+    const input = document.getElementById('authUsername');
+    if (input) input.focus();
+  });
+}
+
+function closeAuthModal() {
+  if (!state.showAuthModal) return;
+  state.showAuthModal = false;
+  state.authError = '';
+  render();
+}
+
 function render() {
   const route = currentRoute();
   const isBoardRoute = isBoardRoutePage(route.page);
@@ -285,10 +390,13 @@ function render() {
   if (route.page === 'practice') {
     siteClasses.push('route-practice-locked');
   }
+  if (state.actionBusy) {
+    siteClasses.push('is-action-busy');
+  }
   app.innerHTML = `
     <div class="${siteClasses.join(' ')}">
       ${renderTopbar(route.page)}
-      <main class="shell">
+      <main class="shell" id="mainContent">
         ${renderPage(route)}
       </main>
       ${renderBottomNav(route.page)}
@@ -300,6 +408,14 @@ function render() {
   syncRealtime(route);
   syncPracticePolling(route);
   fitBoardToViewport(route, false);
+  patchToastHost();
+  patchBusyButtons();
+  if (shouldShowAuthOverlay(route)) {
+    window.requestAnimationFrame(() => {
+      const input = document.getElementById('authUsername');
+      if (input && document.activeElement === document.body) input.focus();
+    });
+  }
 }
 
 function fitBoardToViewport(route = currentRoute(), force = false) {
@@ -704,11 +820,15 @@ function onlineGameStatusText(game) {
 function shouldShowAuthOverlay(route) {
   if (state.me) return false;
   if (state.showAuthModal) return true;
-  const pagePath = route.page + (route.id ? '/' + route.id : '');
-  if (pagePath === 'play/xiangqi' || pagePath === 'play/gomoku') {
+  // Mode showcase pages remain browsable without login.
+  if (route.page === 'play' && (route.id === 'xiangqi' || route.id === 'gomoku')) {
     return false;
   }
-  return ['play', 'room', 'game', 'practice', 'me'].includes(route.page);
+  // Lobby can be browsed; only force auth for protected surfaces.
+  if (route.page === 'play' && !route.id) {
+    return false;
+  }
+  return ['room', 'game', 'practice', 'me'].includes(route.page);
 }
 
 function renderHomePage() {
@@ -2057,21 +2177,36 @@ function renderPlaceholder(title, desc) {
 }
 
 function renderAuthOverlay() {
+  const canDismiss = !!state.showAuthModal;
   return `
-    <div class="authOverlay">
-      <div class="authCard">
-        <div class="meta">Authentication</div>
-        <h2 class="sectionTitle">登录后可进行房间对局与学习进度互动</h2>
-        <div class="authTabs">
-          <button class="${state.authMode === 'login' ? 'btn' : 'ghost'}" data-auth-mode="login">登录</button>
-          <button class="${state.authMode === 'register' ? 'btn' : 'ghost'}" data-auth-mode="register">注册</button>
+    <div class="authOverlay" data-auth-overlay ${canDismiss ? 'data-action="close-auth"' : ''}>
+      <div class="authCard" role="dialog" aria-modal="true" aria-labelledby="authDialogTitle" data-auth-card>
+        <div class="authCardHead">
+          <div>
+            <div class="meta">账号</div>
+            <h2 class="sectionTitle" id="authDialogTitle">登录后开启对局与学习进度</h2>
+          </div>
+          ${canDismiss ? '<button type="button" class="ghost authCloseBtn" data-action="close-auth" aria-label="关闭登录">×</button>' : ''}
         </div>
-        <div class="stack">
-          <div class="field"><label>用户名</label><input id="authUsername" placeholder="例如 river-horse" /></div>
-          <div class="field"><label>密码</label><input id="authPassword" type="password" placeholder="至少 8 位" /></div>
-          <button class="btn" data-action="submit-auth">${state.authMode === 'login' ? '登录' : '注册并登录'}</button>
-          <div class="status">${state.authError || ''}</div>
+        <p class="muted authHint">支持房间对战、快速匹配、AI 练习与战绩同步。未登录仍可浏览大厅与棋谱。</p>
+        <div class="authTabs" role="tablist">
+          <button type="button" class="${state.authMode === 'login' ? 'btn' : 'ghost'}" data-auth-mode="login" role="tab" aria-selected="${state.authMode === 'login'}">登录</button>
+          <button type="button" class="${state.authMode === 'register' ? 'btn' : 'ghost'}" data-auth-mode="register" role="tab" aria-selected="${state.authMode === 'register'}">注册</button>
         </div>
+        <form class="stack authForm" data-auth-form>
+          <div class="field">
+            <label for="authUsername">用户名</label>
+            <input id="authUsername" name="username" autocomplete="username" placeholder="例如 river-horse" required />
+          </div>
+          <div class="field">
+            <label for="authPassword">密码</label>
+            <input id="authPassword" name="password" type="password" autocomplete="${state.authMode === 'login' ? 'current-password' : 'new-password'}" placeholder="至少 8 位" required minlength="8" />
+          </div>
+          <button type="submit" class="btn ${state.actionBusy === 'auth' ? 'is-busy' : ''}" data-action="submit-auth" data-busy-key="auth" ${state.actionBusy === 'auth' ? 'disabled' : ''}>
+            ${state.actionBusy === 'auth' ? '提交中…' : (state.authMode === 'login' ? '登录' : '注册并登录')}
+          </button>
+          <div class="status ${state.authError ? 'status--error' : ''}" role="alert">${escapeHtml(state.authError || '')}</div>
+        </form>
       </div>
     </div>
   `;
@@ -2485,12 +2620,42 @@ function isViewerOwnXiangqiPiece(piece, viewerSide) {
 
 function bindCommon(route) {
   bindNavClicks();
+  if (!window.__onlineGlobalKeysBound) {
+    window.__onlineGlobalKeysBound = true;
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && state.showAuthModal) {
+        event.preventDefault();
+        closeAuthModal();
+      }
+    });
+  }
   document.querySelectorAll('[data-auth-mode]').forEach(el => el.addEventListener('click', () => {
     state.authMode = el.getAttribute('data-auth-mode');
-    state.authError = '';
-    state.showAuthModal = true;
-    render();
+    openAuthModal('');
   }));
+  const authForm = document.querySelector('[data-auth-form]');
+  if (authForm && authForm.dataset.boundAuthForm !== '1') {
+    authForm.dataset.boundAuthForm = '1';
+    authForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitAuth();
+    });
+  }
+  document.querySelectorAll('[data-action="close-auth"]').forEach(el => {
+    if (el.dataset.boundCloseAuth === '1') return;
+    el.dataset.boundCloseAuth = '1';
+    el.addEventListener('click', (event) => {
+      if (el.hasAttribute('data-auth-overlay') && event.target !== el) return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeAuthModal();
+    });
+  });
+  document.querySelectorAll('[data-auth-card]').forEach(el => {
+    if (el.dataset.boundAuthCard === '1') return;
+    el.dataset.boundAuthCard = '1';
+    el.addEventListener('click', (event) => event.stopPropagation());
+  });
   document.querySelectorAll('[data-learn-field]').forEach(el => el.addEventListener('change', event => updateLearnConfig(event.currentTarget)));
   document.querySelectorAll('[data-watch-filter]').forEach(el => el.addEventListener('change', event => {
     const field = event.currentTarget.getAttribute('data-watch-filter');
@@ -2511,13 +2676,12 @@ function bindCommon(route) {
   document.querySelectorAll('[data-action="start-practice-preset"]').forEach(el => el.addEventListener('click', startPracticeFromPreset));
   document.querySelectorAll('[data-action="start-puzzle-practice"]').forEach(el => el.addEventListener('click', startPracticeFromPuzzle));
   on('[data-action="logout"]', logout);
-  on('[data-action="show-auth"]', () => {
-    state.showAuthModal = true;
-    state.authError = '';
-    render();
-  });
+  on('[data-action="show-auth"]', () => openAuthModal(''));
   on('[data-action="toggle-sound"]', toggleOnlineSound);
-  on('[data-action="submit-auth"]', submitAuth);
+  on('[data-action="submit-auth"]', (event) => {
+    event.preventDefault();
+    submitAuth();
+  });
   on('[data-action="quick-start-ai-practice"]', quickStartAiPractice);
   on('[data-action="quick-start-gomoku-practice"]', quickStartGomokuPractice);
   on('[data-action="quick-start-public-match"]', (event) => {
@@ -2607,6 +2771,7 @@ function bindCommon(route) {
     el.addEventListener('click', () => {
       state.boardTheme = state.boardTheme === 'ink' ? 'wood' : 'ink';
       saveProfilePreferences({ boardTheme: state.boardTheme }).catch(() => null);
+      showToast(state.boardTheme === 'ink' ? '已切换清雅水墨' : '已切换古雅木纹', 'info', 1400);
       render();
     });
   });
@@ -2617,6 +2782,7 @@ function bindCommon(route) {
     el.addEventListener('click', () => {
       state.boardFlipped = !state.boardFlipped;
       saveProfilePreferences({ boardFlipped: !!state.boardFlipped }).catch(() => null);
+      showToast(state.boardFlipped ? '棋盘已翻转' : '棋盘已恢复正位', 'info', 1400);
       render();
     });
   });
@@ -2700,21 +2866,34 @@ function on(selector, handler) {
 }
 
 async function submitAuth() {
-  const username = document.getElementById('authUsername').value.trim();
-  const password = document.getElementById('authPassword').value;
+  if (isActionBusy('auth')) return;
+  const usernameEl = document.getElementById('authUsername');
+  const passwordEl = document.getElementById('authPassword');
+  const username = usernameEl ? usernameEl.value.trim() : '';
+  const password = passwordEl ? passwordEl.value : '';
   state.authError = '';
-  try {
-    const url = state.authMode === 'login' ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
-    const data = await fetchJson(url, { method: 'POST', body: JSON.stringify({ username, password }) });
-    state.me = data.user;
-    state.showAuthModal = false;
-    await refreshBootstrapAndProfile();
-    await Promise.all([loadLearnProgress(), loadProfilePreferences(), loadProfileDashboard(false)]);
+  if (!username || password.length < 8) {
+    state.authError = !username ? '请输入用户名' : '密码至少 8 位';
     render();
-  } catch (error) {
-    state.authError = error.message;
-    render();
+    return;
   }
+  await withActionBusy('auth', state.authMode === 'login' ? '正在登录…' : '正在注册…', async () => {
+    try {
+      const url = state.authMode === 'login' ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
+      const data = await fetchJson(url, { method: 'POST', body: JSON.stringify({ username, password }) });
+      state.me = data.user;
+      state.showAuthModal = false;
+      state.authError = '';
+      await refreshBootstrapAndProfile();
+      await Promise.all([loadLearnProgress(), loadProfilePreferences(), loadProfileDashboard(false)]);
+      showToast(state.authMode === 'login' ? `欢迎回来，${username}` : `注册成功，已登录 ${username}`, 'success');
+      render();
+    } catch (error) {
+      state.authError = error.message || '登录失败';
+      showToast(state.authError, 'error', 3200);
+      render();
+    }
+  });
 }
 
 async function logout() {
@@ -2830,90 +3009,100 @@ async function createRoom() {
 
 async function quickStartPublicMatch(gameType = 'XIANGQI', initialTimeSeconds = 300) {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '请先登录，再进行真人快速匹配。';
-    render();
+    openAuthModal('请先登录，再进行真人快速匹配。');
     return;
   }
   const normalizedType = String(gameType || 'XIANGQI').toUpperCase() === 'GOMOKU' ? 'GOMOKU' : 'XIANGQI';
-  try {
-    state.status = '正在匹配对手…';
-    render();
-    const result = await fetchJson(`${API_BASE}/rooms/quick-match`, {
-      method: 'POST',
-      body: JSON.stringify({
-        gameType: normalizedType,
-        initialTimeSeconds: Number(initialTimeSeconds) || 300
-      })
-    });
-    const room = result.room || result;
-    state.room = room;
-    state.lobby = null;
-    state.status = result.matched
-      ? '已匹配到对手，在线对局已准备就绪。'
-      : '已创建公开候场房，等待棋友加入。';
-    await refreshBootstrapAndProfile();
-    if (room.gameId) {
-      navTo(`game/${room.gameId}`);
-    } else {
-      navTo(`room/${room.roomId}`);
+  await withActionBusy('quick-match', '正在匹配对手…', async () => {
+    try {
+      state.status = '正在匹配对手…';
+      render();
+      const result = await fetchJson(`${API_BASE}/rooms/quick-match`, {
+        method: 'POST',
+        body: JSON.stringify({
+          gameType: normalizedType,
+          initialTimeSeconds: Number(initialTimeSeconds) || 300
+        })
+      });
+      const room = result.room || result;
+      state.room = room;
+      state.lobby = null;
+      state.status = result.matched
+        ? '已匹配到对手，在线对局已准备就绪。'
+        : '已创建公开候场房，等待棋友加入。';
+      showToast(state.status, result.matched ? 'success' : 'info', 2600);
+      await refreshBootstrapAndProfile();
+      if (room.gameId) {
+        navTo(`game/${room.gameId}`);
+      } else {
+        navTo(`room/${room.roomId}`);
+      }
+    } catch (error) {
+      state.status = error.message;
+      showToast(error.message || '匹配失败', 'error');
+      render();
     }
-  } catch (error) {
-    state.status = error.message;
-    render();
-  }
+  });
 }
 
 async function createRoomWithPreset(preset) {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '请先登录，再创建或发起对局。';
-    render();
+    openAuthModal('请先登录，再创建或发起对局。');
     return;
   }
-  try {
-    state.status = '';
-    const room = await fetchJson(`${API_BASE}/rooms`, {
-      method: 'POST',
-      body: JSON.stringify({
-        gameType: preset.gameType,
-        initialTimeSeconds: Number(preset.initialTimeSeconds || 600),
-        isPublic: preset.isPublic !== false
-      })
-    });
-    state.room = room;
-    state.lobby = null;
-    await refreshBootstrapAndProfile();
-    navTo(`room/${room.roomId}`);
-  } catch (error) {
-    state.status = error.message;
-    render();
-  }
+  await withActionBusy('create-room', '正在创建房间…', async () => {
+    try {
+      state.status = '';
+      const room = await fetchJson(`${API_BASE}/rooms`, {
+        method: 'POST',
+        body: JSON.stringify({
+          gameType: preset.gameType,
+          initialTimeSeconds: Number(preset.initialTimeSeconds || 600),
+          isPublic: preset.isPublic !== false
+        })
+      });
+      state.room = room;
+      state.lobby = null;
+      showToast('房间已创建', 'success', 1800);
+      await refreshBootstrapAndProfile();
+      navTo(`room/${room.roomId}`);
+    } catch (error) {
+      state.status = error.message;
+      showToast(error.message || '创建房间失败', 'error');
+      render();
+    }
+  });
 }
 
 async function createPracticeGame(overrideConfig = null) {
   const payload = overrideConfig ? { ...state.learnConfig, ...overrideConfig } : state.learnConfig;
-  try {
-    state.status = '';
-    stopPracticePolling();
-    const game = await fetchJson(`${API_BASE}/learn/practice-games`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-    state.game = applyServerGameSnapshot(game);
-    await refreshBootstrapAndProfile();
-    navTo(`practice/${game.gameId}`);
-  } catch (error) {
-    state.status = error.message;
-    render();
+  if (!state.me) {
+    openAuthModal('请先登录，再进入 AI 练习。');
+    return;
   }
+  await withActionBusy('practice', '正在进入 AI 练习…', async () => {
+    try {
+      state.status = '';
+      stopPracticePolling();
+      const game = await fetchJson(`${API_BASE}/learn/practice-games`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      state.game = applyServerGameSnapshot(game);
+      showToast('AI 练习局已开始', 'success', 1600);
+      await refreshBootstrapAndProfile();
+      navTo(`practice/${game.gameId}`);
+    } catch (error) {
+      state.status = error.message;
+      showToast(error.message || '创建练习失败', 'error');
+      render();
+    }
+  });
 }
 
 async function quickStartAiPractice() {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '请先登录，再直接进入 AI 对局。';
-    render();
+    openAuthModal('请先登录，再直接进入 AI 对局。');
     return;
   }
   state.learnConfig = {
@@ -2927,9 +3116,7 @@ async function quickStartAiPractice() {
 
 async function quickStartGomokuPractice() {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '请先登录，再直接进入 AI 对局。';
-    render();
+    openAuthModal('请先登录，再直接进入 AI 对局。');
     return;
   }
   state.learnConfig = {
@@ -2943,9 +3130,7 @@ async function quickStartGomokuPractice() {
 
 async function startPracticeFromPreset(event) {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '登录后可按推荐配置开始练习';
-    render();
+    openAuthModal('登录后可按推荐配置开始练习');
     return;
   }
   const presetId = event.currentTarget.getAttribute('data-preset-id');
@@ -2967,9 +3152,7 @@ async function startPracticeFromPreset(event) {
 
 async function startPracticeFromPuzzle(event) {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '登录后可按题目局面直接开始练习';
-    render();
+    openAuthModal('登录后可按题目局面直接开始练习');
     return;
   }
   const puzzleId = event.currentTarget.getAttribute('data-puzzle-id');
@@ -3009,8 +3192,10 @@ async function markLearnCompleted(kind, id) {
   try {
     await fetchJson(endpoint, { method: 'POST', body: '{}' });
     await loadLearnProgress();
+    showToast('学习进度已记录', 'success', 1600);
   } catch (error) {
     state.status = error.message;
+    showToast(error.message || '记录失败', 'error');
     render();
   }
 }
@@ -3036,9 +3221,7 @@ async function startPracticeRematch() {
 
 async function joinByCode() {
   if (!state.me) {
-    state.showAuthModal = true;
-    state.authError = '请先登录，再通过房间码加入。';
-    render();
+    openAuthModal('请先登录，再通过房间码加入。');
     return;
   }
   const input = document.getElementById('joinCode');
@@ -3048,22 +3231,31 @@ async function joinByCode() {
   }
   if (!roomCode) {
     state.status = '请输入房间码。';
-    render();
+    showToast('请输入房间码', 'error', 2200);
+    if (input) {
+      input.classList.add('input-invalid');
+      input.focus();
+      window.setTimeout(() => input.classList.remove('input-invalid'), 1200);
+    }
     return;
   }
-  try {
-    state.status = '';
-    const room = await fetchJson(`${API_BASE}/rooms/join-by-code`, {
-      method: 'POST',
-      body: JSON.stringify({ roomCode })
-    });
-    state.room = room;
-    await refreshBootstrapAndProfile();
-    navTo(`room/${room.roomId}`);
-  } catch (error) {
-    state.status = error.message;
-    render();
-  }
+  await withActionBusy('join-code', '正在加入房间…', async () => {
+    try {
+      state.status = '';
+      const room = await fetchJson(`${API_BASE}/rooms/join-by-code`, {
+        method: 'POST',
+        body: JSON.stringify({ roomCode })
+      });
+      state.room = room;
+      showToast(`已加入房间 ${room.roomCode || roomCode}`, 'success');
+      await refreshBootstrapAndProfile();
+      navTo(`room/${room.roomId}`);
+    } catch (error) {
+      state.status = error.message;
+      showToast(error.message || '加入失败', 'error');
+      render();
+    }
+  });
 }
 
 async function joinCurrentRoom() {
@@ -3689,6 +3881,7 @@ function toggleOnlineSound() {
   state.soundEnabled = !state.soundEnabled;
   persistOnlineSoundEnabled(state.soundEnabled);
   saveProfilePreferences({ soundEnabled: !!state.soundEnabled }).catch(() => null);
+  showToast(state.soundEnabled ? '音效已开启' : '音效已关闭', 'info', 1400);
   render();
 }
 

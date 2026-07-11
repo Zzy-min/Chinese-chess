@@ -3095,3 +3095,159 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
     grid-template-columns: 1fr;
   }
 }
+
+/* ==================== 2026-07-11 Interaction UX ==================== */
+.toastHost{
+  position:fixed;
+  left:50%;
+  bottom:max(24px, env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  z-index:12000;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  width:min(420px, calc(100vw - 28px));
+  pointer-events:none;
+}
+.toast{
+  pointer-events:none;
+  padding:12px 16px;
+  border-radius:14px;
+  background:rgba(30,26,22,.92);
+  color:#fff;
+  font-size:14px;
+  line-height:1.45;
+  box-shadow:0 12px 28px rgba(20,16,12,.22);
+  border:1px solid rgba(255,255,255,.08);
+  animation:toastIn .22s ease-out;
+}
+.toast--success{background:rgba(35,92,62,.95);border-color:rgba(170,230,190,.25)}
+.toast--error{background:rgba(155,45,40,.95);border-color:rgba(255,190,180,.22)}
+.toast--info{background:rgba(30,26,22,.92)}
+.actionBusyBar{
+  position:fixed;
+  top:12px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:11900;
+  padding:8px 14px;
+  border-radius:999px;
+  background:rgba(251,248,241,.96);
+  border:1px solid rgba(182,156,122,.35);
+  color:var(--ink);
+  font-size:13px;
+  box-shadow:0 8px 20px rgba(40,30,20,.12);
+}
+.btn.is-busy,.ghost.is-busy,.danger.is-busy,.actionBtn.is-busy,.deskQuickItem.is-busy{
+  opacity:.72;
+  cursor:wait;
+  position:relative;
+}
+.btn.is-busy::after,.actionBtn.is-busy::after{
+  content:"";
+  width:12px;height:12px;margin-left:8px;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  border-radius:50%;
+  display:inline-block;
+  vertical-align:-1px;
+  animation:spinBusy .7s linear infinite;
+}
+@keyframes toastIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes spinBusy{
+  to{transform:rotate(360deg)}
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.deskQuickItem:focus-visible,
+.actionBtn:focus-visible,
+.deskSidebarItem:focus-visible,
+.profileSidebarItem:focus-visible,
+.navItem:focus-visible{
+  outline:3px solid rgba(140,46,33,.45);
+  outline-offset:2px;
+}
+.authOverlay{
+  animation:authFade .18s ease-out;
+}
+.authCard{
+  animation:authPop .2s ease-out;
+  max-width:min(420px, calc(100vw - 32px));
+}
+.authCardHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+.authCloseBtn{
+  min-width:40px;
+  min-height:40px;
+  font-size:22px;
+  line-height:1;
+  padding:0 10px;
+}
+.authHint{margin:0 0 14px}
+.authForm .field label{display:block;margin-bottom:6px;font-size:13px;color:var(--muted)}
+.authForm input{
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+}
+.authForm input:focus{
+  border-color:rgba(140,46,33,.55);
+  box-shadow:0 0 0 3px rgba(140,46,33,.12);
+  outline:none;
+}
+.input-invalid{
+  border-color:var(--danger)!important;
+  box-shadow:0 0 0 3px rgba(177,63,47,.15)!important;
+  animation:shakeX .35s ease;
+}
+.status--error{color:var(--danger);font-weight:600}
+@keyframes authFade{from{opacity:0}to{opacity:1}}
+@keyframes authPop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes shakeX{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  75%{transform:translateX(4px)}
+}
+#joinCode{
+  min-height:44px;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.bottomNav .navItem{
+  min-height:52px;
+  min-width:56px;
+}
+.pill,.deskLobbyTabs .pill{
+  min-height:36px;
+  padding:8px 14px;
+}
+.deskQuickItem,.actionBtn,.deskSidebarItem{
+  min-height:44px;
+}
+.site.is-action-busy{
+  cursor:progress;
+}
+@media (max-width:768px){
+  .toastHost{bottom:max(78px, calc(env(safe-area-inset-bottom) + 64px))}
+  .btn,.ghost,.danger{min-height:44px}
+  .profileSidebarItem,.deskSidebarItem{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
