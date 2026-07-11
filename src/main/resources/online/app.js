@@ -900,22 +900,31 @@ function renderLearnItemCard(item, completedSet) {
   }
   
   let actionBtn = '';
-  const expanded = isTutorial && state.expandedTutorialId === item.id;
+  const expandId = item.id || '';
+  const expanded = !!expandId && state.expandedTutorialId === expandId;
   if (isTutorial) {
-    actionBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(item.id || '')}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起详情' : '查看详情'}</button>`;
+    actionBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起详情' : '查看详情'}</button>`;
   } else {
+    const detailBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起参考' : '参考着法'}</button>`;
     if (canStartPuzzlePractice(item)) {
-      actionBtn = `<button class="ghost" data-action="start-puzzle-practice" data-puzzle-id="${escapeHtml(item.id || '')}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">开始研究</button>`;
+      actionBtn = `${detailBtn}<button class="ghost" data-action="start-puzzle-practice" data-puzzle-id="${escapeHtml(item.id || '')}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">开始研究</button>`;
     } else {
-      actionBtn = `<button class="ghost" disabled style="margin-top:6px; padding:4px 12px; font-size:11px; color:var(--text-muted); border-color:transparent; background:transparent;">FEN 待补全</button>`;
+      actionBtn = `${detailBtn}<button class="ghost" disabled style="margin-top:6px; padding:4px 12px; font-size:11px; color:var(--text-muted); border-color:transparent; background:transparent;">FEN 待补全</button>`;
     }
   }
 
+  const solutionLine = Array.isArray(item.solutionLine) ? item.solutionLine : [];
+  const solutionText = Array.isArray(item.solution) ? item.solution : [];
+  const hasEngineLine = solutionLine.length > 0;
   const detailHtml = expanded ? `
     <div class="learnTutorialDetail" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color); text-align:left; width:100%;">
       ${item.objective ? `<div class="muted" style="margin-bottom:8px;"><strong>目标：</strong>${escapeHtml(item.objective)}</div>` : ''}
-      ${renderLearnListBlock('要点', item.keyPoints || [])}
+      ${item.goal ? `<div class="muted" style="margin-bottom:8px;"><strong>任务：</strong>${escapeHtml(item.goal)}</div>` : ''}
+      ${renderLearnListBlock('要点', item.keyPoints || item.hints || [])}
       ${renderLearnListBlock('示例着法', item.exampleLine || [])}
+      ${renderLearnListBlock(hasEngineLine ? '引擎参考着法' : '参考说明', hasEngineLine ? solutionLine.map((mv, i) => `${i + 1}. ${mv}`) : solutionText)}
+      ${item.solver || item.endedBy ? `<div class="muted" style="margin-top:8px;font-size:12px;">求解：${escapeHtml(item.solver || '-')} · 终止：${escapeHtml(item.endedBy || '-')} · 半步：${escapeHtml(String(item.solutionPlies || solutionLine.length || 0))}</div>` : ''}
+      ${item.fen ? renderLearnFenBlock(item.fen) : ''}
       ${renderLearnListBlock('练习清单', item.practiceChecklist || [])}
     </div>
   ` : '';
@@ -928,7 +937,7 @@ function renderLearnItemCard(item, completedSet) {
           ${badgeChar}
         </span>
         <div class="learnCardInfo" style="margin-left:16px; text-align:left;">
-          <h3 style="margin:0 0 4px; font-size:16px; font-weight:bold; color:var(--text-color);">${escapeHtml(item.title || '')}</h3>
+          <h3 style="margin:0 0 4px; font-size:16px; font-weight:bold; color:var(--text-color);">${escapeHtml(item.title || '')}${hasEngineLine ? ' <span class="pill" style="font-size:10px;padding:2px 6px;">有参考着法</span>' : ''}</h3>
           <div class="muted" style="margin-bottom:4px; font-size:12px; color:var(--text-muted); font-weight:500;">${escapeHtml(metaText)}</div>
           <div class="muted learnSummaryOneLine" style="font-size:13px; color:var(--text-muted);">${escapeHtml(item.summary || '暂无详细介绍')}</div>
         </div>
