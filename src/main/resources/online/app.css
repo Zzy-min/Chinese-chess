@@ -10,6 +10,11 @@
   --brand-soft:#f9efef;
   --accent:#b66a2a;
   --danger:#b13f2f;
+  /* aliases used by some inline styles */
+  --border-color:var(--line);
+  --pane-bg:var(--panel);
+  --text-color:var(--ink);
+  --text-muted:var(--muted);
 }
 *{box-sizing:border-box}
 body{margin:0;background:linear-gradient(180deg,#f8f4ec 0,#f2ede2 100%);color:var(--ink);font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;overflow-x:hidden}
