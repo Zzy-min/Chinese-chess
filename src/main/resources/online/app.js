@@ -1013,10 +1013,12 @@ function renderLearnPage(route) {
           <h1 style="margin:8px 0; font-size:28px; font-weight:bold;">棋谱库</h1>
           <p style="margin:0; font-size:14px; color:var(--text-muted);">从残局题库、教程复盘到 AI 对战，当前网页端的学习能力全部保持免费可用。</p>
         </div>
-        <div class="heroRight" style="position:relative; width:280px; display:flex; align-items:center;">
-          <input type="text" id="learnSearchInput" placeholder="搜索棋谱、棋手、赛事..." value="${escapeHtml(state.learnSearchQuery || '')}" 
-                 style="width:100%; padding:8px 36px 8px 14px; border:1px solid var(--border-color); border-radius:20px; font-size:14px; outline:none; background:var(--pane-bg); color:var(--text-color);" />
-          <span style="position:absolute; right:14px; color:var(--text-muted); pointer-events:none; font-size:14px;">🔍</span>
+        <div class="heroRight learnSearchWrap">
+          <label class="searchFieldLabel" for="learnSearchInput">搜索棋谱</label>
+          <div class="searchBar searchBar--learn">
+            <span class="searchIcon" aria-hidden="true">🔍</span>
+            <input type="search" id="learnSearchInput" name="learnSearch" placeholder="搜索棋谱、棋手、赛事..." value="${escapeHtml(state.learnSearchQuery || '')}" autocomplete="off" />
+          </div>
         </div>
       </section>
 
@@ -4554,9 +4556,10 @@ function renderPlayLobbyDesk() {
       </aside>
       <section class="deskLobbyMain">
         <div class="panel deskLobbySearch">
-          <div class="searchBar">
-            <span class="searchIcon">🔍</span>
-            <input type="text" id="lobbySearchInput" placeholder="搜索房间、玩家、房间号..." value="${escapeHtml(state.lobbySearch.query)}" />
+          <label class="searchFieldLabel" for="lobbySearchInput">搜索大厅</label>
+          <div class="searchBar searchBar--lobby">
+            <span class="searchIcon" aria-hidden="true">🔍</span>
+            <input type="search" id="lobbySearchInput" name="lobbySearch" placeholder="搜索房间、玩家、房间号..." value="${escapeHtml(state.lobbySearch.query)}" autocomplete="off" />
           </div>
           <div class="deskLobbyTabs">
             <button class="pill is-active">全部</button>
@@ -4643,10 +4646,13 @@ function renderPlayLobbyDesk() {
               <span>自定义规则 邀请好友</span>
             </div>
           </button>
-          <div class="joinCodeBlock" style="margin-top:10px;width:100%">
-            <label class="muted" for="joinCode" style="display:block;margin-bottom:6px;font-size:12px">房间码</label>
-            <input id="joinCode" type="text" placeholder="例如 AB12CD" style="width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:6px;margin-bottom:8px;background:var(--pane-bg);color:var(--text-color)" />
-            <button class="actionBtn actionBtn--join" data-action="join-by-code" style="width:100%">
+          <div class="joinCodeBlock">
+            <label class="searchFieldLabel" for="joinCode">房间码</label>
+            <div class="searchBar searchBar--join">
+              <span class="searchIcon" aria-hidden="true">#</span>
+              <input id="joinCode" type="text" name="joinCode" placeholder="输入房间码，例如 AB12CD" autocomplete="off" spellcheck="false" />
+            </div>
+            <button class="actionBtn actionBtn--join" data-action="join-by-code" style="width:100%;margin-top:10px">
               <span class="actionIcon">🏠</span>
               <div class="actionText">
                 <strong>加入房间</strong>
