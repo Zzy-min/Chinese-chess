@@ -43,6 +43,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Compact online HTTP surface used by some tests and legacy mounts.
+ * Production traffic should use {@code com.xiangqi.web.PublicSiteServer},
+ * which exposes the full /online/api set (search, dashboard, preferences, quick-match, practice undo).
+ */
 public final class OnlineSiteServer {
     private static final String AUTH_COOKIE = "XQ_AUTH";
 

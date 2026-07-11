@@ -1,6 +1,6 @@
 # 轻·棋局 XiangqiArena
 
-Java web board-game platform for Xiangqi (Chinese Chess), Gomoku, and Go/Weiqi.
+Java web board-game platform. Online main path ships Xiangqi and Gomoku (rooms, quick-match, AI practice, review); Go is reserved in the shell and available via legacy local mode / go-engine, not as Online multiplayer yet.
 
 - Production domain: `https://www.xiangqiarena.com/`
 - Chinese docs: [README.zh-CN.md](README.zh-CN.md)

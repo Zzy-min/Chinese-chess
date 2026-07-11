@@ -1,0 +1,101 @@
+{
+  "checkedAt": "2026-07-11T03:45:11.737Z",
+  "baseUrl": "http://127.0.0.1:18388",
+  "steps": {
+    "guestQuickMatchAuthGate": {
+      "pass": true,
+      "hasQuickMatch": 1,
+      "authVisible": true,
+      "hasFakeLb": false,
+      "hasFakeSignin": false,
+      "navHasWatch": true
+    },
+    "registerUserA": {
+      "pass": "7a965579-2f5d-400b-be57-9f2904437939",
+      "username": "smoke_a_1783741513638",
+      "me": {
+        "status": 200,
+        "body": {
+          "id": "7a965579-2f5d-400b-be57-9f2904437939",
+          "username": "smoke_a_1783741513638"
+        }
+      }
+    },
+    "userAQuickMatch": {
+      "pass": true,
+      "hash": "#room/3e68dc07-478c-4848-9dc9-7a5707b07852",
+      "isRoom": true,
+      "isGame": false,
+      "roomCode": "802D8F43",
+      "statusText": true
+    },
+    "userBQuickMatch": {
+      "pass": true,
+      "username": "smoke_b_1783741515204",
+      "hash": "#game/018ccdd9-f6bc-410c-9879-703377a7b911",
+      "isRoomOrGame": true
+    },
+    "joinByCode": {
+      "pass": true,
+      "createdStatus": 200,
+      "hostRoomCode": "96EFBADD",
+      "hash": "#room/eaadf1f5-e216-4f3d-a551-34ddc849e9a4",
+      "joined": true
+    },
+    "profileDashboard": {
+      "pass": true,
+      "noFakeMedals": true,
+      "hasSidebar": true,
+      "recordsOk": true,
+      "themeToggled": true,
+      "prefsStatus": 200,
+      "boardTheme": "ink"
+    },
+    "watchPage": {
+      "pass": true,
+      "loaded": true,
+      "labels": true
+    },
+    "aiPractice": {
+      "pass": true,
+      "gameId": "1a139717-db64-44b7-a9e7-c0cd4a321543",
+      "hasBoard": true
+    },
+    "tutorialDetail": {
+      "pass": true,
+      "hasDetailBtn": true,
+      "tutorialExpanded": true
+    },
+    "community": {
+      "pass": true,
+      "hasTabs": true,
+      "noFake": true
+    },
+    "assetCacheBust": {
+      "pass": true,
+      "assetVersion": [
+        "/online/assets/site/app.js?v=20260711v1"
+      ]
+    },
+    "copyHonesty": {
+      "pass": true,
+      "matchIsNotAi": true,
+      "hasAiEntry": true
+    }
+  },
+  "ok": true,
+  "failures": [],
+  "screenshots": [
+    "01-guest-home-auth.png",
+    "02-userA-quick-match.png",
+    "03-userB-quick-match.png",
+    "04-join-by-code.png",
+    "05-me-overview.png",
+    "06-me-records.png",
+    "07-me-settings.png",
+    "08-watch.png",
+    "09-practice.png",
+    "10-learn-tutorial.png",
+    "11-community.png"
+  ]
+}
