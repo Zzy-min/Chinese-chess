@@ -157,13 +157,15 @@ public final class OnlineRoomHub {
     public Map<String, Object> applyMove(String gameId, AuthUser actor, Map<String, Object> payload) {
         ActiveGame game = game(gameId);
         synchronized (game) {
+            ensureParticipant(game, actor.id());
             if ("FINISHED".equals(game.status)) {
                 throw new IllegalArgumentException("game already finished");
             }
             MatchEvent preview = game.engine.previewMove(actor.id(), payload);
             if (!preview.accepted()) {
-                game.lastTickAt = now();
-                game.updatedAt = now();
+                // Illegal moves must not refresh lastTickAt — that would let a player
+                // stall the clock by spamming invalid requests (and outsiders could
+                // affect another game's timer if membership were not checked above).
                 throw new IllegalArgumentException(preview.message());
             }
             if (applyElapsed(game, game.currentTurn)) {
