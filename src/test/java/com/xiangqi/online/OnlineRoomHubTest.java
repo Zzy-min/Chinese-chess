@@ -90,13 +90,44 @@ class OnlineRoomHubTest {
             () -> hub.applyMove(gameId, host, Map.of("fromRow", 0, "fromCol", 0, "toRow", 0, "toCol", 0)));
         Map<String, Object> afterIllegal = hub.gameSnapshotById(gameId, host);
 
+        // Illegal move must not refresh lastTickAt. Remaining stays 10 until a legal move
+        // applies elapsed time from the original lastTickAt (4s + 3s = 7s -> remaining 3).
         clock.plusSeconds(3);
         Map<String, Object> afterLegal = hub.applyMove(gameId, host, Map.of("fromRow", 6, "fromCol", 0, "toRow", 5, "toCol", 0));
 
         assertEquals("illegal move", illegal.getMessage());
         assertEquals(10, afterIllegal.get("firstRemainingSeconds"));
-        assertEquals(7, afterLegal.get("firstRemainingSeconds"));
+        assertEquals(3, afterLegal.get("firstRemainingSeconds"));
         assertEquals("RUNNING", afterLegal.get("clockState"));
+    }
+
+    @Test
+    void outsiderCannotApplyMoveOrRefreshClock() throws Exception {
+        OnlineStore store = newStore();
+        MutableClock clock = new MutableClock(Instant.parse("2026-03-21T00:00:00Z"));
+        OnlineRoomHub hub = new OnlineRoomHub(store, clock);
+        AuthUser host = new AuthUser("u-host", "host");
+        AuthUser guest = new AuthUser("u-guest", "guest");
+        AuthUser outsider = new AuthUser("u-outsider", "outsider");
+
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.XIANGQI, 10, false));
+        hub.joinRoom(asString(room.get("roomId")), guest);
+        hub.setReady(asString(room.get("roomId")), host.id(), true);
+        room = hub.setReady(asString(room.get("roomId")), guest.id(), true);
+        String gameId = asString(room.get("gameId"));
+
+        clock.plusSeconds(2);
+        IllegalArgumentException denied = assertThrows(IllegalArgumentException.class,
+            () -> hub.applyMove(gameId, outsider, Map.of("fromRow", 0, "fromCol", 0, "toRow", 0, "toCol", 0)));
+        Map<String, Object> afterDenied = hub.gameSnapshotById(gameId, host);
+
+        clock.plusSeconds(3);
+        Map<String, Object> afterLegal = hub.applyMove(gameId, host, Map.of("fromRow", 6, "fromCol", 0, "toRow", 5, "toCol", 0));
+
+        assertEquals("user is not in game", denied.getMessage());
+        assertEquals(10, afterDenied.get("firstRemainingSeconds"));
+        // Outsider must not refresh lastTickAt either: 2s + 3s = 5s elapsed.
+        assertEquals(5, afterLegal.get("firstRemainingSeconds"));
     }
 
     @Test
