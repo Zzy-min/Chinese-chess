@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260724m4"));
-        assertTrue(html.contains("mobile.css?v=20260724m4"));
-        assertTrue(html.contains("app.js?v=20260724m4"));
+        assertTrue(html.contains("app.css?v=20260724m5"));
+        assertTrue(html.contains("mobile.css?v=20260724m5"));
+        assertTrue(html.contains("app.js?v=20260724m5"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -101,6 +101,46 @@ class OnlineSiteResourceContractTest {
         assertTrue(mobileCss.contains("order: 1"));
         assertTrue(mobileCss.contains(".boardPlayerCard"));
         assertTrue(mobileCss.contains("font-size: 18px"));
+    }
+
+    @Test
+    void gomokuBoardKeepsItsWoodSurfaceAcrossInteractiveStates() throws Exception {
+        String css = readResource("/online/app.css");
+
+        assertTrue(css.contains("appearance:none"));
+        assertTrue(css.contains("-webkit-tap-highlight-color:transparent"));
+        assertTrue(css.contains(".gomokuCell:hover"));
+        assertTrue(css.contains(".gomokuCell:active"));
+        assertTrue(css.contains(".gomokuCell[disabled]"));
+        assertTrue(css.contains("background-color:transparent"));
+    }
+
+    @Test
+    void mobileBoardRoutesLockTheDocumentAndOnlyScrollTheMoveSidebar() throws Exception {
+        String js = readResource("/online/app.js");
+        String css = readResource("/online/mobile.css");
+
+        assertTrue(js.contains("document.body.classList.toggle('mobile-board-route'"));
+        assertTrue(css.contains("body.mobile-board-route"));
+        assertTrue(css.contains("height: 100dvh"));
+        assertTrue(css.contains("overflow: hidden"));
+        assertTrue(css.contains(".mobile-pane-moves .boardSidebar"));
+        assertTrue(css.contains(".boardSidebar .gameSidebarTabs"));
+        assertTrue(css.contains("overflow-x: hidden"));
+        assertTrue(css.contains("overflow-y: auto"));
+    }
+
+    @Test
+    void mobileSubpagesShareOneBackAndProfileHeader() throws Exception {
+        String js = readResource("/online/app.js");
+
+        assertTrue(js.contains("function renderMobilePageHeader"));
+        assertTrue(js.contains("aria-label=\"打开个人中心\""));
+        assertTrue(js.contains("mobileIcon('back')"));
+        assertTrue(js.contains("mobileIcon('me')"));
+        assertFalse(js.contains("aria-label=\"返回首页\">‹</button>"));
+        assertFalse(js.contains("aria-label=\"刷新大厅\">↻</button>"));
+        assertFalse(js.contains("aria-label=\"返回首页\">${mobileIcon('home')}</button>"));
     }
 
     @Test

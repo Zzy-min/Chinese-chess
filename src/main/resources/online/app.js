@@ -414,6 +414,9 @@ function closeAuthModal() {
 function render() {
   const route = currentRoute();
   const isBoardRoute = isBoardRoutePage(route.page);
+  const isMobileBoardRoute = isBoardRoute && isMobileLayout();
+  document.body.classList.toggle('mobile-board-route', isMobileBoardRoute);
+  document.documentElement.classList.toggle('mobile-board-route', isMobileBoardRoute);
   if (!isBoardRoute && state.boardPaneTab !== 'board') {
     state.boardPaneTab = 'board';
   }
@@ -4709,10 +4712,21 @@ function mobileIcon(name) {
     spark: '<path d="m13 2-8 11h6l-1 9 9-12h-6Z"/>',
     robot: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8"/>',
     friends: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0m0-5a5 5 0 0 1 6 5"/>',
+    refresh: '<path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 8.5A7 7 0 0 1 18.4 6L20 8m-16 8 1.6 2A7 7 0 0 0 17.9 15.5"/>',
     back: '<path d="m15 18-6-6 6-6"/>',
     chevron: '<path d="m9 18 6-6-6-6"/>'
   };
   return `<svg class="mobileIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.chevron}</svg>`;
+}
+
+function renderMobilePageHeader({ eyebrow, title, backPath = 'home', backLabel = '返回首页' }) {
+  return `
+    <header class="mobileContentHeader">
+      <button data-nav="${backPath}" aria-label="${backLabel}">${mobileIcon('back')}</button>
+      <div><span>${eyebrow}</span><h1>${title}</h1></div>
+      <button data-nav="me" aria-label="打开个人中心">${mobileIcon('me')}</button>
+    </header>
+  `;
 }
 
 function renderMobileContentPage(route, content) {
@@ -4726,16 +4740,10 @@ function renderMobileContentPage(route, content) {
   };
   const [eyebrow, title] = titles[route.page] || ['轻棋局', '棋局中心'];
   const backPath = route.page === 'room' ? 'play' : 'home';
-  const actionPath = route.page === 'me' ? 'home' : 'me';
-  const actionIcon = route.page === 'me' ? 'home' : 'me';
-  const actionLabel = route.page === 'me' ? '返回首页' : '打开个人中心';
+  const backLabel = backPath === 'home' ? '返回首页' : '返回对局大厅';
   return `
     <section class="mobileContentPage mobileContentPage--${route.page}">
-      <header class="mobileContentHeader">
-        <button data-nav="${backPath}" aria-label="返回${backPath === 'home' ? '首页' : '对局大厅'}">${mobileIcon('back')}</button>
-        <div><span>${eyebrow}</span><h1>${title}</h1></div>
-        <button data-nav="${actionPath}" aria-label="${actionLabel}">${mobileIcon(actionIcon)}</button>
-      </header>
+      ${renderMobilePageHeader({ eyebrow, title, backPath, backLabel })}
       <div class="mobileContentBody">${content}</div>
     </section>
   `;
@@ -4747,11 +4755,7 @@ function renderMobileModePage(route) {
   const content = isGomoku ? renderPlayGomoku() : renderPlayXiangqi();
   return `
     <section class="mobileModePage">
-      <header class="mobileContentHeader">
-        <button data-nav="play" aria-label="返回对局大厅">${mobileIcon('back')}</button>
-        <div><span>选择棋种</span><h1>${title}</h1></div>
-        <button data-nav="home" aria-label="返回首页">${mobileIcon('home')}</button>
-      </header>
+      ${renderMobilePageHeader({ eyebrow: '选择棋种', title, backPath: 'play', backLabel: '返回对局大厅' })}
       <div class="mobileContentBody">${content}</div>
     </section>
   `;
@@ -4851,7 +4855,7 @@ function renderMobileLobby() {
   const rooms = ((state.lobby && state.lobby.rooms) || []).slice(0, 8);
   return `
     <div class="mobileLobby">
-      <header class="mobilePageHeader"><button data-nav="home" aria-label="返回首页">‹</button><div><span>对局大厅</span><h1>找一位棋友</h1></div><button data-action="refresh-lobby" aria-label="刷新大厅">↻</button></header>
+      ${renderMobilePageHeader({ eyebrow: '对局大厅', title: '找一位棋友' })}
       <section class="mobileLobbyLead">
         <span class="mobileEyebrow">中国象棋 · 默认 5 分钟</span>
         <h2>有人等你落下第一子</h2>
@@ -4862,7 +4866,7 @@ function renderMobileLobby() {
         <label><span>加入房间</span><span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span></label>
       </div>
       <section class="mobileSection">
-        <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><small>${rooms.length} 个可见房间</small></div>
+        <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><button data-action="refresh-lobby" aria-label="刷新大厅">${mobileIcon('refresh')}<span>${rooms.length} 间</span></button></div>
         <div class="mobileRoomList">
           ${rooms.length ? rooms.map(room => `
             <button data-nav="room/${escapeHtml(room.roomId || '')}">
