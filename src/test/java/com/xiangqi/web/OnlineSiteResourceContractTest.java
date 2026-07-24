@@ -78,10 +78,14 @@ class OnlineSiteResourceContractTest {
 
     @Test
     void learnRoomAndBoardLayoutsExposeMobileAndReplayFixes() throws Exception {
+        String html = readResource("/online/index.html");
         String js = readResource("/online/app.js");
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
+        assertTrue(html.contains("app.css?v=20260724m3"));
+        assertTrue(html.contains("mobile.css?v=20260724m3"));
+        assertTrue(html.contains("app.js?v=20260724m3"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"close-room\""));
         assertTrue(js.contains("method: 'DELETE'"));
