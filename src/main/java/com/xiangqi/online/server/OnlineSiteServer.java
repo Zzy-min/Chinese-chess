@@ -77,6 +77,7 @@ public final class OnlineSiteServer {
         RoutingHandler routes = Handlers.routing(false)
             .get("/", this::handleIndex)
             .get("/assets/site/app.css", this::handleCss)
+            .get("/assets/site/mobile.css", this::handleMobileCss)
             .get("/assets/site/app.js", this::handleJs)
             .get("/assets/site/board.js", this::handleBoardJs)
             .get("/api/site/bootstrap", this::handleBootstrap)
@@ -140,6 +141,10 @@ public final class OnlineSiteServer {
 
     private void handleCss(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/online/app.css", "text/css; charset=UTF-8");
+    }
+
+    private void handleMobileCss(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/online/mobile.css", "text/css; charset=UTF-8");
     }
 
     private void handleJs(HttpServerExchange exchange) throws IOException {

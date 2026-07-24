@@ -34,6 +34,10 @@ class PublicSiteServerTest {
             HttpResponse<String> rootHead = client.send(headRequest(port, "/"), HttpResponse.BodyHandlers.ofString());
             HttpResponse<String> legacy = client.send(request(port, "/home-ai"), HttpResponse.BodyHandlers.ofString());
             HttpResponse<String> online = client.send(request(port, "/online"), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> mobileCss = client.send(
+                request(port, "/online/assets/site/mobile.css?v=20260724m1"),
+                HttpResponse.BodyHandlers.ofString()
+            );
             HttpResponse<String> onlineBootstrap = client.send(request(port, "/online/api/site/bootstrap"), HttpResponse.BodyHandlers.ofString());
 
             assertEquals(302, root.statusCode());
@@ -46,6 +50,10 @@ class PublicSiteServerTest {
 
             assertEquals(200, online.statusCode());
             assertTrue(online.body().contains("/online/assets/site/app.js"));
+
+            assertEquals(200, mobileCss.statusCode());
+            assertEquals("text/css; charset=UTF-8", mobileCss.headers().firstValue("Content-Type").orElse(""));
+            assertTrue(mobileCss.body().contains(".mobileHome"));
 
             assertEquals(200, onlineBootstrap.statusCode());
             assertTrue(onlineBootstrap.body().contains("\"siteName\""));

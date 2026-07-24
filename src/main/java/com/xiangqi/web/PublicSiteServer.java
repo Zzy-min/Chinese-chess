@@ -118,6 +118,7 @@ public final class PublicSiteServer {
             .add(Methods.HEAD, "/online", this::handleOnlineIndex)
             .get("/online/index.html", this::handleOnlineIndex)
             .get("/online/assets/site/app.css", this::handleOnlineCss)
+            .get("/online/assets/site/mobile.css", this::handleOnlineMobileCss)
             .get("/online/assets/site/app.js", this::handleOnlineJs)
             .get("/online/assets/site/board.js", this::handleOnlineBoardJs)
             .get("/online/api/site/bootstrap", this::handleBootstrap)
@@ -304,6 +305,10 @@ public final class PublicSiteServer {
 
     private void handleOnlineCss(HttpServerExchange exchange) throws IOException {
         sendResource(exchange, "/online/app.css", "text/css; charset=UTF-8");
+    }
+
+    private void handleOnlineMobileCss(HttpServerExchange exchange) throws IOException {
+        sendResource(exchange, "/online/mobile.css", "text/css; charset=UTF-8");
     }
 
     private void handleOnlineJs(HttpServerExchange exchange) throws IOException {
