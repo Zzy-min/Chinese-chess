@@ -5,17 +5,21 @@ plugins {
 }
 
 android {
-    namespace = "com.example"
+    namespace = "com.xiangqi.arena"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example"
+        applicationId = "com.xiangqi.arena"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -28,7 +32,7 @@ android {
     buildFeatures {
       compose = true
       aidl = false
-      buildConfig = false
+      buildConfig = true
       shaders = false
     }
 
@@ -52,6 +56,7 @@ dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
+  implementation(libs.androidx.webkit)
 
   // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)

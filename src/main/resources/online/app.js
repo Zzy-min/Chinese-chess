@@ -72,7 +72,10 @@ const state = {
   toasts: [],
   toastSeq: 0,
   actionBusy: '',
-  actionBusyLabel: ''
+  actionBusyLabel: '',
+  mobileQuickStartOpen: false,
+  mobileQuickStartGameType: 'XIANGQI',
+  nativeGameStateKey: ''
 };
 
 const API_BASE = '/online/api';
@@ -96,10 +99,12 @@ const onlineMateAudio = createOnlineAudio(`/assets/audio/mate.wav?v=${ONLINE_AUD
 
 const app = document.getElementById('app');
 const routes = ['welcome', 'home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'help', 'me'];
+const mobileLayoutMedia = window.matchMedia('(max-width: 768px)');
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
 window.addEventListener('resize', () => fitBoardToViewport(currentRoute(), true));
+mobileLayoutMedia.addEventListener('change', render);
 window.setInterval(() => {
   const route = currentRoute();
   tickLiveGameClock(route);
@@ -115,6 +120,31 @@ async function boot() {
     await Promise.all([loadProfilePreferences(), loadProfileDashboard(false)]);
   }
   render();
+  notifyNative('appReady', { route: currentRoute().page });
+}
+
+function notifyNative(type, payload = {}) {
+  try {
+    if (window.QingQijuApp && typeof window.QingQijuApp.postMessage === 'function') {
+      window.QingQijuApp.postMessage(JSON.stringify({ type, payload }));
+      return true;
+    }
+  } catch (_) {
+    // The web experience remains fully usable outside the Android shell.
+  }
+  return false;
+}
+
+function notifyNativeGameState(route) {
+  const game = (route.page === 'game' || route.page === 'practice') ? state.game : null;
+  const key = `${route.page}:${route.id || ''}:${game && game.status ? game.status : ''}`;
+  if (key === state.nativeGameStateKey) return;
+  state.nativeGameStateKey = key;
+  notifyNative('gameStateChanged', {
+    route: route.page,
+    gameId: route.id || '',
+    status: game && game.status ? game.status : ''
+  });
 }
 
 async function loadBootstrap() {
@@ -384,6 +414,9 @@ function render() {
     state.boardPaneTab = 'board';
   }
   const siteClasses = ['site', `route-${route.page}`];
+  if (isMobileLayout()) {
+    siteClasses.push('is-mobile-layout');
+  }
   if (isBoardRoute) {
     siteClasses.push('is-board-route', `mobile-pane-${state.boardPaneTab}`);
   }
@@ -405,6 +438,7 @@ function render() {
     </div>
   `;
   bindCommon(route);
+  notifyNativeGameState(route);
   syncRealtime(route);
   syncPracticePolling(route);
   fitBoardToViewport(route, false);
@@ -693,8 +727,21 @@ const pageRegistry = {
 };
 
 function renderPage(route) {
+  if (isMobileLayout()) {
+    if (route.page === 'home') return renderMobileHomePage();
+    if (route.page === 'play' && !route.id) return renderMobileLobby();
+    if (route.page === 'play') return renderMobileModePage(route);
+    if (!isBoardRoutePage(route.page) && route.page !== 'welcome') {
+      const renderer = pageRegistry[route.page] || pageRegistry.home;
+      return renderMobileContentPage(route, renderer(route));
+    }
+  }
   const renderer = pageRegistry[route.page] || pageRegistry.home;
   return renderer(route);
+}
+
+function isMobileLayout() {
+  return mobileLayoutMedia.matches;
 }
 
 function resolveLearnSubRoute(value) {
@@ -1537,6 +1584,7 @@ function renderRoom(roomId) {
       </div>
       <div class="roomRow" style="margin-top:18px">
         ${room.guest ? '' : '<button class="ghost" data-action="join-room">加入当前房间</button>'}
+        <button class="ghost" data-action="share-room" data-room-code="${escapeHtml(room.roomCode || '')}">分享房间</button>
         <button class="btn" data-action="toggle-ready">${isViewerReady(room) ? '取消准备' : '我已准备'}</button>
         ${room.gameId ? `<button class="btn" data-nav="game/${room.gameId}">进入对局</button>` : ''}
       </div>
@@ -2108,6 +2156,9 @@ function renderProfile() {
           <span>默认翻转棋盘</span>
           <button class="btn btn-small ghost" data-action="flip-board">${flipped ? '已翻转' : '正位'}</button>
         </div>
+        <button class="settingRow mobileVersionRow" data-action="mobile-version-tap" type="button">
+          <span>轻棋局 Android</span><span class="muted">版本信息</span>
+        </button>
         <p class="muted">登录账号下会同步到服务器，刷新后仍保留。</p>
       </section>`;
   } else if (meTab === 'help') {
@@ -2689,6 +2740,26 @@ function bindCommon(route) {
   on('[data-action="logout"]', logout);
   on('[data-action="show-auth"]', () => openAuthModal(''));
   on('[data-action="toggle-sound"]', toggleOnlineSound);
+  on('[data-action="open-mobile-quick-start"]', () => {
+    notifyNative('haptic', { style: 'medium' });
+    state.mobileQuickStartOpen = true;
+    render();
+  });
+  on('[data-action="close-mobile-quick-start"]', (event) => {
+    if (event.currentTarget.hasAttribute('data-mobile-sheet')) return;
+    state.mobileQuickStartOpen = false;
+    render();
+  });
+  document.querySelectorAll('[data-mobile-sheet]').forEach(el => el.addEventListener('click', event => event.stopPropagation()));
+  on('[data-action="select-mobile-game"]', (event) => {
+    state.mobileQuickStartGameType = event.currentTarget.getAttribute('data-game-type') === 'GOMOKU' ? 'GOMOKU' : 'XIANGQI';
+    render();
+  });
+  on('[data-action="refresh-lobby"]', loadLobby);
+  on('[data-action="mobile-version-tap"]', () => {
+    notifyNative('versionTap');
+  });
+  on('[data-action="share-room"]', shareCurrentRoom);
   on('[data-action="submit-auth"]', (event) => {
     event.preventDefault();
     submitAuth();
@@ -4537,6 +4608,204 @@ function renderHomePageGuofeng() {
   `;
 }
 
+async function shareCurrentRoom(event) {
+  const roomCode = String(event.currentTarget?.getAttribute('data-room-code') || state.room?.roomCode || '').trim();
+  const url = window.location.href;
+  if (notifyNative('shareRoom', { roomCode, url })) {
+    notifyNative('haptic', { style: 'light' });
+    return;
+  }
+  const title = roomCode ? `轻棋局 · 房间 ${roomCode}` : '轻棋局好友对弈';
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text: roomCode ? `房间码：${roomCode}` : title, url });
+      return;
+    }
+    await navigator.clipboard.writeText(roomCode ? `${title}\n${url}` : url);
+    showToast('房间邀请已复制', 'success');
+  } catch (error) {
+    if (error && error.name === 'AbortError') return;
+    showToast('暂时无法分享，请手动复制房间码', 'error');
+  }
+}
+
+function mobileIcon(name) {
+  const paths = {
+    home: '<path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"/>',
+    play: '<path d="M7 4h10l3 6-3 10h-4l-1-3-1 3H7L4 10Zm1.5 6H6m10 0h2m-8-2v4m-2-2h4"/>',
+    learn: '<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22Zm16 0A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22Z"/>',
+    watch: '<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/>',
+    me: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
+    spark: '<path d="m13 2-8 11h6l-1 9 9-12h-6Z"/>',
+    robot: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8"/>',
+    friends: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0m0-5a5 5 0 0 1 6 5"/>',
+    chevron: '<path d="m9 18 6-6-6-6"/>'
+  };
+  return `<svg class="mobileIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.chevron}</svg>`;
+}
+
+function renderMobileContentPage(route, content) {
+  const titles = {
+    learn: ['学习', '残局与教程'],
+    watch: ['观战', '正在进行的对局'],
+    community: ['棋友', '排行榜与动态'],
+    me: ['我的', '战绩与偏好'],
+    room: ['对局', '房间等候'],
+    help: ['帮助', '使用说明']
+  };
+  const [eyebrow, title] = titles[route.page] || ['轻棋局', '棋局中心'];
+  const backPath = route.page === 'room' ? 'play' : 'home';
+  const actionPath = route.page === 'me' ? 'home' : 'me';
+  const actionIcon = route.page === 'me' ? 'home' : 'me';
+  const actionLabel = route.page === 'me' ? '返回首页' : '打开个人中心';
+  return `
+    <section class="mobileContentPage mobileContentPage--${route.page}">
+      <header class="mobileContentHeader">
+        <button data-nav="${backPath}" aria-label="返回${backPath === 'home' ? '首页' : '对局大厅'}">${mobileIcon('chevron')}</button>
+        <div><span>${eyebrow}</span><h1>${title}</h1></div>
+        <button data-nav="${actionPath}" aria-label="${actionLabel}">${mobileIcon(actionIcon)}</button>
+      </header>
+      <div class="mobileContentBody">${content}</div>
+    </section>
+  `;
+}
+
+function renderMobileModePage(route) {
+  const isGomoku = route.id === 'gomoku';
+  const title = isGomoku ? '五子棋模式' : '中国象棋模式';
+  const content = isGomoku ? renderPlayGomoku() : renderPlayXiangqi();
+  return `
+    <section class="mobileModePage">
+      <header class="mobileContentHeader">
+        <button data-nav="play" aria-label="返回对局大厅">${mobileIcon('chevron')}</button>
+        <div><span>选择棋种</span><h1>${title}</h1></div>
+        <button data-nav="home" aria-label="返回首页">${mobileIcon('home')}</button>
+      </header>
+      <div class="mobileContentBody">${content}</div>
+    </section>
+  `;
+}
+
+function renderMobileHomePage() {
+  const b = state.bootstrap || { recentGames: [], activeRooms: 0, totalUsers: 0, totalGames: 0, activity: {} };
+  const recent = (b.recentGames || []).slice(0, 2);
+  const activity = b.activity || {};
+  const board = leaderboardBucket(state.communityLeaderboard || {}, 'XIANGQI').slice(0, 1);
+  const continuePath = activity.game && activity.game.gameId
+    ? `game/${escapeHtml(activity.game.gameId)}`
+    : (activity.room && activity.room.roomId ? `room/${escapeHtml(activity.room.roomId)}` : 'learn/puzzles/ALL');
+  const continueLabel = activity.game ? '继续未完棋局' : (activity.room ? '回到等候房间' : '今日残局挑战');
+
+  return `
+    <div class="mobileHome">
+      <header class="mobileAppHeader">
+        <a class="mobileBrand" href="#/home" aria-label="轻棋局首页"><span class="mobileBrandSeal">棋</span><span><strong>轻棋局</strong><small>落子之间，自有风雅</small></span></a>
+        <button class="mobileProfileButton" data-nav="me" aria-label="进入个人中心">${state.me ? escapeHtml((state.me.username || '棋').slice(0, 1)) : '客'}</button>
+      </header>
+
+      <section class="mobileHero" aria-labelledby="mobile-home-title">
+        <div class="mobileHeroWash" aria-hidden="true"><span class="mobileBoardGlyph">楚河<br>汉界</span></div>
+        <div class="mobileHeroCopy">
+          <span class="mobileEyebrow">随时开局 · 从容落子</span>
+          <h1 id="mobile-home-title">下一局，<br>从这一手开始</h1>
+          <p>真人匹配、好友约棋与 AI 练习，一处完成。</p>
+          <button class="mobilePrimaryAction" data-action="open-mobile-quick-start">
+            ${mobileIcon('spark')}<span>快速开始一局</span><small>默认中国象棋</small>
+          </button>
+        </div>
+      </section>
+
+      <section class="mobileContinueStrip" data-nav="${continuePath}" aria-label="${continueLabel}">
+        <span class="mobileContinueMark">${activity.game || activity.room ? '续' : '题'}</span>
+        <span><strong>${continueLabel}</strong><small>${activity.game || activity.room ? '保留当前进度，继续落子' : '用一盘短题热热手'}</small></span>
+        ${mobileIcon('chevron')}
+      </section>
+
+      <section class="mobileSection">
+        <div class="mobileSectionHead"><div><span>常用入口</span><h2>你想怎么下？</h2></div><button data-nav="play">全部模式</button></div>
+        <div class="mobileActionList">
+          <button data-action="quick-start-ai-practice"><span class="mobileActionIcon is-red">${mobileIcon('robot')}</span><span><strong>人机练习</strong><small>无需等待，随时开局</small></span>${mobileIcon('chevron')}</button>
+          <button data-action="create-room-xiangqi"><span class="mobileActionIcon is-green">${mobileIcon('friends')}</span><span><strong>好友约棋</strong><small>创建房间，分享房间码</small></span>${mobileIcon('chevron')}</button>
+          <button data-nav="play/gomoku"><span class="mobileActionIcon is-ink"><b>五</b></span><span><strong>五子棋</strong><small>黑白落点，轻松一局</small></span>${mobileIcon('chevron')}</button>
+        </div>
+      </section>
+
+      <section class="mobileSection mobileRecentSection">
+        <div class="mobileSectionHead"><div><span>最近棋局</span><h2>留下的每一步</h2></div><button data-nav="me/records">全部战绩</button></div>
+        <div class="mobileRecentList">
+          ${recent.length ? recent.map(game => `
+            <button data-nav="analysis/${escapeHtml(game.gameId || '')}">
+              <span class="mobileGameSeal ${game.gameType === 'GOMOKU' ? 'is-green' : ''}">${game.gameType === 'GOMOKU' ? '五' : '象'}</span>
+              <span><strong>${game.gameType === 'GOMOKU' ? '五子棋' : '中国象棋'} · ${escapeHtml(game.resultText || '已归档')}</strong><small>${escapeHtml(game.firstUsername || '-')} 对 ${escapeHtml(game.secondUsername || '-')}</small></span>
+              ${mobileIcon('chevron')}
+            </button>
+          `).join('') : '<div class="mobileEmptyState"><strong>还没有棋局记录</strong><span>从上面的快速开始，落下第一子。</span></div>'}
+        </div>
+      </section>
+
+      <section class="mobileRankNote">
+        <span>象棋榜</span>
+        ${board.length ? `<strong>${escapeHtml(board[0].username || '-')}</strong><small>${board[0].wins != null ? board[0].wins : (board[0].score || 0)} 胜</small>` : '<strong>榜单正在静候高手</strong><small>完成对局后将出现真实排名</small>'}
+        <button data-nav="community">查看榜单</button>
+      </section>
+      ${renderMobileQuickStartSheet()}
+    </div>
+  `;
+}
+
+function renderMobileQuickStartSheet() {
+  if (!state.mobileQuickStartOpen) return '';
+  const gameType = state.mobileQuickStartGameType === 'GOMOKU' ? 'GOMOKU' : 'XIANGQI';
+  return `
+    <div class="mobileSheetOverlay" data-action="close-mobile-quick-start">
+      <section class="mobileQuickStartSheet" role="dialog" aria-modal="true" aria-labelledby="quick-start-title" data-mobile-sheet>
+        <span class="mobileSheetHandle" aria-hidden="true"></span>
+        <div class="mobileSheetHeading"><span>快速开始</span><h2 id="quick-start-title">这一局，怎么下？</h2></div>
+        <div class="mobileGameToggle" role="group" aria-label="选择棋种">
+          <button class="${gameType === 'XIANGQI' ? 'is-active' : ''}" data-action="select-mobile-game" data-game-type="XIANGQI">中国象棋</button>
+          <button class="${gameType === 'GOMOKU' ? 'is-active' : ''}" data-action="select-mobile-game" data-game-type="GOMOKU">五子棋</button>
+        </div>
+        <div class="mobileStartModes">
+          <button data-action="quick-start-public-match" data-game-type="${gameType}" data-time-seconds="300">${mobileIcon('spark')}<span><strong>真人快速匹配</strong><small>5 分钟场，匹配在线棋友</small></span>${mobileIcon('chevron')}</button>
+          <button data-action="${gameType === 'GOMOKU' ? 'quick-start-gomoku-practice' : 'quick-start-ai-practice'}">${mobileIcon('robot')}<span><strong>人机练习</strong><small>立即开局，磨练棋力</small></span>${mobileIcon('chevron')}</button>
+          <button data-action="${gameType === 'GOMOKU' ? 'create-room-gomoku' : 'create-room-xiangqi'}">${mobileIcon('friends')}<span><strong>好友约棋</strong><small>创建房间并分享房间码</small></span>${mobileIcon('chevron')}</button>
+        </div>
+        <button class="mobileSheetCancel" data-action="close-mobile-quick-start">暂不开始</button>
+      </section>
+    </div>
+  `;
+}
+
+function renderMobileLobby() {
+  const rooms = ((state.lobby && state.lobby.rooms) || []).slice(0, 8);
+  return `
+    <div class="mobileLobby">
+      <header class="mobilePageHeader"><button data-nav="home" aria-label="返回首页">‹</button><div><span>对局大厅</span><h1>找一位棋友</h1></div><button data-action="refresh-lobby" aria-label="刷新大厅">↻</button></header>
+      <section class="mobileLobbyLead">
+        <span class="mobileEyebrow">中国象棋 · 默认 5 分钟</span>
+        <h2>有人等你落下第一子</h2>
+        <button class="mobilePrimaryAction" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">${mobileIcon('spark')}<span>立即快速匹配</span><small>真人实时对局</small></button>
+      </section>
+      <div class="mobileLobbyActions">
+        <button data-action="create-room-xiangqi"><span>创建房间</span><small>邀请好友对弈</small></button>
+        <label><span>加入房间</span><span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span></label>
+      </div>
+      <section class="mobileSection">
+        <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><small>${rooms.length} 个可见房间</small></div>
+        <div class="mobileRoomList">
+          ${rooms.length ? rooms.map(room => `
+            <button data-nav="room/${escapeHtml(room.roomId || '')}">
+              <span class="mobileGameSeal ${room.gameType === 'GOMOKU' ? 'is-green' : ''}">${room.gameType === 'GOMOKU' ? '五' : '象'}</span>
+              <span><strong>${escapeHtml(room.hostUsername || '棋友')} 的${room.gameType === 'GOMOKU' ? '五子棋' : '象棋'}房</strong><small>${escapeHtml(room.roomCode || '')} · ${room.guestUsername ? '对局中' : '等待加入'}</small></span>
+              ${mobileIcon('chevron')}
+            </button>
+          `).join('') : '<div class="mobileEmptyState"><strong>暂时没有公开房间</strong><span>创建一间棋室，邀请好友先来一局。</span></div>'}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function renderPlayLobbyDesk() {
   const recentGames = ((state.bootstrap && state.bootstrap.recentGames) || []).slice(0, 5);
   if (!state.communityLeaderboard) {
@@ -4865,29 +5134,18 @@ function renderBottomNav(activePage) {
   if (isBoardRoutePage(activePage) || activePage === 'welcome') {
     return '';
   }
+  return renderMobileBottomNav(activePage);
+}
+
+function renderMobileBottomNav(activePage) {
   return `
-    <div class="bottomNav">
-      <a href="#/home" class="navItem ${activePage === 'home' ? 'active' : ''}">
-        <span class="navIcon">🏠</span>
-        <span class="navText">首页</span>
-      </a>
-      <a href="#/play" class="navItem ${activePage === 'play' ? 'active' : ''}">
-        <span class="navIcon">⚔️</span>
-        <span class="navText">对局</span>
-      </a>
-      <a href="#/play" class="navItem navItem-create">
-        <span class="navIcon navIcon-plus">+</span>
-        <span class="navText">创建</span>
-      </a>
-      <a href="#/learn/puzzles/ALL" class="navItem ${activePage === 'learn' ? 'active' : ''}">
-        <span class="navIcon">📚</span>
-        <span class="navText">学习</span>
-      </a>
-      <a href="#/me" class="navItem ${activePage === 'me' ? 'active' : ''}">
-        <span class="navIcon">👤</span>
-        <span class="navText">我的</span>
-      </a>
-    </div>
+    <nav class="mobileBottomNav" aria-label="主要导航">
+      <a href="#/home" data-mobile-nav="home" class="${activePage === 'home' ? 'is-active' : ''}">${mobileIcon('home')}<span>首页</span></a>
+      <a href="#/play" data-mobile-nav="play" class="${activePage === 'play' ? 'is-active' : ''}">${mobileIcon('play')}<span>对局</span></a>
+      <a href="#/learn/puzzles/ALL" data-mobile-nav="learn" class="${activePage === 'learn' ? 'is-active' : ''}">${mobileIcon('learn')}<span>学习</span></a>
+      <a href="#/watch" data-mobile-nav="watch" class="${activePage === 'watch' ? 'is-active' : ''}">${mobileIcon('watch')}<span>观战</span></a>
+      <a href="#/me" data-mobile-nav="me" class="${activePage === 'me' ? 'is-active' : ''}">${mobileIcon('me')}<span>我的</span></a>
+    </nav>
   `;
 }
 
