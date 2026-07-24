@@ -69,6 +69,8 @@ const state = {
   },
   learnFilter: 'all',
   learnSearchQuery: '',
+  learnVisibleLimit: 0,
+  learnVisibleKey: '',
   toasts: [],
   toastSeq: 0,
   actionBusy: '',
@@ -84,6 +86,8 @@ const WATCH_POLL_INTERVAL_MS = 10000;
 const LEARN_SUB_ROUTES = ['tutorials', 'puzzles', 'practice'];
 const ME_TABS = ['overview', 'records', 'study', 'inbox', 'achievements', 'settings', 'help'];
 const PUZZLE_THEMES = ['ALL', 'TACTIC', 'MATE', 'POSITION', 'ENDGAME_FEN'];
+const LEARN_PAGE_SIZE_MOBILE = 12;
+const LEARN_PAGE_SIZE_DESKTOP = 24;
 const PRACTICE_POLL_FAST_MS = 250;
 const PRACTICE_POLL_SLOW_MS = 500;
 const PRACTICE_POLL_FAST_WINDOW_MS = 2000;
@@ -935,7 +939,9 @@ function renderLearnItemCard(item, completedSet) {
   }
   
   const themeLabel = isTutorial ? '教程' : puzzleThemeLabel(resolvePuzzleTheme(item.theme));
-  const metaText = `${item.gameType} · ${item.difficulty || 'MEDIUM'} · ${themeLabel}`;
+  const gameTypeLabel = isXiangqi ? '中国象棋' : '五子棋';
+  const difficultyLabel = { EASY: '简单', MEDIUM: '中等', HARD: '困难', EXPERT: '专家' }[item.difficulty || 'MEDIUM'] || item.difficulty || '中等';
+  const metaText = `${gameTypeLabel} · ${difficultyLabel} · ${themeLabel}`;
   
   let completeBtn = '';
   if (isCompleted) {
@@ -999,6 +1005,10 @@ function renderLearnItemCard(item, completedSet) {
   `;
 }
 
+function learnPageSize() {
+  return isMobileLayout() ? LEARN_PAGE_SIZE_MOBILE : LEARN_PAGE_SIZE_DESKTOP;
+}
+
 function renderLearnPage(route) {
   if (!state.learnContent) {
     loadLearnContent();
@@ -1055,6 +1065,14 @@ function renderLearnPage(route) {
       );
     }
 
+    const visibleKey = `${filter}|${query}`;
+    if (state.learnVisibleKey !== visibleKey) {
+      state.learnVisibleKey = visibleKey;
+      state.learnVisibleLimit = learnPageSize();
+    }
+    const visibleLimit = Math.max(learnPageSize(), Number(state.learnVisibleLimit) || 0);
+    const visibleItems = items.slice(0, visibleLimit);
+    const remainingItems = Math.max(0, items.length - visibleItems.length);
     const completedTutorials = (progress.tutorialsCompleted || []);
     const completedPuzzles = (progress.puzzlesCompleted || []);
     const completedSet = new Set([...completedTutorials, ...completedPuzzles]);
@@ -1062,7 +1080,10 @@ function renderLearnPage(route) {
     if (!items.length) {
       mainContentHtml = '<div class="banner" style="padding:40px; text-align:center; color:var(--text-muted);">未找到符合条件的棋谱或题目。</div>';
     } else {
-      mainContentHtml = items.map(item => renderLearnItemCard(item, completedSet)).join('');
+      mainContentHtml = visibleItems.map(item => renderLearnItemCard(item, completedSet)).join('')
+        + (remainingItems > 0
+          ? `<button class="ghost learnLoadMore" data-action="load-more-learn">再加载 ${Math.min(learnPageSize(), remainingItems)} 条<span> · 余 ${remainingItems} 条</span></button>`
+          : '');
     }
   }
 
@@ -2902,12 +2923,19 @@ function bindCommon(route) {
     el.dataset.boundLearnFilter = '1';
     el.addEventListener('click', () => {
       state.learnFilter = el.getAttribute('data-learn-filter');
+      state.learnVisibleLimit = learnPageSize();
+      state.learnVisibleKey = '';
       if (window.location.hash.includes('/practice')) {
         window.location.hash = '#/learn/puzzles/ALL';
       } else {
         render();
       }
     });
+  });
+
+  on('[data-action="load-more-learn"]', () => {
+    state.learnVisibleLimit = Math.max(learnPageSize(), Number(state.learnVisibleLimit) || 0) + learnPageSize();
+    render();
   });
 
   // 绑定学习/棋谱页面搜索框
@@ -2917,6 +2945,8 @@ function bindCommon(route) {
       learnSearchInput.dataset.boundLearnSearch = '1';
       learnSearchInput.addEventListener('input', event => {
         state.learnSearchQuery = event.target.value;
+        state.learnVisibleLimit = learnPageSize();
+        state.learnVisibleKey = '';
         render();
       });
     }
@@ -4679,6 +4709,7 @@ function mobileIcon(name) {
     spark: '<path d="m13 2-8 11h6l-1 9 9-12h-6Z"/>',
     robot: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8"/>',
     friends: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0m0-5a5 5 0 0 1 6 5"/>',
+    back: '<path d="m15 18-6-6 6-6"/>',
     chevron: '<path d="m9 18 6-6-6-6"/>'
   };
   return `<svg class="mobileIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.chevron}</svg>`;
@@ -4701,7 +4732,7 @@ function renderMobileContentPage(route, content) {
   return `
     <section class="mobileContentPage mobileContentPage--${route.page}">
       <header class="mobileContentHeader">
-        <button data-nav="${backPath}" aria-label="返回${backPath === 'home' ? '首页' : '对局大厅'}">${mobileIcon('chevron')}</button>
+        <button data-nav="${backPath}" aria-label="返回${backPath === 'home' ? '首页' : '对局大厅'}">${mobileIcon('back')}</button>
         <div><span>${eyebrow}</span><h1>${title}</h1></div>
         <button data-nav="${actionPath}" aria-label="${actionLabel}">${mobileIcon(actionIcon)}</button>
       </header>
@@ -4717,7 +4748,7 @@ function renderMobileModePage(route) {
   return `
     <section class="mobileModePage">
       <header class="mobileContentHeader">
-        <button data-nav="play" aria-label="返回对局大厅">${mobileIcon('chevron')}</button>
+        <button data-nav="play" aria-label="返回对局大厅">${mobileIcon('back')}</button>
         <div><span>选择棋种</span><h1>${title}</h1></div>
         <button data-nav="home" aria-label="返回首页">${mobileIcon('home')}</button>
       </header>

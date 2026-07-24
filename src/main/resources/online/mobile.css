@@ -1099,6 +1099,139 @@
     from { transform: translateY(28px); opacity: .7; }
     to { transform: translateY(0); opacity: 1; }
   }
+
+  /* Mobile learn library: keep content and actions inside the viewport. */
+  .mobileContentPage--learn .learnPage,
+  .mobileContentPage--learn .learnMainContent {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .mobileContentPage--learn .learnPage > .hero {
+    align-items: stretch !important;
+    flex-direction: column;
+    gap: 12px !important;
+    margin-bottom: 14px !important;
+    padding: 20px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft {
+    min-width: 0 !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-size: 26px !important;
+  }
+
+  .mobileContentPage--learn .learnSearchWrap {
+    display: grid;
+    width: 100%;
+    max-width: none;
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .mobileContentPage--learn .learnEndgameCta {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .mobileContentPage--learn .learnTabs {
+    width: 100%;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    margin: 0 0 12px !important;
+    padding: 0 0 6px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+  }
+
+  .mobileContentPage--learn .learnTabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill {
+    min-height: 38px;
+    flex: 0 0 auto;
+    border-width: 1px;
+  }
+
+  .mobileContentPage--learn .learnMainContent {
+    margin-top: 0 !important;
+  }
+
+  .mobileContentPage--learn .learnCard {
+    padding: 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .mobileContentPage--learn .learnCard > div:first-child {
+    display: flex !important;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+
+  .mobileContentPage--learn .learnCardLeft {
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo {
+    min-width: 0;
+    flex: 1;
+    margin-left: 12px !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo h3 {
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+  }
+
+  .mobileContentPage--learn .learnSummaryOneLine {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: clip;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.55;
+  }
+
+  .mobileContentPage--learn .learnAction {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: 0 !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button,
+  .mobileContentPage--learn .learnAction > .pill {
+    min-width: 0;
+    min-height: 40px;
+    flex: 1 1 92px;
+    margin-top: 0 !important;
+  }
+
+  .mobileContentPage--learn .learnLoadMore {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 4px;
+    border-radius: 14px;
+  }
+
+  .mobileContentPage--learn .learnLoadMore span {
+    color: var(--mobile-muted);
+    font-size: 11px;
+  }
+
 }
 
 @media (max-width: 370px) {
