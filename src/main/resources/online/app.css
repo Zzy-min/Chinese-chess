@@ -293,9 +293,20 @@ button,input,select{font:inherit}
   width:max-content;
   margin:0 auto
 }
+.gomokuCell,
+.gomokuCell:hover,
+.gomokuCell:active,
+.gomokuCell[disabled]{
+  appearance:none;
+  -webkit-appearance:none;
+  background-color:transparent;
+  color:inherit;
+  -webkit-tap-highlight-color:transparent
+}
 .gomokuCell{aspect-ratio:1;position:relative;background-image:
   linear-gradient(to right, transparent calc(50% - .5px), rgba(96,61,32,.74) calc(50% - .5px), rgba(96,61,32,.74) calc(50% + .5px), transparent calc(50% + .5px)),
   linear-gradient(to bottom, transparent calc(50% - .5px), rgba(96,61,32,.74) calc(50% - .5px), rgba(96,61,32,.74) calc(50% + .5px), transparent calc(50% + .5px))}
+.gomokuCell:focus-visible{outline:2px solid #8c2e21;outline-offset:-2px}
 .gomokuCell .gomokuStone{display:none;position:absolute;inset:18%;border-radius:999px;z-index:2}
 .gomokuCell.is-black .gomokuStone{display:block;background:radial-gradient(circle at 35% 30%,#585858 0,#222 42%,#0a0a0a 100%);box-shadow:0 2px 6px rgba(0,0,0,.45)}
 .gomokuCell.is-white .gomokuStone{display:block;background:radial-gradient(circle at 35% 30%,#fff 0,#f2f2f2 58%,#d7d7d7 100%);box-shadow:0 2px 6px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.7)}
@@ -319,7 +330,7 @@ button,input,select{font:inherit}
 .gomokuLastMove--opponent{border-color:#bf3f24}
 .gomokuLastMove--neutral{border-color:#4d4d4d}
 .gomokuLastMove--pending{border-style:dashed;animation:gomokuPendingPulse .85s ease-in-out infinite}
-.gomokuCell[disabled]{cursor:default;opacity:1}
+.gomokuCell[disabled]{cursor:default;opacity:1;background-color:transparent}
 .moves{display:grid;gap:8px;max-height:360px;overflow:auto;padding-right:4px}
 .move{padding:10px 12px;border-radius:12px;background:#fff;border:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 button.move{width:100%;text-align:left;cursor:pointer}

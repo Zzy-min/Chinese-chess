@@ -662,42 +662,6 @@
     color: var(--mobile-muted);
   }
 
-  .mobilePageHeader {
-    display: grid;
-    min-height: 82px;
-    grid-template-columns: 48px 1fr 48px;
-    align-items: center;
-    padding: max(12px, env(safe-area-inset-top)) 14px 8px;
-  }
-
-  .mobilePageHeader > button {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    place-items: center;
-    border: 1px solid rgba(120, 92, 61, .18);
-    border-radius: 50%;
-    background: rgba(251, 248, 241, .82);
-    color: var(--mobile-ink);
-    font-size: 25px;
-  }
-
-  .mobilePageHeader > div {
-    text-align: center;
-  }
-
-  .mobilePageHeader span {
-    color: var(--mobile-cinnabar);
-    font-size: 10px;
-    letter-spacing: .16em;
-  }
-
-  .mobilePageHeader h1 {
-    margin: 2px 0 0;
-    font-family: "Source Han Serif SC", "Songti SC", serif !important;
-    font-size: 20px;
-  }
-
   .mobileContentPage,
   .mobileModePage {
     min-height: 100dvh;
@@ -724,6 +688,11 @@
     border-radius: 50%;
     background: rgba(251, 248, 241, .92);
     color: var(--mobile-ink);
+  }
+
+  .mobileContentHeader > button:focus-visible {
+    outline: 2px solid var(--mobile-cinnabar);
+    outline-offset: 2px;
   }
 
   .mobileContentHeader > div {
@@ -911,10 +880,26 @@
   }
 
   /* Board routes become a board-first vertical workspace. */
+  html.mobile-board-route,
+  body.mobile-board-route {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body.mobile-board-route .site,
+  body.mobile-board-route .shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .boardPage--desk {
     width: 100%;
     min-width: 0;
-    min-height: 100dvh;
+    height: 100dvh;
+    min-height: 0;
     padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
     overflow: hidden;
     background: var(--mobile-paper);
@@ -922,10 +907,12 @@
 
   .boardPage--desk .boardDesk {
     display: flex !important;
+    height: 100%;
     min-width: 0;
     min-height: 0;
     flex-direction: column;
     gap: 8px;
+    overflow: hidden;
   }
 
   .boardRail {
@@ -1055,6 +1042,10 @@
     overflow: auto !important;
   }
 
+  .boardSidebar .gameSidebarTabs {
+    margin: -8px -8px 12px;
+  }
+
   .mobile-pane-board .boardSidebar {
     display: none;
   }
@@ -1066,7 +1057,11 @@
 
   .mobile-pane-moves .boardSidebar {
     display: block;
+    height: calc(100dvh - 74px);
     max-height: calc(100dvh - 74px);
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
   }
 
   .boardMobileTabs {
