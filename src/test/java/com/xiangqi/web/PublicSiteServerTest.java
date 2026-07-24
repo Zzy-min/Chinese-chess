@@ -35,7 +35,7 @@ class PublicSiteServerTest {
             HttpResponse<String> legacy = client.send(request(port, "/home-ai"), HttpResponse.BodyHandlers.ofString());
             HttpResponse<String> online = client.send(request(port, "/online"), HttpResponse.BodyHandlers.ofString());
             HttpResponse<String> mobileCss = client.send(
-                request(port, "/online/assets/site/mobile.css?v=20260724m1"),
+                request(port, "/online/assets/site/mobile.css?v=20260724m2"),
                 HttpResponse.BodyHandlers.ofString()
             );
             HttpResponse<String> onlineBootstrap = client.send(request(port, "/online/api/site/bootstrap"), HttpResponse.BodyHandlers.ofString());
