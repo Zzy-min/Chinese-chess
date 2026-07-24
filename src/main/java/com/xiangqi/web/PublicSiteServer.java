@@ -145,6 +145,7 @@ public final class PublicSiteServer {
             .post("/online/api/rooms/join-by-code", this::handleJoinByCode)
             .post("/online/api/rooms/{roomId}/join", this::handleJoinRoom)
             .post("/online/api/rooms/{roomId}/ready", this::handleReady)
+            .delete("/online/api/rooms/{roomId}", this::handleCloseRoom)
             .post("/online/api/games/{gameId}/move", this::handleMove)
             .post("/online/api/games/{gameId}/resign", this::handleResign)
             .post("/online/api/games/{gameId}/draw-offer", this::handleDrawOffer)
@@ -886,6 +887,26 @@ public final class PublicSiteServer {
         }
     }
 
+    private void handleCloseRoom(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        String roomId = pathParam(exchange, "roomId");
+        try {
+            Map<String, Object> result = roomHub.closeRoom(roomId, user.get());
+            wsHub.broadcastRoom(roomId, roomClosedEvent(roomId));
+            sendJson(exchange, result);
+        } catch (SecurityException ex) {
+            sendError(exchange, StatusCodes.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            sendError(exchange, StatusCodes.CONFLICT, ex.getMessage());
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
     private void handleMove(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
@@ -1091,6 +1112,14 @@ public final class PublicSiteServer {
         if (!gameId.isEmpty()) {
             event.put("game", roomHub.gameSnapshotById(gameId, null));
         }
+        return event;
+    }
+
+    private Map<String, Object> roomClosedEvent(String roomId) {
+        Map<String, Object> event = new LinkedHashMap<String, Object>();
+        event.put("type", "room_closed");
+        event.put("roomId", roomId);
+        event.put("message", "房间已关闭");
         return event;
     }
 

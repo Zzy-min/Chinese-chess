@@ -103,6 +103,7 @@ public final class OnlineRoomHub {
     public Map<String, Object> joinRoom(String roomId, AuthUser user) {
         ActiveRoom room = room(roomId);
         synchronized (room) {
+            ensureOpen(room);
             if (room.host.id().equals(user.id())) {
                 return roomSnapshot(room);
             }
@@ -119,6 +120,7 @@ public final class OnlineRoomHub {
     public Map<String, Object> setReady(String roomId, String userId, boolean ready) {
         ActiveRoom room = room(roomId);
         synchronized (room) {
+            ensureOpen(room);
             if (room.host.id().equals(userId)) {
                 room.hostReady = ready;
             } else if (room.guest != null && room.guest.id().equals(userId)) {
@@ -131,6 +133,29 @@ public final class OnlineRoomHub {
             }
             room.updatedAt = now();
             return roomSnapshot(room);
+        }
+    }
+
+    public Map<String, Object> closeRoom(String roomId, AuthUser actor) {
+        ActiveRoom room = room(roomId);
+        synchronized (room) {
+            if (!room.host.id().equals(actor.id())) {
+                throw new SecurityException("only room host can close room");
+            }
+            ActiveGame game = room.gameId == null ? null : gamesById.get(room.gameId);
+            if (game != null && "PLAYING".equals(game.status)) {
+                throw new IllegalStateException("active game must finish before closing room");
+            }
+            room.closed = true;
+            roomsById.remove(room.roomId, room);
+            roomsByCode.remove(room.roomCode, room);
+            if (game != null) {
+                gamesById.remove(room.gameId, game);
+            }
+            Map<String, Object> result = new LinkedHashMap<String, Object>();
+            result.put("closed", true);
+            result.put("roomId", room.roomId);
+            return result;
         }
     }
 
@@ -198,7 +223,7 @@ public final class OnlineRoomHub {
     public List<Map<String, Object>> publicRoomSummaries() {
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
         for (ActiveRoom room : roomsById.values()) {
-            if (room.publicRoom) {
+            if (room.publicRoom && !room.closed) {
                 items.add(roomSummary(room));
             }
         }
@@ -210,7 +235,7 @@ public final class OnlineRoomHub {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         ActiveRoom matchedRoom = null;
         for (ActiveRoom room : roomsById.values()) {
-            if (containsUser(room, userId)) {
+            if (!room.closed && containsUser(room, userId)) {
                 matchedRoom = room;
                 break;
             }
@@ -360,6 +385,7 @@ public final class OnlineRoomHub {
 
     private boolean canQuickMatch(ActiveRoom room, AuthUser user, GameType gameType) {
         return room.publicRoom
+            && !room.closed
             && room.gameType == gameType
             && room.guest == null
             && room.gameId == null
@@ -523,6 +549,12 @@ public final class OnlineRoomHub {
         return room;
     }
 
+    private void ensureOpen(ActiveRoom room) {
+        if (room.closed) {
+            throw new IllegalArgumentException("room not found");
+        }
+    }
+
     private ActiveGame game(String gameId) {
         ActiveGame game = gamesById.get(gameId);
         if (game == null) {
@@ -622,6 +654,7 @@ public final class OnlineRoomHub {
         private String status;
         private String gameId;
         private Instant updatedAt;
+        private boolean closed;
     }
 
     private static final class ActiveGame {

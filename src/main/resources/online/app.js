@@ -1009,7 +1009,10 @@ function renderLearnPage(route) {
   }
 
   const isPracticeTab = route && route.learnTab === 'practice';
-  const filter = isPracticeTab ? 'practice' : (state.learnFilter || 'all');
+  const isEndgameRoute = route
+    && route.learnTab === 'puzzles'
+    && resolvePuzzleTheme(route.puzzleTheme) === 'ENDGAME_FEN';
+  const filter = isPracticeTab ? 'practice' : (isEndgameRoute ? 'endgames' : (state.learnFilter || 'all'));
   const puzzles = state.learnContent.puzzles || [];
   const tutorials = state.learnContent.tutorials || [];
   
@@ -1035,6 +1038,8 @@ function renderLearnPage(route) {
       items = tutorials.map(t => ({...t, isTutorial: true}));
     } else if (filter === 'puzzles') {
       items = puzzles;
+    } else if (filter === 'endgames') {
+      items = puzzles.filter(p => resolvePuzzleTheme(p.theme) === 'ENDGAME_FEN');
     } else if (filter === 'openings') {
       items = [
         ...tutorials.filter(t => String(t.title || '').includes('开局') || String(t.title || '').includes('布局') || String(t.id || '').includes('opening')).map(t => ({...t, isTutorial: true})),
@@ -1070,6 +1075,7 @@ function renderLearnPage(route) {
           <p style="margin:0; font-size:14px; color:var(--text-muted);">从残局题库、教程复盘到 AI 对战，当前网页端的学习能力全部保持免费可用。</p>
         </div>
         <div class="heroRight learnSearchWrap">
+          <button class="btn learnEndgameCta" data-nav="learn/puzzles/ENDGAME_FEN">进入残局挑战</button>
           <label class="searchFieldLabel" for="learnSearchInput">搜索棋谱</label>
           <div class="searchBar searchBar--learn">
             <span class="searchIcon" aria-hidden="true">🔍</span>
@@ -1083,7 +1089,8 @@ function renderLearnPage(route) {
         <button class="pill ${filter === 'xiangqi' ? 'is-active' : ''}" data-learn-filter="xiangqi">象棋</button>
         <button class="pill ${filter === 'gomoku' ? 'is-active' : ''}" data-learn-filter="gomoku">五子棋</button>
         <button class="pill ${filter === 'featured' ? 'is-active' : ''}" data-learn-filter="featured">精彩对局</button>
-        <button class="pill ${filter === 'puzzles' ? 'is-active' : ''}" data-learn-filter="puzzles">残局精选</button>
+        <button class="pill ${filter === 'endgames' ? 'is-active' : ''}" data-nav="learn/puzzles/ENDGAME_FEN">残局挑战</button>
+        <button class="pill ${filter === 'puzzles' ? 'is-active' : ''}" data-learn-filter="puzzles">全部题库</button>
         <button class="pill ${filter === 'openings' ? 'is-active' : ''}" data-learn-filter="openings">布局大全</button>
         <button class="pill ${filter === 'practice' ? 'is-active' : ''}" data-nav="learn/practice">AI 练习</button>
       </div>
@@ -1587,6 +1594,7 @@ function renderRoom(roomId) {
         <button class="ghost" data-action="share-room" data-room-code="${escapeHtml(room.roomCode || '')}">分享房间</button>
         <button class="btn" data-action="toggle-ready">${isViewerReady(room) ? '取消准备' : '我已准备'}</button>
         ${room.gameId ? `<button class="btn" data-nav="game/${room.gameId}">进入对局</button>` : ''}
+        ${isRoomHost(room) && room.status !== 'PLAYING' ? '<button class="ghost danger" data-action="close-room">关闭房间</button>' : ''}
       </div>
     </section>
   `;
@@ -2788,6 +2796,7 @@ function bindCommon(route) {
   });
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
+  on('[data-action="close-room"]', closeCurrentRoom);
   on('[data-action="create-practice"]', createPracticeGame);
   on('[data-action="refresh-watch"]', () => loadWatchOverview(true));
   document.querySelectorAll('[data-board-pane]').forEach(el => el.addEventListener('click', () => {
@@ -3368,6 +3377,28 @@ async function toggleReady() {
   }
 }
 
+async function closeCurrentRoom() {
+  const room = state.room;
+  if (!room || !isRoomHost(room)) return;
+  if (!window.confirm('关闭后所有成员将退出此房间，确定关闭吗？')) return;
+  try {
+    await fetchJson(`${API_BASE}/rooms/${room.roomId}`, { method: 'DELETE' });
+    state.room = null;
+    state.game = null;
+    closeSocket();
+    await refreshBootstrapAndProfile();
+    showToast('房间已关闭', 'success');
+    navTo('play');
+  } catch (error) {
+    state.status = error.message;
+    render();
+  }
+}
+
+function isRoomHost(room) {
+  return !!(room && room.host && state.me && room.host.id === state.me.id);
+}
+
 function isViewerReady(room) {
   if (!room || !state.me) return false;
   if (room.host && room.host.id === state.me.id) return !!room.hostReady;
@@ -3794,6 +3825,15 @@ async function syncRealtime(route) {
   state.ws.onopen = () => state.ws.send(JSON.stringify({ type: 'subscribe', roomId: desiredRoom }));
   state.ws.onmessage = async event => {
     const data = JSON.parse(event.data);
+    if (data.type === 'room_closed') {
+      state.room = null;
+      state.game = null;
+      closeSocket();
+      await refreshBootstrapAndProfile();
+      showToast(data.message || '房间已关闭', 'info');
+      navTo('play');
+      return;
+    }
     const previousGame = state.game;
     if (data.room) state.room = data.room;
     if (data.game) {

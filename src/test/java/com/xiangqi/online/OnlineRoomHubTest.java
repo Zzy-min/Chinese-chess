@@ -22,6 +22,41 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OnlineRoomHubTest {
 
     @Test
+    void hostCanCloseWaitingRoomButGuestCannot() throws Exception {
+        OnlineRoomHub hub = new OnlineRoomHub(newStore());
+        AuthUser host = new AuthUser("u-host", "host");
+        AuthUser guest = new AuthUser("u-guest", "guest");
+
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.XIANGQI, 600, true));
+        String roomId = asString(room.get("roomId"));
+        hub.joinRoom(roomId, guest);
+
+        assertThrows(SecurityException.class, () -> hub.closeRoom(roomId, guest));
+
+        Map<String, Object> closed = hub.closeRoom(roomId, host);
+
+        assertEquals(true, closed.get("closed"));
+        assertEquals(roomId, closed.get("roomId"));
+        assertEquals(0, hub.activeRoomCount());
+        assertThrows(IllegalArgumentException.class, () -> hub.roomSnapshotById(roomId));
+    }
+
+    @Test
+    void playingRoomMustFinishBeforeHostCanCloseIt() throws Exception {
+        OnlineRoomHub hub = new OnlineRoomHub(newStore());
+        AuthUser host = new AuthUser("u-host", "host");
+        AuthUser guest = new AuthUser("u-guest", "guest");
+
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.GOMOKU, 600, false));
+        String roomId = asString(room.get("roomId"));
+        hub.joinRoom(roomId, guest);
+        hub.setReady(roomId, host.id(), true);
+        hub.setReady(roomId, guest.id(), true);
+
+        assertThrows(IllegalStateException.class, () -> hub.closeRoom(roomId, host));
+    }
+
+    @Test
     void drawOfferCanBeRejectedOrAccepted() throws Exception {
         OnlineStore store = newStore();
         OnlineRoomHub hub = new OnlineRoomHub(store);

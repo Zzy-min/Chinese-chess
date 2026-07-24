@@ -616,6 +616,44 @@ class PublicSiteServerTest {
         }
     }
 
+    @Test
+    void roomHostCanCloseWaitingRoomThroughPublicApi() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            String suffix = String.valueOf(Instant.now().toEpochMilli());
+            HttpResponse<String> host = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"close_host_" + suffix + "\",\"password\":\"Password123!\"}", ""),
+                HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> guest = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"close_guest_" + suffix + "\",\"password\":\"Password123!\"}", ""),
+                HttpResponse.BodyHandlers.ofString());
+            String hostCookie = host.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String guestCookie = guest.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            HttpResponse<String> created = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":true}", hostCookie),
+                HttpResponse.BodyHandlers.ofString());
+            String roomId = extract(created.body(), "roomId");
+
+            HttpResponse<String> denied = client.send(deleteRequest(port, "/online/api/rooms/" + roomId, guestCookie),
+                HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> closed = client.send(deleteRequest(port, "/online/api/rooms/" + roomId, hostCookie),
+                HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> missing = client.send(getRequest(port, "/online/api/rooms/" + roomId, hostCookie),
+                HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(403, denied.statusCode());
+            assertEquals(200, closed.statusCode());
+            assertTrue(closed.body().contains("\"closed\":true"));
+            assertEquals(404, missing.statusCode());
+        } finally {
+            server.stop();
+        }
+    }
+
     private HttpRequest request(int port, String path) {
         return getRequest(port, path, "");
     }
@@ -638,6 +676,15 @@ class PublicSiteServerTest {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body == null ? "" : body));
+        if (cookie != null && !cookie.isEmpty()) {
+            builder.header("Cookie", cookie);
+        }
+        return builder.build();
+    }
+
+    private HttpRequest deleteRequest(int port, String path, String cookie) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+            .DELETE();
         if (cookie != null && !cookie.isEmpty()) {
             builder.header("Cookie", cookie);
         }

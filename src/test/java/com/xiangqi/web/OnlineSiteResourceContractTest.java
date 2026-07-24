@@ -77,6 +77,24 @@ class OnlineSiteResourceContractTest {
     }
 
     @Test
+    void learnRoomAndBoardLayoutsExposeMobileAndReplayFixes() throws Exception {
+        String js = readResource("/online/app.js");
+        String css = readResource("/online/app.css");
+        String mobileCss = readResource("/online/mobile.css");
+
+        assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
+        assertTrue(js.contains("data-action=\"close-room\""));
+        assertTrue(js.contains("method: 'DELETE'"));
+        assertTrue(js.contains("data.type === 'room_closed'"));
+        assertTrue(css.contains(".site.route-analysis .boardPane--analysis"));
+        assertTrue(css.contains(".site.route-analysis .playbackControls"));
+        assertTrue(mobileCss.contains(".boardStage"));
+        assertTrue(mobileCss.contains("order: 1"));
+        assertTrue(mobileCss.contains(".boardPlayerCard"));
+        assertTrue(mobileCss.contains("font-size: 18px"));
+    }
+
+    @Test
     void mobileWebBridgeIsOptionalAndSupportsLifecycleShareAndHaptics() throws Exception {
         String js = readResource("/online/app.js");
 
