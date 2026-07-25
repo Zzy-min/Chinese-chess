@@ -3859,6 +3859,12 @@ select:focus-visible,
     padding: 12px !important;
   }
 
+  .deskLobby > .deskSidebar,
+  .deskLobby > .deskLobbyAside {
+    min-height: clamp(620px, 78vh, 700px);
+    align-self: start;
+  }
+
   .deskSidebar .sidebarUser {
     padding-bottom: 12px;
   }
@@ -3905,6 +3911,7 @@ select:focus-visible,
 
   .profileSidebar {
     gap: 10px;
+    min-height: clamp(480px, 60vh, 540px);
     padding: 14px;
   }
 
