@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260725m9"));
-        assertTrue(html.contains("mobile.css?v=20260725m9"));
-        assertTrue(html.contains("app.js?v=20260725m9"));
+        assertTrue(html.contains("app.css?v=20260725m10"));
+        assertTrue(html.contains("mobile.css?v=20260725m10"));
+        assertTrue(html.contains("app.js?v=20260725m10"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -198,6 +198,7 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("近期公开复盘"));
         assertTrue(css.contains(".watchReplayGrid"));
         assertTrue(css.contains(".profileMain"));
+        assertTrue(css.contains("Desktop density: keep the full workspace useful"));
         assertFalse(css.contains("min-height: calc(100vh - 120px) !important"));
     }
 

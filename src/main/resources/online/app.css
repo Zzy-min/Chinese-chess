@@ -3824,6 +3824,144 @@ select:focus-visible,
   margin: 16px auto 0;
 }
 
+/* Desktop density: keep the full workspace useful within one 900px viewport. */
+@media (min-width: 981px) {
+  .topbar {
+    padding: 10px 24px;
+  }
+
+  .brandMark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .brandText strong {
+    font-size: 24px;
+  }
+
+  .shell,
+  .site.route-home .shell,
+  .site.route-play .shell {
+    padding-top: 16px;
+    padding-bottom: 28px !important;
+  }
+
+  .deskLobby {
+    gap: 14px;
+  }
+
+  .deskLobbyMain {
+    gap: 14px;
+  }
+
+  .deskSidebar {
+    gap: 6px;
+    padding: 12px !important;
+  }
+
+  .deskSidebar .sidebarUser {
+    padding-bottom: 12px;
+  }
+
+  .deskSidebarItem {
+    padding: 10px 12px;
+  }
+
+  .deskLobbySearch {
+    padding: 14px;
+  }
+
+  .deskLobbyCards {
+    gap: 14px;
+  }
+
+  .deskModePanel {
+    min-height: 168px;
+    padding: 18px;
+  }
+
+  .deskLobbyRecent,
+  .deskLobbyAside {
+    padding: 18px;
+  }
+
+  .deskLobbyRecent .recentList,
+  .deskRankList {
+    gap: 8px;
+  }
+
+  .deskLobbyRecent .recentRow {
+    padding: 9px 12px;
+  }
+
+  .deskLobbyRecent .recentRow .gameBadge {
+    width: 28px;
+    height: 28px;
+  }
+
+  .profilePage {
+    gap: 16px;
+  }
+
+  .profileSidebar {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .profileSidebarGroup {
+    gap: 2px;
+  }
+
+  .profileSidebarItem {
+    padding: 8px 10px;
+  }
+
+  .profileMain {
+    gap: 14px;
+  }
+
+  .profileHeaderCard,
+  .profileMain > .panel,
+  .profileOverviewGrid > .panel {
+    padding: 18px;
+  }
+
+  .profileUserRow {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .profileUserRow .avatar {
+    width: 50px;
+    height: 50px;
+  }
+
+  .profileStatsGrid {
+    padding-top: 12px;
+  }
+
+  .profileOverviewGrid {
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  .profilePage .moves {
+    gap: 6px;
+  }
+
+  .profilePage .move {
+    padding: 8px 10px;
+  }
+
+  .profileGrowthStats {
+    margin: 14px 0;
+  }
+
+  .profileGrowthStats > div {
+    padding-block: 8px;
+  }
+}
+
 .profileHelpLead {
   max-width: 720px;
   color: var(--muted);
