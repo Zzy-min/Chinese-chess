@@ -115,6 +115,53 @@ class PublicSiteServerTest {
     }
 
     @Test
+    void exposesPagedLearnCatalogAndLazyItemDetails() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            HttpResponse<String> catalog = client.send(
+                getRequest(port, "/online/api/learn/catalog?filter=xiangqi&offset=0&limit=12", ""),
+                HttpResponse.BodyHandlers.ofString()
+            );
+            HttpResponse<String> searched = client.send(
+                getRequest(port, "/online/api/learn/catalog?q=%E5%8F%8C%E8%BD%A6&offset=0&limit=12", ""),
+                HttpResponse.BodyHandlers.ofString()
+            );
+            HttpResponse<String> detail = client.send(
+                getRequest(port, "/online/api/learn/items/xq-puzzle-fork-001", ""),
+                HttpResponse.BodyHandlers.ofString()
+            );
+            HttpResponse<String> missing = client.send(
+                getRequest(port, "/online/api/learn/items/not-a-real-item", ""),
+                HttpResponse.BodyHandlers.ofString()
+            );
+
+            assertEquals(200, catalog.statusCode());
+            assertTrue(catalog.body().contains("\"items\""));
+            assertTrue(catalog.body().contains("\"limit\":12"));
+            assertTrue(catalog.body().contains("\"total\""));
+            assertTrue(catalog.body().getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 100_000);
+            assertTrue(!catalog.body().contains("\"solutionLine\""));
+            assertTrue(!catalog.body().contains("\"fen\""));
+
+            assertEquals(200, searched.statusCode());
+            assertTrue(searched.body().contains("双车"));
+
+            assertEquals(200, detail.statusCode());
+            assertTrue(detail.body().contains("\"id\":\"xq-puzzle-fork-001\""));
+            assertTrue(detail.body().contains("\"fen\""));
+            assertTrue(detail.body().contains("\"solutionLine\""));
+            assertEquals(404, missing.statusCode());
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
     void writesAndReadsLearnProgressAfterLogin() throws Exception {
         OnlineStore store = newStore();
         PublicSiteServer server = new PublicSiteServer(store);

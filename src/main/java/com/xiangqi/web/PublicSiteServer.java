@@ -129,6 +129,8 @@ public final class PublicSiteServer {
             .get("/online/api/games/{gameId}/analysis", this::handleGameAnalysis)
             .get("/online/api/learn/practice-games/{gameId}", this::handlePracticeGameById)
             .get("/online/api/learn/content", this::handleLearnContent)
+            .get("/online/api/learn/catalog", this::handleLearnCatalog)
+            .get("/online/api/learn/items/{id}", this::handleLearnItem)
             .get("/online/api/learn/progress", this::handleLearnProgress)
             .get("/online/api/watch/overview", this::handleWatchOverview)
             .get("/online/api/community/leaderboard", this::handleCommunityLeaderboard)
@@ -388,6 +390,24 @@ public final class PublicSiteServer {
 
     private void handleLearnContent(HttpServerExchange exchange) {
         sendJson(exchange, store.learnContent());
+    }
+
+    private void handleLearnCatalog(HttpServerExchange exchange) {
+        sendJson(exchange, store.learnCatalog(
+                queryParam(exchange, "filter", "all"),
+                queryParam(exchange, "q", ""),
+                asInt(queryParam(exchange, "offset", "0"), 0),
+                asInt(queryParam(exchange, "limit", "24"), 24)
+        ));
+    }
+
+    private void handleLearnItem(HttpServerExchange exchange) {
+        Optional<Map<String, Object>> item = store.learnItem(pathParam(exchange, "id"));
+        if (item.isEmpty()) {
+            sendError(exchange, 404, "learn item not found");
+            return;
+        }
+        sendJson(exchange, item.get());
     }
 
     private void handleLearnProgress(HttpServerExchange exchange) {

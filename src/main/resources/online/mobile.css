@@ -1294,3 +1294,136 @@
     animation: none !important;
   }
 }
+
+@media (max-width: 768px) {
+  .watchHero {
+    min-height: 190px;
+    padding: 28px 22px;
+    align-items: start;
+    flex-direction: column;
+    border-radius: 20px;
+  }
+
+  .watchHero h1 {
+    font-size: 42px;
+  }
+
+  .watchLiveCount {
+    min-width: 0;
+    padding: 10px 16px;
+    grid-auto-flow: column;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .watchLiveCount strong {
+    font-size: 25px;
+  }
+
+  .watchToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .watchFilters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    width: 100%;
+  }
+
+  .watchFilters button {
+    min-width: 0;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+
+  .watchRefresh {
+    align-self: end;
+  }
+
+  .watchLiveGrid {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .watchPlayers strong {
+    font-size: 20px;
+  }
+
+  .watchEmpty {
+    min-height: 280px;
+  }
+
+  .profilePage {
+    display: block;
+  }
+
+  .profileSidebar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 8px;
+    gap: 6px;
+    overflow: visible;
+  }
+
+  .profileSidebarGroup {
+    display: contents;
+  }
+
+  .profileSidebarLabel {
+    display: none;
+  }
+
+  .profileSidebarItem {
+    display: grid;
+    min-width: 0;
+    min-height: 68px;
+    place-items: center;
+    align-content: center;
+    gap: 4px;
+    padding: 7px 3px;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .profileSidebarIcon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .profileMain {
+    min-width: 0;
+  }
+
+  .profileHelpGrid {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .profileHelpGrid article {
+    grid-template-columns: auto minmax(0,1fr);
+  }
+
+  .profileHelpGrid article button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .profileDiagnostic,
+  .profileSectionHead {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profileDiagnostic .btn {
+    width: 100%;
+  }
+
+  .profilePage .moves,
+  .profilePage .scrollable {
+    max-height: none;
+    overflow: visible;
+  }
+}

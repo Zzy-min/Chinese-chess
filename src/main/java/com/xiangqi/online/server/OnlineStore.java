@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -548,6 +549,143 @@ public final class OnlineStore {
     public Map<String, Object> learnContent() {
         Map<String, Object> seed = ensureLearnContentSeed();
         return deepCopy(seed);
+    }
+
+    public Map<String, Object> learnCatalog(String filter, String query, int offset, int limit) {
+        Map<String, Object> seed = ensureLearnContentSeed();
+        String normalizedFilter = asString(filter).trim().toLowerCase(Locale.ROOT);
+        String normalizedQuery = asString(query).trim().toLowerCase(Locale.ROOT);
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        List<Map<String, Object>> matches = new ArrayList<>();
+
+        appendLearnCatalogItems(matches, learnSeedItems(seed, "tutorials"), true,
+                normalizedFilter, normalizedQuery);
+        appendLearnCatalogItems(matches, learnSeedItems(seed, "puzzles"), false,
+                normalizedFilter, normalizedQuery);
+
+        int fromIndex = Math.min(safeOffset, matches.size());
+        int toIndex = Math.min(fromIndex + safeLimit, matches.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", new ArrayList<>(matches.subList(fromIndex, toIndex)));
+        result.put("total", matches.size());
+        result.put("offset", safeOffset);
+        result.put("limit", safeLimit);
+        result.put("hasMore", toIndex < matches.size());
+        Object recommendedPractice = seed.get("recommendedPractice");
+        result.put("recommendedPractice", recommendedPractice instanceof List<?>
+                ? mapper.convertValue(recommendedPractice, List.class)
+                : List.of());
+        return result;
+    }
+
+    public Optional<Map<String, Object>> learnItem(String id) {
+        String expectedId = asString(id).trim();
+        if (expectedId.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, Object> seed = ensureLearnContentSeed();
+        for (Map<String, Object> tutorial : learnSeedItems(seed, "tutorials")) {
+            if (expectedId.equals(asString(tutorial.get("id")))) {
+                Map<String, Object> item = deepCopy(tutorial);
+                item.put("kind", "tutorial");
+                item.put("isTutorial", true);
+                return Optional.of(item);
+            }
+        }
+        for (Map<String, Object> puzzle : learnSeedItems(seed, "puzzles")) {
+            if (expectedId.equals(asString(puzzle.get("id")))) {
+                Map<String, Object> item = deepCopy(puzzle);
+                item.put("kind", "puzzle");
+                item.put("isTutorial", false);
+                return Optional.of(item);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> learnSeedItems(Map<String, Object> seed, String key) {
+        Object value = seed.get(key);
+        if (!(value instanceof List<?>)) {
+            return List.of();
+        }
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Object item : (List<?>) value) {
+            if (item instanceof Map<?, ?>) {
+                items.add((Map<String, Object>) item);
+            }
+        }
+        return items;
+    }
+
+    private void appendLearnCatalogItems(List<Map<String, Object>> target,
+                                         List<Map<String, Object>> source,
+                                         boolean tutorial,
+                                         String filter,
+                                         String query) {
+        for (Map<String, Object> item : source) {
+            if (!matchesLearnFilter(item, tutorial, filter) || !matchesLearnQuery(item, query)) {
+                continue;
+            }
+            Map<String, Object> summary = new LinkedHashMap<>();
+            summary.put("id", item.get("id"));
+            summary.put("kind", tutorial ? "tutorial" : "puzzle");
+            summary.put("isTutorial", tutorial);
+            copyLearnSummaryField(item, summary, "gameType");
+            copyLearnSummaryField(item, summary, "title");
+            copyLearnSummaryField(item, summary, "summary");
+            copyLearnSummaryField(item, summary, "difficulty");
+            copyLearnSummaryField(item, summary, "theme");
+            copyLearnSummaryField(item, summary, "source");
+            target.add(summary);
+        }
+    }
+
+    private boolean matchesLearnFilter(Map<String, Object> item, boolean tutorial, String filter) {
+        String gameType = asString(item.get("gameType")).toUpperCase(Locale.ROOT);
+        String theme = asString(item.get("theme")).toUpperCase(Locale.ROOT);
+        String searchable = (asString(item.get("title")) + " " + asString(item.get("id")))
+                .toLowerCase(Locale.ROOT);
+        switch (filter) {
+            case "":
+            case "all":
+                return true;
+            case "xiangqi":
+                return "XIANGQI".equals(gameType);
+            case "gomoku":
+                return "GOMOKU".equals(gameType);
+            case "featured":
+                return tutorial;
+            case "puzzles":
+                return !tutorial;
+            case "endgames":
+                return !tutorial && "ENDGAME_FEN".equals(theme);
+            case "openings":
+                return searchable.contains("开局")
+                        || searchable.contains("布局")
+                        || searchable.contains("opening");
+            default:
+                return true;
+        }
+    }
+
+    private boolean matchesLearnQuery(Map<String, Object> item, String query) {
+        if (query.isEmpty()) {
+            return true;
+        }
+        String searchable = (asString(item.get("title")) + " "
+                + asString(item.get("summary")) + " "
+                + asString(item.get("source"))).toLowerCase(Locale.ROOT);
+        return searchable.contains(query);
+    }
+
+    private void copyLearnSummaryField(Map<String, Object> source,
+                                       Map<String, Object> target,
+                                       String field) {
+        if (source.containsKey(field)) {
+            target.put(field, source.get(field));
+        }
     }
 
     public Map<String, Object> learnProgress(String userId) {

@@ -43,6 +43,15 @@ class LegacyHomepageResourceContractTest {
         assertTrue(onlineJs.contains("async function startPracticeFromPuzzle"));
         assertTrue(onlineJs.contains("function isValidXiangqiInitialFen"));
         assertTrue(onlineJs.contains("async function loadLearnContent"));
+        assertTrue(onlineJs.contains("compositionstart"));
+        assertTrue(onlineJs.contains("compositionend"));
+        assertTrue(onlineJs.contains("/learn/catalog?"));
+        assertTrue(onlineJs.contains("/learn/items/"));
+        assertTrue(onlineJs.contains("观棋台"));
+        assertTrue(onlineJs.contains("复制诊断信息"));
+        assertTrue(onlineJs.contains("navLink('me', '个人中心'"));
+        assertFalse(onlineJs.contains("navLink('help', '帮助'"));
+        assertFalse(onlineJs.contains("可观战归档对局"));
         assertTrue(onlineJs.contains("async function loadWatchOverview"));
         assertTrue(onlineJs.contains("async function loadCommunityLeaderboard"));
         assertTrue(onlineJs.contains("const LEARN_SUB_ROUTES = ['tutorials', 'puzzles', 'practice'];"));
