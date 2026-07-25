@@ -3855,12 +3855,15 @@ select:focus-visible,
   }
 
   .deskSidebar {
+    display: grid;
     gap: 6px;
+    grid-template-rows: auto repeat(8, minmax(0, 1fr));
     padding: 12px !important;
   }
 
   .deskLobby > .deskSidebar,
   .deskLobby > .deskLobbyAside {
+    height: clamp(620px, 78vh, 700px);
     min-height: clamp(620px, 78vh, 700px);
     align-self: start;
   }
@@ -3870,7 +3873,18 @@ select:focus-visible,
   }
 
   .deskSidebarItem {
+    display: flex;
+    align-items: center;
     padding: 10px 12px;
+  }
+
+  .deskLobbyAside {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .deskLobbyAside > .btn-block {
+    margin-top: auto;
   }
 
   .deskLobbySearch {
@@ -3912,6 +3926,7 @@ select:focus-visible,
   .profileSidebar {
     gap: 10px;
     min-height: clamp(480px, 60vh, 540px);
+    justify-content: space-between;
     padding: 14px;
   }
 
