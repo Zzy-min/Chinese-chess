@@ -76,39 +76,40 @@ public final class OnlineStore {
         return sessions.findByToken(token).map(UserSession::user);
     }
 
-    public void createGameRecord(String gameId, String roomId, Map<String, Object> snapshot) {
-        String sql = "insert into games(id, room_id, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_user_id, first_username, first_side, second_user_id, second_username, second_side, current_turn, winner_side, result_text, board_json, move_count, initial_time_seconds, first_remaining_seconds, second_remaining_seconds, termination_reason, created_at, started_at, finished_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    public void createGameRecord(String gameId, String roomId, boolean publicGame, Map<String, Object> snapshot) {
+        String sql = "insert into games(id, room_id, is_public, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_user_id, first_username, first_side, second_user_id, second_username, second_side, current_turn, winner_side, result_text, board_json, move_count, initial_time_seconds, first_remaining_seconds, second_remaining_seconds, termination_reason, created_at, started_at, finished_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             Map<String, Object> players = asMap(snapshot.get("players"));
             Map<String, Object> first = asMap(players.get("first"));
             Map<String, Object> second = asMap(players.get("second"));
             ps.setString(1, gameId);
             ps.setString(2, roomId == null ? "" : roomId);
-            ps.setString(3, asString(snapshot.get("gameType")));
-            ps.setBoolean(4, asBoolean(snapshot.get("isTraining")));
-            ps.setString(5, asString(snapshot.get("opponentType")));
-            ps.setString(6, asString(snapshot.get("aiEngine")));
-            ps.setString(7, asString(snapshot.get("difficulty")));
-            ps.setString(8, asString(snapshot.get("status")));
-            ps.setString(9, asString(first.get("id")));
-            ps.setString(10, asString(first.get("username")));
-            ps.setString(11, asString(first.get("side")));
-            ps.setString(12, asString(second.get("id")));
-            ps.setString(13, asString(second.get("username")));
-            ps.setString(14, asString(second.get("side")));
-            ps.setString(15, asString(snapshot.get("currentTurn")));
-            ps.setString(16, asString(snapshot.get("winnerSide")));
-            ps.setString(17, asString(snapshot.get("resultText")));
-            ps.setString(18, mapper.writeValueAsString(snapshot.get("board")));
-            ps.setInt(19, asInt(snapshot.get("moveCount")));
-            ps.setInt(20, asInt(snapshot.get("initialTimeSeconds")));
-            ps.setInt(21, asInt(snapshot.get("firstRemainingSeconds")));
-            ps.setInt(22, asInt(snapshot.get("secondRemainingSeconds")));
-            ps.setString(23, asString(snapshot.get("terminationReason")));
+            ps.setBoolean(3, publicGame);
+            ps.setString(4, asString(snapshot.get("gameType")));
+            ps.setBoolean(5, asBoolean(snapshot.get("isTraining")));
+            ps.setString(6, asString(snapshot.get("opponentType")));
+            ps.setString(7, asString(snapshot.get("aiEngine")));
+            ps.setString(8, asString(snapshot.get("difficulty")));
+            ps.setString(9, asString(snapshot.get("status")));
+            ps.setString(10, asString(first.get("id")));
+            ps.setString(11, asString(first.get("username")));
+            ps.setString(12, asString(first.get("side")));
+            ps.setString(13, asString(second.get("id")));
+            ps.setString(14, asString(second.get("username")));
+            ps.setString(15, asString(second.get("side")));
+            ps.setString(16, asString(snapshot.get("currentTurn")));
+            ps.setString(17, asString(snapshot.get("winnerSide")));
+            ps.setString(18, asString(snapshot.get("resultText")));
+            ps.setString(19, mapper.writeValueAsString(snapshot.get("board")));
+            ps.setInt(20, asInt(snapshot.get("moveCount")));
+            ps.setInt(21, asInt(snapshot.get("initialTimeSeconds")));
+            ps.setInt(22, asInt(snapshot.get("firstRemainingSeconds")));
+            ps.setInt(23, asInt(snapshot.get("secondRemainingSeconds")));
+            ps.setString(24, asString(snapshot.get("terminationReason")));
             Instant now = Instant.now();
-            ps.setTimestamp(24, Timestamp.from(now));
             ps.setTimestamp(25, Timestamp.from(now));
-            ps.setTimestamp(26, null);
+            ps.setTimestamp(26, Timestamp.from(now));
+            ps.setTimestamp(27, null);
             ps.executeUpdate();
         } catch (SQLException | IOException ex) {
             throw new IllegalStateException("failed to create game record", ex);
@@ -485,17 +486,20 @@ public final class OnlineStore {
 
     public List<Map<String, Object>> watchableGames(int limit) {
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
-        String sql = "select id, game_type, status, is_training, first_username, first_side, second_username, second_side, move_count, started_at, finished_at "
-            + "from games order by coalesce(finished_at, started_at) desc limit ?";
+        String sql = "select id, game_type, status, is_public, is_training, first_username, first_side, second_username, second_side, winner_side, result_text, move_count, started_at, finished_at "
+            + "from games where is_public = true and is_training = false and status = 'FINISHED' order by finished_at desc limit ?";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setInt(1, limit);
+            ps.setInt(1, Math.max(1, Math.min(20, limit)));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Map<String, Object> item = new LinkedHashMap<String, Object>();
                     item.put("gameId", rs.getString("id"));
                     item.put("gameType", rs.getString("game_type"));
                     item.put("status", rs.getString("status"));
+                    item.put("isPublic", rs.getBoolean("is_public"));
                     item.put("isTraining", rs.getBoolean("is_training"));
+                    item.put("winnerSide", rs.getString("winner_side"));
+                    item.put("resultText", rs.getString("result_text"));
                     item.put("moveCount", rs.getInt("move_count"));
                     Timestamp finishedAt = rs.getTimestamp("finished_at");
                     Timestamp startedAt = rs.getTimestamp("started_at");

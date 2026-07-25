@@ -279,9 +279,11 @@ public final class OnlineSiteServer {
 
     private void handleWatchOverview(HttpServerExchange exchange) {
         int limit = asInt(queryParam(exchange, "limit", "20"), 20);
+        List<Map<String, Object>> replayGames = store.watchableGames(limit);
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("publicRooms", watchPublicRooms());
-        body.put("archivedGames", store.watchableGames(limit));
+        body.put("replayGames", replayGames);
+        body.put("archivedGames", replayGames);
         body.put("generatedAt", Instant.now().toString());
         sendJson(exchange, body);
     }

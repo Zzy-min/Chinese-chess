@@ -1520,7 +1520,7 @@ button.move{width:100%;text-align:left;cursor:pointer}
   display:grid;
   grid-template-columns:260px minmax(0,1fr) 360px;
   gap:18px;
-  min-height:calc(100vh - 180px)
+  min-height:0
 }
 .boardRail,
 .boardSidebar{
@@ -2028,7 +2028,7 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 340px !important;
   gap: 20px;
-  min-height: calc(100vh - 120px) !important;
+  min-height: 0 !important;
   position: relative;
   z-index: 1;
 }
@@ -2458,7 +2458,7 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 340px !important;
   gap: 20px;
-  min-height: calc(100vh - 120px) !important;
+  min-height: 0 !important;
   position: relative;
   z-index: 1;
 }
@@ -2779,7 +2779,7 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 /* 木纹棋盘侧边和水墨图浮动适配微调 */
 .boardPage--desk {
   padding: 24px 30px !important;
-  min-height: calc(100vh - 80px);
+  min-height: 0;
 }
 
 /* ==========================================
@@ -3418,19 +3418,19 @@ select:focus-visible,
 .watchHero {
   position: relative;
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 28px;
-  min-height: 230px;
-  padding: 44px 48px;
+  min-height: 168px;
+  padding: 30px 38px;
   overflow: hidden;
   border: 1px solid rgba(128, 91, 57, .22);
   border-radius: 28px;
-  color: #fffaf0;
+  color: var(--ink);
   background:
-    radial-gradient(circle at 82% 24%, rgba(232, 190, 116, .18), transparent 25%),
-    linear-gradient(125deg, #271f18 0%, #493126 52%, #7f3024 100%);
-  box-shadow: 0 20px 50px rgba(67, 42, 28, .15);
+    radial-gradient(circle at 82% 18%, rgba(166, 107, 62, .11), transparent 27%),
+    linear-gradient(125deg, #fbf7ee 0%, #f4ecdf 58%, #ead9c8 100%);
+  box-shadow: 0 12px 30px rgba(67, 42, 28, .08);
 }
 
 .watchHero::after {
@@ -3438,8 +3438,8 @@ select:focus-visible,
   position: absolute;
   right: 13%;
   top: -44px;
-  color: rgba(255, 248, 232, .065);
-  font: 240px/1 "KaiTi", serif;
+  color: rgba(140, 46, 33, .055);
+  font: 190px/1 "KaiTi", serif;
   transform: rotate(-8deg);
 }
 
@@ -3452,7 +3452,7 @@ select:focus-visible,
 
 .watchHero p {
   margin: 0;
-  color: rgba(255, 250, 240, .78);
+  color: var(--muted);
   font-size: 16px;
 }
 
@@ -3480,11 +3480,10 @@ select:focus-visible,
   display: grid;
   min-width: 150px;
   padding: 18px 24px;
-  border: 1px solid rgba(255,255,255,.18);
+  border: 1px solid rgba(140,46,33,.14);
   border-radius: 18px;
   text-align: center;
-  background: rgba(20, 14, 10, .24);
-  backdrop-filter: blur(8px);
+  background: rgba(255,253,248,.72);
 }
 
 .watchLiveCount strong {
@@ -3492,7 +3491,7 @@ select:focus-visible,
 }
 
 .watchLiveCount span {
-  color: rgba(255,255,255,.7);
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -3600,7 +3599,7 @@ select:focus-visible,
 .watchEmpty {
   grid-column: 1 / -1;
   display: grid;
-  min-height: 330px;
+  min-height: 220px;
   place-content: center;
   justify-items: center;
   gap: 12px;
@@ -3631,6 +3630,76 @@ select:focus-visible,
 .watchEmpty > div {
   display: flex;
   gap: 10px;
+}
+
+.watchReplayStage {
+  margin-top: 30px;
+}
+
+.watchSectionHead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.watchSectionHead h2 {
+  margin: 0;
+  font: 28px/1.2 "KaiTi", "STKaiti", serif;
+}
+
+.watchReplayGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.watchReplayCard {
+  padding: 18px;
+  border-block: 1px solid var(--line);
+  background: rgba(255, 253, 248, .5);
+}
+
+.watchReplayPlayers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 12px;
+  text-align: center;
+}
+
+.watchReplayPlayers strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 20px/1.2 "KaiTi", "STKaiti", serif;
+}
+
+.watchReplayPlayers span,
+.watchReplayCard p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.watchReplayCard p {
+  min-height: 40px;
+  margin: 0 0 14px;
+  line-height: 1.55;
+}
+
+.watchReplayEmpty {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 7px;
+  padding: 28px 4px;
+  border-block: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.watchReplayEmpty strong {
+  color: var(--ink);
+  font: 22px/1.2 "KaiTi", "STKaiti", serif;
 }
 
 .profilePage {
@@ -3687,6 +3756,54 @@ select:focus-visible,
 .profileHelp {
   border-radius: 22px;
   box-shadow: 0 12px 28px rgba(80,54,31,.07);
+}
+
+.profileOverviewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+  align-items: start;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.profileGrowthStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0;
+}
+
+.profileGrowthStats > div {
+  display: grid;
+  gap: 4px;
+  padding-block: 12px;
+  border-block: 1px solid var(--line);
+}
+
+.profileGrowthStats strong {
+  color: var(--brand-red);
+  font-size: 25px;
+}
+
+.profileGrowthStats span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profileGrowthActions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.site.is-board-route .boardPane--game {
+  height: fit-content;
+  grid-template-rows: auto auto auto auto auto auto;
+  align-self: start;
+}
+
+.site.is-board-route .boardPane--game .boardHost {
+  align-self: start;
 }
 
 .profilePage .moves {

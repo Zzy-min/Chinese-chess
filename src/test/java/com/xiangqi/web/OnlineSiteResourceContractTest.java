@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260725m8"));
-        assertTrue(html.contains("mobile.css?v=20260725m8"));
-        assertTrue(html.contains("app.js?v=20260725m8"));
+        assertTrue(html.contains("app.css?v=20260725m9"));
+        assertTrue(html.contains("mobile.css?v=20260725m9"));
+        assertTrue(html.contains("app.js?v=20260725m9"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -176,6 +176,29 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("type: 'subscribe_lobby'"));
         assertTrue(js.contains("data.type === 'lobby'"));
         assertTrue(js.contains("state.lobby = data.lobby"));
+    }
+
+    @Test
+    void logoutReturnsHomeWithoutRenderingAProtectedRouteOverlay() throws Exception {
+        String js = readResource("/online/app.js");
+
+        assertTrue(js.contains("async function logout()"));
+        assertTrue(js.contains("location.replace('#/home')"));
+        assertTrue(js.contains("state.showAuthModal = false"));
+        assertTrue(js.contains("showToast('已退出登录'"));
+    }
+
+    @Test
+    void boardProfileAndWatchUseContentDrivenMutedLayouts() throws Exception {
+        String js = readResource("/online/app.js");
+        String css = readResource("/online/app.css");
+
+        assertTrue(js.contains("watchReplayGrid"));
+        assertTrue(js.contains("replayGames"));
+        assertTrue(js.contains("近期公开复盘"));
+        assertTrue(css.contains(".watchReplayGrid"));
+        assertTrue(css.contains(".profileMain"));
+        assertFalse(css.contains("min-height: calc(100vh - 120px) !important"));
     }
 
     @Test

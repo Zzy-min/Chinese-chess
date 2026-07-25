@@ -1013,6 +1013,11 @@
     touch-action: none;
   }
 
+  .mobile-pane-board .boardStage,
+  .mobile-pane-board .boardHost {
+    flex: 0 0 auto;
+  }
+
   .boardHost .xiangqiBoard,
   .boardHost .gomokuBoard {
     max-width: 100% !important;
@@ -1297,8 +1302,8 @@
 
 @media (max-width: 768px) {
   .watchHero {
-    min-height: 190px;
-    padding: 28px 22px;
+    min-height: 158px;
+    padding: 22px 20px;
     align-items: start;
     flex-direction: column;
     border-radius: 20px;
@@ -1350,7 +1355,21 @@
   }
 
   .watchEmpty {
-    min-height: 280px;
+    min-height: 210px;
+  }
+
+  .watchSectionHead {
+    align-items: start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .watchReplayGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .watchReplayCard {
+    padding-inline: 4px;
   }
 
   .profilePage {
@@ -1396,6 +1415,10 @@
 
   .profileMain {
     min-width: 0;
+  }
+
+  .profileOverviewGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .profileHelpGrid {

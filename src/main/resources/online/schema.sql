@@ -15,6 +15,7 @@ create table if not exists auth_sessions (
 create table if not exists games (
   id varchar(64) primary key,
   room_id varchar(64) not null,
+  is_public boolean not null default false,
   game_type varchar(16) not null,
   is_training boolean not null default false,
   opponent_type varchar(32) not null default 'HUMAN',
@@ -77,6 +78,7 @@ alter table games add column if not exists is_training boolean not null default 
 alter table games add column if not exists opponent_type varchar(32) not null default 'HUMAN';
 alter table games add column if not exists ai_engine varchar(64);
 alter table games add column if not exists difficulty varchar(16);
+alter table games add column if not exists is_public boolean not null default false;
 
 alter table learn_progress add column if not exists updated_at timestamp not null default current_timestamp;
 alter table user_preferences add column if not exists sound_enabled boolean not null default true;

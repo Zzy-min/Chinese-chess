@@ -125,7 +125,7 @@ public final class PracticeGameHub {
 
         game.currentTurn = game.match.currentTurnKey();
         gamesById.put(game.gameId, game);
-        store.createGameRecord(game.gameId, "", snapshot(game, user));
+        store.createGameRecord(game.gameId, "", false, snapshot(game, user));
         LOG.info(() -> "practice.create gameId=" + game.gameId
             + " type=" + game.gameType
             + " difficulty=" + game.difficulty

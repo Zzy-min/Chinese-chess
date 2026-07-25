@@ -331,7 +331,7 @@ public final class OnlineRoomHub {
         game.lastTickAt = now();
         game.updatedAt = now();
         gamesById.put(game.gameId, game);
-        store.createGameRecord(game.gameId, room.roomId, gameSnapshot(game, room.host));
+        store.createGameRecord(game.gameId, room.roomId, room.publicRoom, gameSnapshot(game, room.host));
     }
 
     private OnlineMatchEngine createEngine(ActiveRoom room) {

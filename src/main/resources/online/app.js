@@ -237,7 +237,7 @@ async function loadLearnProgress() {
 }
 
 async function loadWatchOverview(renderAfter = true) {
-  state.watchOverview = await fetchJson(`${API_BASE}/watch/overview`).catch(() => ({ publicRooms: [], archivedGames: [] }));
+  state.watchOverview = await fetchJson(`${API_BASE}/watch/overview`).catch(() => ({ publicRooms: [], replayGames: [], archivedGames: [] }));
   state.watchUpdatedAt = Date.now();
   if (renderAfter) {
     render();
@@ -1156,12 +1156,13 @@ function renderWatchPage() {
     return '<section class="watchEmpty"><strong>正在登上观棋台…</strong><span>为你寻找公开直播对局</span></section>';
   }
   const rooms = filterWatchRooms((state.watchOverview.publicRooms || []), state.watchFilters);
+  const replayGames = state.watchOverview.replayGames || state.watchOverview.archivedGames || [];
   return `
     <section class="watchHero">
       <div>
         <div class="watchEyebrow"><span class="watchLiveDot"></span>公开直播 · 自动刷新</div>
         <h1>观棋台</h1>
-        <p>静观好局，进入正在进行的公开对弈。</p>
+        <p>看正在发生的好局，也回看值得琢磨的公开对弈。</p>
       </div>
       <div class="watchLiveCount"><strong>${rooms.length}</strong><span>局正在直播</span></div>
     </section>
@@ -1176,6 +1177,15 @@ function renderWatchPage() {
       </div>
       <div class="watchLiveGrid">
         ${renderWatchRooms(rooms)}
+      </div>
+    </section>
+    <section class="watchReplayStage">
+      <div class="watchSectionHead">
+        <div><span class="meta">落子有痕</span><h2>近期公开复盘</h2></div>
+        <span class="muted">仅展示已结束的公开真人对局</span>
+      </div>
+      <div class="watchReplayGrid">
+        ${renderWatchReplays(replayGames)}
       </div>
     </section>
   `;
@@ -1545,6 +1555,43 @@ function renderWatchRooms(items) {
       </div>
     </article>`;
   }).join('');
+}
+
+function renderWatchReplays(items) {
+  if (!items.length) {
+    return `
+      <div class="watchReplayEmpty">
+        <strong>公开棋谱正在积累</strong>
+        <span>新的公开真人对局结束后，会在这里留下可回看的棋谱。</span>
+      </div>`;
+  }
+  return items.map(item => {
+    const first = item.players && item.players.first ? item.players.first.username : '棋友';
+    const second = item.players && item.players.second ? item.players.second.username : '棋友';
+    const label = item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋';
+    const result = item.resultText || (item.winnerSide ? `${sideLabel(item.gameType, item.winnerSide)}获胜` : '对局已结束');
+    const finished = formatWatchDate(item.finishedAt || item.updatedAt);
+    return `
+      <article class="watchReplayCard">
+        <div class="watchCardTop">
+          <span class="watchGameTag">${label}</span>
+          <span class="muted">${finished}</span>
+        </div>
+        <div class="watchReplayPlayers"><strong>${escapeHtml(first)}</strong><span>对</span><strong>${escapeHtml(second)}</strong></div>
+        <p>${escapeHtml(result)}</p>
+        <div class="watchCardFoot">
+          <span>${Number(item.moveCount || 0)} 步</span>
+          <button class="ghost" data-nav="analysis/${escapeHtml(item.gameId || '')}">查看复盘</button>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function formatWatchDate(value) {
+  if (!value) return '刚刚结束';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '近期';
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
 function renderCommunityItems(items, isWinBoard) {
@@ -2214,6 +2261,8 @@ function renderProfile() {
   } else {
     const activeRoom = activity.room;
     const activeGame = activity.game;
+    const tutorialsDone = (learnProgress.tutorialsCompleted || []).length;
+    const puzzlesDone = (learnProgress.puzzlesCompleted || []).length;
     mainHtml = `
       <section class="panel profileHeaderCard">
         <div class="profileUserRow">
@@ -2232,12 +2281,27 @@ function renderProfile() {
         </div>
       </section>
       ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
-      <section class="panel" style="margin-top:12px">
-        <h3 class="sectionTitle">最近对局</h3>
-        <div class="moves">
-          ${recentGames.slice(0, 5).length ? recentGames.slice(0, 5).map(renderProfileGameCard).join('') : '<div class="banner">暂无对局。</div>'}
-        </div>
-      </section>`;
+      <div class="profileOverviewGrid">
+        <section class="panel">
+          <div class="profileSectionHead"><h3 class="sectionTitle">最近对局</h3><button class="ghost" data-nav="me/records">全部记录</button></div>
+          <div class="moves">
+            ${recentGames.slice(0, 4).length ? recentGames.slice(0, 4).map(renderProfileGameCard).join('') : '<div class="banner">还没有对局记录，先去下一盘棋。</div>'}
+          </div>
+        </section>
+        <section class="panel profileGrowth">
+          <span class="meta">继续成长</span>
+          <h3 class="sectionTitle">学习与成就</h3>
+          <div class="profileGrowthStats">
+            <div><strong>${tutorialsDone}</strong><span>教程完成</span></div>
+            <div><strong>${puzzlesDone}</strong><span>题目完成</span></div>
+            <div><strong>${earnedCount}</strong><span>成就获得</span></div>
+          </div>
+          <div class="profileGrowthActions">
+            <button class="btn" data-nav="learn/puzzles/ALL">继续学习</button>
+            <button class="ghost" data-nav="me/achievements">查看成就</button>
+          </div>
+        </section>
+      </div>`;
   }
 
   return `
@@ -3092,28 +3156,35 @@ async function submitAuth() {
 }
 
 async function logout() {
-  await fetchJson(`${API_BASE}/auth/logout`, { method: 'POST' }).catch(() => null);
-  state.me = null;
-  state.profile = null;
-  state.profileDashboard = null;
-  state.room = null;
-  state.game = null;
-  state.moveInFlight = false;
-  stopPracticePolling();
-  state.analysis = null;
-  state.learnProgress = null;
-  state.bootstrap = null;
-  state.showAuthModal = false;
-  state.selectedFrom = null;
-  state.endGameModal = null;
-  state.endGameModalShownKey = '';
-  state.lastMoveSoundGameId = '';
-  state.lastMoveSoundIndex = 0;
-  state.lastFinishSoundKey = '';
-  clearAiMoveHint();
-  state.status = '';
-  await loadBootstrap();
-  render();
+  if (isActionBusy('logout')) return;
+  await withActionBusy('logout', '正在退出…', async () => {
+    closeSocket();
+    stopPracticePolling();
+    await fetchJson(`${API_BASE}/auth/logout`, { method: 'POST' }).catch(() => null);
+    state.me = null;
+    state.profile = null;
+    state.profileDashboard = null;
+    state.room = null;
+    state.game = null;
+    state.moveInFlight = false;
+    state.analysis = null;
+    state.learnProgress = null;
+    state.bootstrap = null;
+    state.showAuthModal = false;
+    state.authError = '';
+    state.selectedFrom = null;
+    state.endGameModal = null;
+    state.endGameModalShownKey = '';
+    state.lastMoveSoundGameId = '';
+    state.lastMoveSoundIndex = 0;
+    state.lastFinishSoundKey = '';
+    clearAiMoveHint();
+    state.status = '';
+    location.replace('#/home');
+    await loadBootstrap();
+    showToast('已退出登录', 'success', 1800);
+    render();
+  });
 }
 
 function bindNavClicks(root = document) {

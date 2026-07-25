@@ -88,6 +88,28 @@ class OnlineStoreTest {
     }
 
     @Test
+    void watchableGamesOnlyReturnsFinishedPublicHumanMatches() throws Exception {
+        OnlineStore store = newStore();
+        OnlineRoomHub hub = new OnlineRoomHub(store);
+        AuthUser host = new AuthUser("watch-host", "watch-host");
+        AuthUser guest = new AuthUser("watch-guest", "watch-guest");
+
+        String privateFinished = startXiangqiGame(hub, host, guest, false);
+        hub.resign(privateFinished, guest);
+        String publicFinished = startXiangqiGame(hub, host, guest, true);
+        hub.resign(publicFinished, guest);
+        startGomokuGame(hub, host, guest, true);
+
+        List<Map<String, Object>> watchable = store.watchableGames(20);
+
+        assertEquals(1, watchable.size());
+        assertEquals(publicFinished, watchable.get(0).get("gameId"));
+        assertEquals("FINISHED", watchable.get(0).get("status"));
+        assertEquals(Boolean.TRUE, watchable.get(0).get("isPublic"));
+        assertEquals(Boolean.FALSE, watchable.get(0).get("isTraining"));
+    }
+
+    @Test
     void communityLeaderboardUsesStableSortingForWinAndActivityBoards() throws Exception {
         OnlineStore store = newStore();
         AuthService auth = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
@@ -237,7 +259,11 @@ class OnlineStoreTest {
     }
 
     private String startXiangqiGame(OnlineRoomHub hub, AuthUser host, AuthUser guest) {
-        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.XIANGQI, 600, false));
+        return startXiangqiGame(hub, host, guest, false);
+    }
+
+    private String startXiangqiGame(OnlineRoomHub hub, AuthUser host, AuthUser guest, boolean publicRoom) {
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.XIANGQI, 600, publicRoom));
         hub.joinRoom(asString(room.get("roomId")), guest);
         hub.setReady(asString(room.get("roomId")), host.id(), true);
         room = hub.setReady(asString(room.get("roomId")), guest.id(), true);
@@ -245,7 +271,11 @@ class OnlineStoreTest {
     }
 
     private String startGomokuGame(OnlineRoomHub hub, AuthUser host, AuthUser guest) {
-        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.GOMOKU, 600, false));
+        return startGomokuGame(hub, host, guest, false);
+    }
+
+    private String startGomokuGame(OnlineRoomHub hub, AuthUser host, AuthUser guest, boolean publicRoom) {
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.GOMOKU, 600, publicRoom));
         hub.joinRoom(asString(room.get("roomId")), guest);
         hub.setReady(asString(room.get("roomId")), host.id(), true);
         room = hub.setReady(asString(room.get("roomId")), guest.id(), true);
