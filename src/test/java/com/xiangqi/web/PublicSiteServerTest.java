@@ -11,8 +11,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.WebSocket;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -650,6 +656,76 @@ class PublicSiteServerTest {
             assertTrue(closed.body().contains("\"closed\":true"));
             assertEquals(404, missing.statusCode());
         } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void guestLobbyWebSocketReceivesOnlyPublicRoomLifecycleUpdates() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        WebSocket socket = null;
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            BlockingQueue<String> messages = new LinkedBlockingQueue<String>();
+            socket = client.newWebSocketBuilder()
+                .buildAsync(URI.create("ws://127.0.0.1:" + port + "/online/ws"), new WebSocket.Listener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket) {
+                        webSocket.request(1);
+                    }
+
+                    @Override
+                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                        messages.offer(data.toString());
+                        webSocket.request(1);
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }).get(5, TimeUnit.SECONDS);
+            socket.sendText("{\"type\":\"subscribe_lobby\"}", true).join();
+
+            String initial = messages.poll(5, TimeUnit.SECONDS);
+            assertNotNull(initial);
+            assertTrue(initial.contains("\"type\":\"lobby\""));
+            assertTrue(initial.contains("\"rooms\":[]"));
+
+            String suffix = String.valueOf(Instant.now().toEpochMilli());
+            HttpResponse<String> privateHost = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"ws_private_" + suffix + "\",\"password\":\"Password123!\"}", ""),
+                HttpResponse.BodyHandlers.ofString());
+            String privateHostCookie = privateHost.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            HttpResponse<String> privateRoom = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":false}", privateHostCookie),
+                HttpResponse.BodyHandlers.ofString());
+            String privateRoomId = extract(privateRoom.body(), "roomId");
+            String privateUpdate = messages.poll(5, TimeUnit.SECONDS);
+            assertNotNull(privateUpdate);
+            assertTrue(!privateUpdate.contains(privateRoomId));
+
+            HttpResponse<String> publicHost = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"ws_public_" + suffix + "\",\"password\":\"Password123!\"}", ""),
+                HttpResponse.BodyHandlers.ofString());
+            String publicHostCookie = publicHost.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            HttpResponse<String> publicRoom = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"GOMOKU\",\"initialTimeSeconds\":300,\"isPublic\":true}", publicHostCookie),
+                HttpResponse.BodyHandlers.ofString());
+            String publicRoomId = extract(publicRoom.body(), "roomId");
+            String createdUpdate = messages.poll(5, TimeUnit.SECONDS);
+            assertNotNull(createdUpdate);
+            assertTrue(createdUpdate.contains(publicRoomId));
+
+            client.send(deleteRequest(port, "/online/api/rooms/" + publicRoomId, publicHostCookie),
+                HttpResponse.BodyHandlers.ofString());
+            String closedUpdate = messages.poll(5, TimeUnit.SECONDS);
+            assertNotNull(closedUpdate);
+            assertTrue(!closedUpdate.contains(publicRoomId));
+        } finally {
+            if (socket != null) {
+                socket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
+            }
             server.stop();
         }
     }

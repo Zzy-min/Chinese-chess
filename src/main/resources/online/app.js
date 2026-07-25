@@ -3845,21 +3845,31 @@ async function sendMove(payload) {
 }
 
 async function syncRealtime(route) {
+  const lobbyRoute = route.page === 'play' || route.page === 'home';
   const desiredRoom = route.page === 'room'
     ? route.id
     : (route.page === 'game' && state.game && !state.game.isTraining ? state.game.roomId : '');
-  if (!desiredRoom) {
+  const desiredSubscription = lobbyRoute ? 'lobby' : desiredRoom;
+  if (!desiredSubscription) {
     closeSocket();
     return;
   }
-  if (state.ws && state.wsRoomId === desiredRoom) return;
+  if (state.ws && state.wsRoomId === desiredSubscription) return;
   closeSocket();
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  state.ws = new WebSocket(`${protocol}//${location.host}${WS_BASE}`);
-  state.wsRoomId = desiredRoom;
-  state.ws.onopen = () => state.ws.send(JSON.stringify({ type: 'subscribe', roomId: desiredRoom }));
-  state.ws.onmessage = async event => {
+  const socket = new WebSocket(`${protocol}//${location.host}${WS_BASE}`);
+  state.ws = socket;
+  state.wsRoomId = desiredSubscription;
+  socket.onopen = () => socket.send(JSON.stringify(
+    lobbyRoute ? { type: 'subscribe_lobby' } : { type: 'subscribe', roomId: desiredRoom }
+  ));
+  socket.onmessage = async event => {
     const data = JSON.parse(event.data);
+    if (data.type === 'lobby' && data.lobby) {
+      state.lobby = data.lobby;
+      render();
+      return;
+    }
     if (data.type === 'room_closed') {
       state.room = null;
       state.game = null;
@@ -3912,9 +3922,11 @@ async function syncRealtime(route) {
     }
     render();
   };
-  state.ws.onclose = () => {
+  socket.onclose = () => {
+    if (state.ws !== socket) return;
     state.ws = null;
     state.wsRoomId = '';
+    window.setTimeout(() => syncRealtime(currentRoute()), 1000);
   };
 }
 

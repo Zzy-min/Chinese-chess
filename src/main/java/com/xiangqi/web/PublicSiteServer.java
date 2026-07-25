@@ -28,7 +28,6 @@ import io.undertow.util.StatusCodes;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
-import io.undertow.websockets.core.CloseMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
@@ -162,19 +161,10 @@ public final class PublicSiteServer {
                 public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
                     String token = extractWsCookie(exchange, AUTH_COOKIE);
                     Optional<AuthUser> user = token.isEmpty() ? Optional.<AuthUser>empty() : store.findUserByToken(token);
-                    if (!user.isPresent()) {
-                        try {
-                            WebSockets.sendClose(CloseMessage.NORMAL_CLOSURE, "not authenticated", channel, null);
-                        } catch (Exception ignored) {
-                        }
-                        try {
-                            channel.close();
-                        } catch (IOException ignored) {
-                        }
-                        return;
+                    if (user.isPresent()) {
+                        channel.setAttribute("userId", user.get().id());
+                        channel.setAttribute("username", user.get().username());
                     }
-                    channel.setAttribute("userId", user.get().id());
-                    channel.setAttribute("username", user.get().username());
                     wsHub.onConnect(channel);
                 }
             }))
@@ -803,6 +793,7 @@ public final class PublicSiteServer {
                 asBoolean(payload.get("isPublic"))
             ));
             wsHub.broadcastRoom(asString(room.get("roomId")), roomEvent(asString(room.get("roomId"))));
+            wsHub.broadcastLobby();
             sendJson(exchange, room);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
@@ -832,6 +823,7 @@ public final class PublicSiteServer {
             Map<String, Object> room = (Map<String, Object>) result.get("room");
             String roomId = asString(room.get("roomId"));
             wsHub.broadcastRoom(roomId, roomEvent(roomId));
+            wsHub.broadcastLobby();
             sendJson(exchange, result);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
@@ -848,6 +840,7 @@ public final class PublicSiteServer {
             Map<String, Object> payload = readJson(exchange);
             Map<String, Object> room = roomHub.joinByCode(asString(payload.get("roomCode")), user.get());
             wsHub.broadcastRoom(asString(room.get("roomId")), roomEvent(asString(room.get("roomId"))));
+            wsHub.broadcastLobby();
             sendJson(exchange, room);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
@@ -864,6 +857,7 @@ public final class PublicSiteServer {
         try {
             Map<String, Object> room = roomHub.joinRoom(roomId, user.get());
             wsHub.broadcastRoom(roomId, roomEvent(roomId));
+            wsHub.broadcastLobby();
             sendJson(exchange, room);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
@@ -881,6 +875,7 @@ public final class PublicSiteServer {
             Map<String, Object> payload = readJson(exchange);
             Map<String, Object> room = roomHub.setReady(roomId, user.get().id(), asBoolean(payload.get("ready")));
             wsHub.broadcastRoom(roomId, roomEvent(roomId));
+            wsHub.broadcastLobby();
             sendJson(exchange, room);
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
@@ -897,6 +892,7 @@ public final class PublicSiteServer {
         try {
             Map<String, Object> result = roomHub.closeRoom(roomId, user.get());
             wsHub.broadcastRoom(roomId, roomClosedEvent(roomId));
+            wsHub.broadcastLobby();
             sendJson(exchange, result);
         } catch (SecurityException ex) {
             sendError(exchange, StatusCodes.FORBIDDEN, ex.getMessage());
@@ -1123,6 +1119,16 @@ public final class PublicSiteServer {
         return event;
     }
 
+    private Map<String, Object> lobbyEvent() {
+        Map<String, Object> lobby = new LinkedHashMap<String, Object>();
+        lobby.put("games", supportedGames());
+        lobby.put("rooms", roomHub.publicRoomSummaries());
+        Map<String, Object> event = new LinkedHashMap<String, Object>();
+        event.put("type", "lobby");
+        event.put("lobby", lobby);
+        return event;
+    }
+
     private Map<String, Object> readJson(HttpServerExchange exchange) throws IOException {
         exchange.startBlocking();
         return mapper.readValue(exchange.getInputStream(), new TypeReference<Map<String, Object>>() { });
@@ -1268,6 +1274,7 @@ public final class PublicSiteServer {
     private final class WsHub {
         private final ConcurrentHashMap<String, Set<WebSocketChannel>> byRoom = new ConcurrentHashMap<String, Set<WebSocketChannel>>();
         private final ConcurrentHashMap<WebSocketChannel, String> channelRooms = new ConcurrentHashMap<WebSocketChannel, String>();
+        private final Set<WebSocketChannel> lobbyChannels = ConcurrentHashMap.newKeySet();
 
         private void onConnect(final WebSocketChannel channel) {
             channel.getReceiveSetter().set(new AbstractReceiveListener() {
@@ -1276,6 +1283,8 @@ public final class PublicSiteServer {
                     Map<String, Object> payload = mapper.readValue(message.getData(), new TypeReference<Map<String, Object>>() { });
                     if ("subscribe".equals(asString(payload.get("type")))) {
                         subscribe(webSocketChannel, asString(payload.get("roomId")));
+                    } else if ("subscribe_lobby".equals(asString(payload.get("type")))) {
+                        subscribeLobby(webSocketChannel);
                     }
                 }
 
@@ -1317,7 +1326,18 @@ public final class PublicSiteServer {
             }
         }
 
+        private void subscribeLobby(WebSocketChannel channel) {
+            unsubscribe(channel);
+            lobbyChannels.add(channel);
+            try {
+                WebSockets.sendText(mapper.writeValueAsString(lobbyEvent()), channel, null);
+            } catch (Exception ignored) {
+                unsubscribe(channel);
+            }
+        }
+
         private void unsubscribe(WebSocketChannel channel) {
+            lobbyChannels.remove(channel);
             String roomId = channelRooms.remove(channel);
             if (roomId == null) {
                 return;
@@ -1328,6 +1348,19 @@ public final class PublicSiteServer {
                 if (channels.isEmpty()) {
                     byRoom.remove(roomId, channels);
                 }
+            }
+        }
+
+        private void broadcastLobby() {
+            if (lobbyChannels.isEmpty()) {
+                return;
+            }
+            try {
+                String text = mapper.writeValueAsString(lobbyEvent());
+                for (WebSocketChannel channel : lobbyChannels) {
+                    WebSockets.sendText(text, channel, null);
+                }
+            } catch (Exception ignored) {
             }
         }
 
