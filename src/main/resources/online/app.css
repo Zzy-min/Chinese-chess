@@ -3219,6 +3219,11 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 .toast--success{background:rgba(35,92,62,.95);border-color:rgba(170,230,190,.25)}
 .toast--error{background:rgba(155,45,40,.95);border-color:rgba(255,190,180,.22)}
 .toast--info{background:rgba(30,26,22,.92)}
+.toast--move{
+  background:linear-gradient(135deg,rgba(155,48,35,.98),rgba(112,38,30,.98));
+  border-color:rgba(255,226,199,.42);
+  box-shadow:0 16px 34px rgba(86,31,25,.3);
+}
 .actionBusyBar{
   position:fixed;
   top:12px;

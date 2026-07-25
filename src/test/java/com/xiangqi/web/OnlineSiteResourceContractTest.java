@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260724m5"));
-        assertTrue(html.contains("mobile.css?v=20260724m5"));
-        assertTrue(html.contains("app.js?v=20260724m5"));
+        assertTrue(html.contains("app.css?v=20260725m6"));
+        assertTrue(html.contains("mobile.css?v=20260725m6"));
+        assertTrue(html.contains("app.js?v=20260725m6"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -155,6 +155,30 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("notifyNative('versionTap')"));
         assertTrue(js.contains("window.QingQijuApp.postMessage"));
         assertTrue(js.contains("data-action=\"mobile-version-tap\""));
+    }
+
+    @Test
+    void onlineOpponentMovesProvideVisualAndHapticFeedback() throws Exception {
+        String js = readResource("/online/app.js");
+        String css = readResource("/online/app.css");
+
+        assertTrue(js.contains("function maybeNotifyOpponentMove"));
+        assertTrue(js.contains("对手已落子，轮到你了"));
+        assertTrue(js.contains("notifyNative('haptic', { style: 'medium' })"));
+        assertTrue(js.contains("navigator.vibrate"));
+        assertTrue(css.contains(".toast--move"));
+    }
+
+    @Test
+    void mobileRecordTabsKeepOneFullWidthUnobstructedSurface() throws Exception {
+        String css = readResource("/online/mobile.css");
+
+        assertTrue(css.contains("grid-template-columns: repeat(4, minmax(0, 1fr))"));
+        assertTrue(css.contains(".mobile-pane-moves .boardSidebar"));
+        assertTrue(css.contains("width: 100%"));
+        assertTrue(css.contains("align-self: stretch"));
+        assertTrue(css.contains(".mobile-pane-moves .boardDesk::before"));
+        assertTrue(css.contains("display: none"));
     }
 
     private String readResource(String path) throws IOException {

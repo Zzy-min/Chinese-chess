@@ -1036,6 +1036,11 @@
 
   .boardSidebar {
     order: 3;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    align-self: stretch;
+    box-sizing: border-box;
     min-height: 0;
     max-height: 34dvh;
     padding: 8px !important;
@@ -1043,7 +1048,14 @@
   }
 
   .boardSidebar .gameSidebarTabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     margin: -8px -8px 12px;
+  }
+
+  .boardSidebar .tabContainer,
+  .boardSidebar .tabContent {
+    width: 100%;
+    min-width: 0;
   }
 
   .mobile-pane-board .boardSidebar {
@@ -1057,11 +1069,26 @@
 
   .mobile-pane-moves .boardSidebar {
     display: block;
+    width: 100%;
+    max-width: 100%;
     height: calc(100dvh - 74px);
     max-height: calc(100dvh - 74px);
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
+  }
+
+  .mobile-pane-moves .boardDesk::before,
+  .mobile-pane-moves .boardDesk::after {
+    display: none;
+  }
+
+  .mobile-pane-moves .settingsContent .settingRow {
+    gap: 12px;
+  }
+
+  .mobile-pane-moves .settingsContent .settingRow .ghost {
+    color: var(--ink);
   }
 
   .boardMobileTabs {

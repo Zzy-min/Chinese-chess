@@ -60,6 +60,8 @@ const state = {
   audioUnlocked: false,
   lastMoveSoundGameId: '',
   lastMoveSoundIndex: 0,
+  lastOpponentMoveNoticeGameId: '',
+  lastOpponentMoveNoticeIndex: 0,
   lastFinishSoundKey: '',
   learnConfig: {
     gameType: 'XIANGQI',
@@ -3932,9 +3934,58 @@ function syncGameTransitionFeedback(previousGame, nextGame) {
     && nextGame.status !== 'FINISHED') {
     state.endGameModal = null;
   }
+  maybeNotifyOpponentMove(previousGame, nextGame);
   maybePlayMoveSound(previousGame, nextGame);
   maybePlayFinishSound(previousGame, nextGame);
   maybeOpenEndGameModal(nextGame);
+}
+
+function maybeNotifyOpponentMove(previousGame, nextGame) {
+  if (!previousGame
+    || !nextGame
+    || previousGame.gameId !== nextGame.gameId
+    || nextGame.isTraining
+    || gameHasAiOpponent(nextGame)
+    || !Array.isArray(nextGame.moves)
+    || !nextGame.moves.length) {
+    return;
+  }
+  const latest = getLastMove(nextGame);
+  const previousLatest = getLastMove(previousGame);
+  const latestIndex = Number(latest && latest.index ? latest.index : nextGame.moves.length);
+  const previousIndex = Number(previousLatest && previousLatest.index
+    ? previousLatest.index
+    : (previousGame.moves || []).length);
+  if (!Number.isFinite(latestIndex) || latestIndex <= previousIndex) {
+    return;
+  }
+  const viewerSide = nextGame.viewerSide || inferViewerSide(nextGame);
+  const moveSide = String(latest && (latest.side || (latest.payload && latest.payload.side)) || '').trim();
+  if (!viewerSide || !moveSide || moveSide === viewerSide) {
+    return;
+  }
+  if (state.lastOpponentMoveNoticeGameId === nextGame.gameId
+    && state.lastOpponentMoveNoticeIndex === latestIndex) {
+    return;
+  }
+  state.lastOpponentMoveNoticeGameId = nextGame.gameId;
+  state.lastOpponentMoveNoticeIndex = latestIndex;
+  const isViewerTurn = nextGame.status === 'PLAYING' && nextGame.currentTurn === viewerSide;
+  showToast(isViewerTurn ? '对手已落子，轮到你了' : '对手已落子', 'move', 3600);
+  notifyOpponentMoveHaptic();
+}
+
+function notifyOpponentMoveHaptic() {
+  if (notifyNative('haptic', { style: 'medium' })) {
+    return;
+  }
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate([70, 35, 90]);
+    }
+  } catch (_) {
+    // Browsers may deny vibration; the visual notice remains available.
+  }
 }
 
 function maybePlayMoveSound(previousGame, nextGame) {
