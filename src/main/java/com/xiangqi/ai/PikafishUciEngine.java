@@ -23,8 +23,6 @@ import java.util.concurrent.TimeUnit;
 public final class PikafishUciEngine implements XiangqiEngine {
     private static final long UCI_INIT_TIMEOUT_MS = 12000L;
     private static final long READY_TIMEOUT_MS = 10000L;
-    private static final long BESTMOVE_TIMEOUT_MS = 16000L;
-
     private final List<String> command;
     private final String commandText;
     private Process process;
@@ -44,12 +42,13 @@ public final class PikafishUciEngine implements XiangqiEngine {
     public synchronized Move findBestMove(Board board, PieceColor aiColor, MinimaxAI.Difficulty difficulty) {
         try {
             ensureProcess();
-            applyDifficulty(difficulty);
+            DifficultyProfile profile = difficultyProfile(difficulty);
+            applyEngineOptions();
             sendLine("ucinewgame");
             waitReady();
             sendLine("position fen " + normalizeFenForUci(FenCodec.toFen(board)));
-            sendLine("go movetime " + mapMoveTimeMs(difficulty) + " depth " + mapDepth(difficulty));
-            String best = waitBestMove(BESTMOVE_TIMEOUT_MS);
+            sendLine("go nodes " + profile.nodes);
+            String best = waitBestMove(profile.timeoutMs);
             if (best == null || best.isEmpty() || "none".equalsIgnoreCase(best) || "(none)".equalsIgnoreCase(best) || "0000".equals(best)) {
                 return null;
             }
@@ -95,42 +94,30 @@ public final class PikafishUciEngine implements XiangqiEngine {
         protocolReady = true;
     }
 
-    private void applyDifficulty(MinimaxAI.Difficulty difficulty) throws IOException {
+    private void applyEngineOptions() throws IOException {
         sendLine("setoption name Threads value 1");
         sendLine("setoption name Hash value 64");
-        int level = mapSkillLevel(difficulty);
-        sendLine("setoption name Skill Level value " + level);
         waitReady();
     }
 
-    private int mapMoveTimeMs(MinimaxAI.Difficulty difficulty) {
+    static DifficultyProfile difficultyProfile(MinimaxAI.Difficulty difficulty) {
         if (difficulty == MinimaxAI.Difficulty.EASY) {
-            return 380;
+            return new DifficultyProfile(1_500L, 3_000L);
         }
         if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
-            return 980;
+            return new DifficultyProfile(40_000L, 8_000L);
         }
-        return 2400;
+        return new DifficultyProfile(600_000L, 16_000L);
     }
 
-    private int mapDepth(MinimaxAI.Difficulty difficulty) {
-        if (difficulty == MinimaxAI.Difficulty.EASY) {
-            return 5;
-        }
-        if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
-            return 9;
-        }
-        return 14;
-    }
+    static final class DifficultyProfile {
+        final long nodes;
+        final long timeoutMs;
 
-    private int mapSkillLevel(MinimaxAI.Difficulty difficulty) {
-        if (difficulty == MinimaxAI.Difficulty.EASY) {
-            return 6;
+        DifficultyProfile(long nodes, long timeoutMs) {
+            this.nodes = nodes;
+            this.timeoutMs = timeoutMs;
         }
-        if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
-            return 14;
-        }
-        return 20;
     }
 
     private String normalizeFenForUci(String fen) {

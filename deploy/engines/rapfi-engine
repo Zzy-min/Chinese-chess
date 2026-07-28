@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+cd /opt/engines/rapfi
+exec ./rapfi "$@"

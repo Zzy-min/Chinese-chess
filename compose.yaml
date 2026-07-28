@@ -34,6 +34,10 @@ services:
       XQ_DATABASE_URL: postgresql://db:5432/${POSTGRES_DB}
       XQ_DATABASE_USER: ${POSTGRES_USER}
       XQ_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      XQ_XIANGQI_ENGINE: PIKAFISH
+      XQ_XIANGQI_PIKAFISH_CMD: /usr/local/bin/pikafish-engine
+      XQ_GOMOKU_ENGINE: RAPFI
+      XQ_GOMOKU_RAPFI_CMD: /usr/local/bin/rapfi-engine
     ports:
       - "127.0.0.1:18388:18388"
     expose:

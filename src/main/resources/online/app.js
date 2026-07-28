@@ -75,7 +75,7 @@ const state = {
     gameType: 'XIANGQI',
     difficulty: 'MEDIUM',
     humanFirst: true,
-    preferredEngine: 'BUILTIN'
+    preferredEngine: 'PIKAFISH'
   },
   learnFilter: 'all',
   learnSearchQuery: '',
@@ -3375,7 +3375,7 @@ async function quickStartAiPractice() {
     gameType: 'XIANGQI',
     difficulty: 'MEDIUM',
     humanFirst: true,
-    preferredEngine: 'BUILTIN'
+    preferredEngine: 'PIKAFISH'
   };
   await createPracticeGame();
 }
@@ -3389,7 +3389,7 @@ async function quickStartGomokuPractice() {
     gameType: 'GOMOKU',
     difficulty: 'MEDIUM',
     humanFirst: true,
-    preferredEngine: 'BUILTIN'
+    preferredEngine: 'RAPFI'
   };
   await createPracticeGame();
 }
@@ -3411,7 +3411,7 @@ async function startPracticeFromPreset(event) {
     gameType: preset.gameType || 'XIANGQI',
     difficulty: preset.difficulty || 'MEDIUM',
     humanFirst: preset.humanFirst !== false,
-    preferredEngine: preset.preferredEngine || 'BUILTIN'
+    preferredEngine: preset.preferredEngine || defaultEnginePreference(preset.gameType)
   };
   await createPracticeGame();
 }
@@ -3447,7 +3447,7 @@ async function startPracticeFromPuzzle(event) {
     gameType: 'XIANGQI',
     difficulty: puzzle.difficulty || 'MEDIUM',
     humanFirst: true,
-    preferredEngine: 'BUILTIN'
+    preferredEngine: 'PIKAFISH'
   };
   await createPracticeGame({ gameType: 'XIANGQI', initialFen: fen });
 }
@@ -4495,17 +4495,21 @@ function markBoardTap(target) {
 function engineOptions(gameType) {
   if (gameType === 'GOMOKU') {
     return [
-      { value: 'BUILTIN', label: '内置 AI' },
-      { value: 'AUTO', label: '自动选择' },
       { value: 'RAPFI', label: 'Rapfi' },
+      { value: 'AUTO', label: '自动选择' },
+      { value: 'BUILTIN', label: '内置 AI' },
       { value: 'ALPHAGOMOKU', label: 'AlphaGomoku' }
     ];
   }
   return [
-    { value: 'BUILTIN', label: '内置 AI' },
+    { value: 'PIKAFISH', label: 'Pikafish' },
     { value: 'AUTO', label: '自动选择' },
-    { value: 'PIKAFISH', label: 'Pikafish' }
+    { value: 'BUILTIN', label: '内置 AI' }
   ];
+}
+
+function defaultEnginePreference(gameType) {
+  return gameType === 'GOMOKU' ? 'RAPFI' : 'PIKAFISH';
 }
 
 function gameActionBase(game) {

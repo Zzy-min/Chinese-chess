@@ -102,24 +102,33 @@ public final class PiskvorkGomokuEngine implements GomokuEngine {
     }
 
     private void applyDifficultyInfo(MinimaxAI.Difficulty difficulty) throws IOException {
-        int timeoutTurnMs;
-        int maxDepth;
-        if (difficulty == MinimaxAI.Difficulty.EASY) {
-            timeoutTurnMs = 350;
-            maxDepth = 6;
-        } else if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
-            timeoutTurnMs = 900;
-            maxDepth = 9;
-        } else {
-            timeoutTurnMs = 1800;
-            maxDepth = 13;
-        }
-        // Piskvork INFO keys; unsupported keys are ignored by most engines.
-        sendLine("INFO timeout_turn " + timeoutTurnMs);
-        sendLine("INFO max_depth " + maxDepth);
+        DifficultyProfile profile = difficultyProfile(difficulty);
+        // Piskvork INFO keys supported by Rapfi.
+        sendLine("INFO timeout_turn " + profile.timeoutTurnMs);
+        sendLine("INFO max_depth " + profile.maxDepth);
         sendLine("INFO time_left 300000");
         sendLine("INFO game_type 1");
         sendLine("INFO rule 0");
+    }
+
+    static DifficultyProfile difficultyProfile(MinimaxAI.Difficulty difficulty) {
+        if (difficulty == MinimaxAI.Difficulty.EASY) {
+            return new DifficultyProfile(200, 5);
+        }
+        if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
+            return new DifficultyProfile(800, 9);
+        }
+        return new DifficultyProfile(2_500, 15);
+    }
+
+    static final class DifficultyProfile {
+        final int timeoutTurnMs;
+        final int maxDepth;
+
+        DifficultyProfile(int timeoutTurnMs, int maxDepth) {
+            this.timeoutTurnMs = timeoutTurnMs;
+            this.maxDepth = maxDepth;
+        }
     }
 
     private void sendBoard(GomokuBoard board) throws IOException {

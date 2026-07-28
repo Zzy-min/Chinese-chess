@@ -83,12 +83,15 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260728m14"));
-        assertTrue(html.contains("mobile.css?v=20260728m14"));
-        assertTrue(html.contains("app.js?v=20260728m14"));
+        assertTrue(html.contains("app.css?v=20260728m15"));
+        assertTrue(html.contains("mobile.css?v=20260728m15"));
+        assertTrue(html.contains("app.js?v=20260728m15"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
+        assertTrue(js.contains("preferredEngine: 'PIKAFISH'"));
+        assertTrue(js.contains("preferredEngine: 'RAPFI'"));
+        assertTrue(js.contains("function defaultEnginePreference(gameType)"));
         assertTrue(js.contains("mobileIcon('back')"));
         assertTrue(mobileCss.contains(".mobileContentPage--learn .learnCard"));
         assertTrue(mobileCss.contains(".mobileContentPage--learn .learnAction"));
