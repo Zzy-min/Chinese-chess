@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260725m12"));
-        assertTrue(html.contains("mobile.css?v=20260725m12"));
-        assertTrue(html.contains("app.js?v=20260725m12"));
+        assertTrue(html.contains("app.css?v=20260728m14"));
+        assertTrue(html.contains("mobile.css?v=20260728m14"));
+        assertTrue(html.contains("app.js?v=20260728m14"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -199,11 +199,13 @@ class OnlineSiteResourceContractTest {
         assertTrue(css.contains(".watchReplayGrid"));
         assertTrue(css.contains(".profileMain"));
         assertTrue(css.contains("Desktop density: keep the full workspace useful"));
-        assertTrue(css.contains("min-height: clamp(620px, 78vh, 700px)"));
-        assertTrue(css.contains("height: clamp(620px, 78vh, 700px)"));
         assertTrue(css.contains("min-height: clamp(480px, 60vh, 540px)"));
+        assertTrue(css.contains("align-items: stretch"));
+        assertTrue(css.contains("align-self: stretch"));
         assertTrue(css.contains("grid-template-rows: auto repeat(8, minmax(0, 1fr))"));
         assertTrue(css.contains(".deskLobbyAside > .btn-block"));
+        assertTrue(css.contains("grid-template-columns: auto minmax(0, 1fr) auto"));
+        assertTrue(css.contains("text-overflow: ellipsis"));
         assertFalse(css.contains("min-height: calc(100vh - 120px) !important"));
     }
 

@@ -3847,6 +3847,7 @@ select:focus-visible,
   }
 
   .deskLobby {
+    align-items: stretch;
     gap: 14px;
   }
 
@@ -3863,9 +3864,10 @@ select:focus-visible,
 
   .deskLobby > .deskSidebar,
   .deskLobby > .deskLobbyAside {
-    height: clamp(620px, 78vh, 700px);
-    min-height: clamp(620px, 78vh, 700px);
-    align-self: start;
+    height: auto;
+    min-height: 0;
+    align-self: stretch;
+    position: static;
   }
 
   .deskSidebar .sidebarUser {
@@ -3880,7 +3882,32 @@ select:focus-visible,
 
   .deskLobbyAside {
     display: flex;
+    min-width: 0;
+    overflow: hidden;
     flex-direction: column;
+  }
+
+  .deskLobbyAside .deskRankList {
+    min-width: 0;
+  }
+
+  .deskLobbyAside .deskRankRow {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .deskLobbyAside .rankNum,
+  .deskLobbyAside .rankScore {
+    flex: 0 0 auto;
+  }
+
+  .deskLobbyAside .rankUser {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .deskLobbyAside > .btn-block {
