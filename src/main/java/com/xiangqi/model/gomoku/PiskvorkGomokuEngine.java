@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -85,6 +87,7 @@ public final class PiskvorkGomokuEngine implements GomokuEngine {
         }
         closeProcess();
         ProcessBuilder pb = new ProcessBuilder(command);
+        configureWorkingDirectory(pb, command);
         pb.redirectErrorStream(true);
         process = pb.start();
         writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
@@ -94,6 +97,16 @@ public final class PiskvorkGomokuEngine implements GomokuEngine {
         sendLine("START " + GomokuBoard.SIZE);
         waitForOk(IO_TIMEOUT_MS);
         protocolReady = true;
+    }
+
+    static void configureWorkingDirectory(ProcessBuilder builder, List<String> command) {
+        if (builder == null || command == null || command.isEmpty()) {
+            return;
+        }
+        Path executable = Path.of(command.get(0));
+        if (executable.isAbsolute() && Files.isRegularFile(executable) && executable.getParent() != null) {
+            builder.directory(executable.getParent().toFile());
+        }
     }
 
     private void restartBoard() throws IOException {

@@ -900,6 +900,37 @@ function sideLabel(gameType, side) {
   return side;
 }
 
+function gameTypeDisplayLabel(gameType) {
+  return gameType === 'GOMOKU' ? '五子棋' : '中国象棋';
+}
+
+function liveViewerSideLabel(game, viewerSide) {
+  return viewerSide ? `你执 ${sideLabel(game.gameType, viewerSide)}` : '观战视角';
+}
+
+function liveOpponentSideLabel(game, viewerSide, opponentSide) {
+  return viewerSide ? `对手执 ${sideLabel(game.gameType, opponentSide)}` : '双方对弈';
+}
+
+function liveGameStatusLabel(status) {
+  if (status === 'PLAYING') return '对局中';
+  if (status === 'FINISHED') return '已结束';
+  if (status === 'WAITING') return '等待中';
+  return status || '-';
+}
+
+function liveTerminationLabel(reason) {
+  if (!reason) return '实时';
+  const labels = {
+    CHECKMATE: '将死',
+    STALEMATE: '困毙',
+    RESIGN: '认输',
+    DRAW: '和棋',
+    TIMEOUT: '超时'
+  };
+  return labels[reason] || reason;
+}
+
 function resolveOpponentSide(game, viewerSide) {
   if (!game || !viewerSide || !game.players) {
     return '';
@@ -1220,7 +1251,7 @@ function renderCommunityPage() {
     : '<div class="banner" style="margin-top:12px">登录后会高亮你的榜单位置，并提供个人主页快捷入口。</div>';
   return `
     <section class="hero">
-      <div class="meta">Community</div>
+      <div class="meta">棋友榜</div>
       <h1>排行榜与活跃榜</h1>
       <p>默认按最近 ${board.windowDaysUsed || board.requestedWindowDays || 30} 天统计。若样本不足会自动回退到全量历史。</p>
       ${quickEntry}
@@ -1895,20 +1926,20 @@ function renderOnlineGameView(game) {
           <div class="boardRailNote">
             <div>局时: <strong>15:00</strong></div>
             <div>步时: <strong>01:30</strong></div>
-            <div>你执: <strong>${sideLabel(game.gameType, viewerSide)}</strong></div>
-            <div>当前状态: <strong>${game.status === 'PLAYING' ? '对局中' : '已结束'}</strong></div>
+            <div>视角: <strong>${viewerSide ? sideLabel(game.gameType, viewerSide) : '观战'}</strong></div>
+            <div>当前状态: <strong>${liveGameStatusLabel(game.status)}</strong></div>
           </div>
         </aside>
 
         <!-- 中栏 (自适应棋盘区) -->
         <section class="boardWrap boardPane boardPane--game boardStage">
           <div class="gameMetaRow">
-            <span class="pill">${game.gameType}</span>
-            <span class="pill" data-live-side-self>你执 ${sideLabel(game.gameType, viewerSide)}</span>
-            <span class="pill" data-live-side-opponent>对手执 ${sideLabel(game.gameType, opponentSide)}</span>
+            <span class="pill">${gameTypeDisplayLabel(game.gameType)}</span>
+            <span class="pill" data-live-side-self>${liveViewerSideLabel(game, viewerSide)}</span>
+            <span class="pill" data-live-side-opponent>${liveOpponentSideLabel(game, viewerSide, opponentSide)}</span>
             <span class="pill" data-live-turn>轮到 ${turnTextForViewer(game, viewerSide)}</span>
-            <span class="pill" data-live-game-status>${game.status}</span>
-            <span class="pill" data-live-game-termination>${game.terminationReason || 'LIVE'}</span>
+            <span class="pill" data-live-game-status>${liveGameStatusLabel(game.status)}</span>
+            <span class="pill" data-live-game-termination>${liveTerminationLabel(game.terminationReason)}</span>
           </div>
           <div class="status ${onlineCheckNotice(game) ? 'status--check' : ''}" data-live-status>${onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
@@ -3819,11 +3850,11 @@ function refreshOnlineGameMetaPills() {
   const turn = document.querySelector('[data-live-turn]');
   const status = document.querySelector('[data-live-game-status]');
   const termination = document.querySelector('[data-live-game-termination]');
-  if (sideSelf) sideSelf.textContent = `你执 ${sideLabel(state.game.gameType, viewerSide)}`;
-  if (sideOpponent) sideOpponent.textContent = `对手执 ${sideLabel(state.game.gameType, opponentSide)}`;
+  if (sideSelf) sideSelf.textContent = liveViewerSideLabel(state.game, viewerSide);
+  if (sideOpponent) sideOpponent.textContent = liveOpponentSideLabel(state.game, viewerSide, opponentSide);
   if (turn) turn.textContent = `轮到 ${turnTextForViewer(state.game, viewerSide)}`;
-  if (status) status.textContent = state.game.status || '-';
-  if (termination) termination.textContent = state.game.terminationReason || 'LIVE';
+  if (status) status.textContent = liveGameStatusLabel(state.game.status);
+  if (termination) termination.textContent = liveTerminationLabel(state.game.terminationReason);
   return !!(sideSelf || sideOpponent || turn || status || termination);
 }
 
@@ -5341,22 +5372,22 @@ function renderPlayXiangqi() {
         <p class="subtitle">真人匹配，好友对弈，残局练习，享受从容对弈之趣。</p>
         
         <div class="quickActions">
-          <div class="actionBox" data-action="quick-start-public-match" data-game-type="XIANGQI" style="cursor:pointer;">
+          <button class="actionBox" data-action="quick-start-public-match" data-game-type="XIANGQI">
             ⚡
             <span>实时匹配</span>
-          </div>
-          <div class="actionBox" data-action="create-room-xiangqi" style="cursor:pointer;">
+          </button>
+          <button class="actionBox" data-action="create-room-xiangqi">
             👥
             <span>好友约战</span>
-          </div>
-          <div class="actionBox" data-action="quick-start-ai-practice" style="cursor:pointer;">
+          </button>
+          <button class="actionBox" data-action="quick-start-ai-practice">
             🤖
             <span>人机练习</span>
-          </div>
-          <div class="actionBox" data-nav="learn/puzzles/ALL" style="cursor:pointer;">
+          </button>
+          <button class="actionBox" data-nav="learn/puzzles/ALL">
             📖
             <span>残局练习</span>
-          </div>
+          </button>
         </div>
       </div>
       
@@ -5372,18 +5403,18 @@ function renderPlayXiangqi() {
         </div>
         <div class="modeOptions">
           <h4>选择模式</h4>
-          <div class="optionCard active" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="600">
+          <button class="optionCard active" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="600">
             <h5>标准匹配</h5>
             <span>10 分钟场，从容对弈</span>
-          </div>
-          <div class="optionCard" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">
+          </button>
+          <button class="optionCard" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">
             <h5>快棋匹配</h5>
             <span>5 分钟场，节奏明快</span>
-          </div>
-          <div class="optionCard" data-action="create-room-xiangqi">
+          </button>
+          <button class="optionCard" data-action="create-room-xiangqi">
             <h5>友谊对局</h5>
             <span>邀请好友，切磋对决</span>
-          </div>
+          </button>
         </div>
       </div>
       
@@ -5435,34 +5466,34 @@ function renderPlayGomoku() {
       <div>
         <h4>核心功能</h4>
         <div class="featuresGrid">
-          <div class="featureCard" data-action="quick-start-public-match" data-game-type="GOMOKU" style="cursor:pointer;">
+          <button class="featureCard" data-action="quick-start-public-match" data-game-type="GOMOKU">
             <div class="cardIcon green">⚡</div>
             <div class="cardInfo">
               <h5>快速匹配</h5>
               <p>真人公开候场匹配</p>
             </div>
-          </div>
-          <div class="featureCard" data-action="quick-start-gomoku-practice" style="cursor:pointer;">
+          </button>
+          <button class="featureCard" data-action="quick-start-gomoku-practice">
             <div class="cardIcon green">🤖</div>
             <div class="cardInfo">
               <h5>人机对战</h5>
               <p>挑战智能 AI 练习</p>
             </div>
-          </div>
-          <div class="featureCard" data-action="create-room-gomoku" style="cursor:pointer;">
+          </button>
+          <button class="featureCard" data-action="create-room-gomoku">
             <div class="cardIcon green">👥</div>
             <div class="cardInfo">
               <h5>双人联机</h5>
               <p>好友随时对局</p>
             </div>
-          </div>
-          <div class="featureCard" data-nav="me/records" style="cursor:pointer;">
+          </button>
+          <button class="featureCard" data-nav="me/records">
             <div class="cardIcon green">📜</div>
             <div class="cardInfo">
               <h5>复盘记录</h5>
               <p>对局复盘回顾</p>
             </div>
-          </div>
+          </button>
         </div>
       </div>
       

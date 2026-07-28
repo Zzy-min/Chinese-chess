@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260728m16"));
-        assertTrue(html.contains("mobile.css?v=20260728m16"));
-        assertTrue(html.contains("app.js?v=20260728m16"));
+        assertTrue(html.contains("app.css?v=20260728m17"));
+        assertTrue(html.contains("mobile.css?v=20260728m17"));
+        assertTrue(html.contains("app.js?v=20260728m17"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -175,6 +175,18 @@ class OnlineSiteResourceContractTest {
         assertTrue(css.contains(".xiangqiCell.is-in-check"));
         assertTrue(css.contains(".status--check"));
         assertTrue(css.contains(".toast--move"));
+    }
+
+    @Test
+    void modeActionsAreKeyboardAccessibleAndLiveLabelsAreLocalized() throws Exception {
+        String js = readResource("/online/app.js");
+
+        assertTrue(js.contains("<button class=\"actionBox\""));
+        assertTrue(js.contains("<button class=\"featureCard\""));
+        assertTrue(js.contains("<button class=\"optionCard"));
+        assertTrue(js.contains("function liveGameStatusLabel"));
+        assertTrue(js.contains("function liveViewerSideLabel"));
+        assertFalse(js.contains("<div class=\"meta\">Community</div>"));
     }
 
     @Test

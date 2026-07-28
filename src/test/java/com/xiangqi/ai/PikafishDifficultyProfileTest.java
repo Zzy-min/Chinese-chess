@@ -1,11 +1,19 @@
 package com.xiangqi.ai;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PikafishDifficultyProfileTest {
+    @TempDir
+    Path tempDir;
+
     @Test
     void usesDistinctIncreasingNativeNodeBudgets() {
         PikafishUciEngine.DifficultyProfile easy =
@@ -22,5 +30,15 @@ class PikafishDifficultyProfileTest {
         assertTrue(medium.nodes < hard.nodes);
         assertTrue(easy.timeoutMs < medium.timeoutMs);
         assertTrue(medium.timeoutMs < hard.timeoutMs);
+    }
+
+    @Test
+    void startsAnAbsoluteEngineCommandFromItsOwnDirectory() throws Exception {
+        Path executable = Files.createFile(tempDir.resolve("pikafish.exe"));
+        ProcessBuilder builder = new ProcessBuilder(executable.toString());
+
+        PikafishUciEngine.configureWorkingDirectory(builder, List.of(executable.toString()));
+
+        assertEquals(tempDir.toFile(), builder.directory());
     }
 }

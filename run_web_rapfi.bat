@@ -13,7 +13,7 @@ if /i "%~1"=="--rebuild" (
 )
 
 if "%ENGINE_CMD%"=="" (
-    set "ENGINE_CMD=%~dp0tools\engines\rapfi.exe"
+    set "ENGINE_CMD=%~dp0tools\engines\rapfi\rapfi.exe"
 )
 
 if not exist "%ENGINE_CMD%" (
@@ -22,6 +22,7 @@ if not exist "%ENGINE_CMD%" (
     echo.
     echo Usage:
     echo   run_web_rapfi.bat "D:\path\to\rapfi.exe" [--rebuild]
+    echo   pwsh -NoProfile -File tools\install_windows_engines.ps1
     echo.
     exit /b 1
 )
