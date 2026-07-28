@@ -146,6 +146,12 @@ public class XiangqiMatch implements OnlineMatchEngine {
     }
 
     @Override
+    public String inCheckSide() {
+        PieceColor currentSide = board.getCurrentTurn();
+        return board.isInCheck(currentSide) ? currentSide.name() : "";
+    }
+
+    @Override
     public long stateId() {
         return stateId;
     }

@@ -22,6 +22,10 @@ public interface OnlineMatchEngine {
 
     List<Map<String, Object>> moves();
 
+    default String inCheckSide() {
+        return "";
+    }
+
     default long stateId() {
         return 0;
     }

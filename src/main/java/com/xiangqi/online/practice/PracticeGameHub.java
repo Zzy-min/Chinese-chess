@@ -521,6 +521,7 @@ public final class PracticeGameHub {
         snapshot.put("lastTickAt", "");
         snapshot.put("board", game.match.board());
         snapshot.put("moveCount", game.moves.size());
+        snapshot.put("inCheckSide", game.match.inCheckSide());
         snapshot.put("moves", new ArrayList<Map<String, Object>>(game.moves));
         snapshot.put("updatedAt", game.updatedAt.toString());
         snapshot.put("isTraining", true);

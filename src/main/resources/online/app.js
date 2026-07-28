@@ -925,10 +925,24 @@ function turnTextForViewer(game, viewerSide) {
 }
 
 function onlineGameStatusText(game) {
+  const checkNotice = onlineCheckNotice(game);
+  if (checkNotice) {
+    return checkNotice;
+  }
   if (state.status) {
     return state.status;
   }
   return (game && game.resultText) || '在线对局进行中';
+}
+
+function onlineCheckNotice(game) {
+  if (!game || game.gameType !== 'XIANGQI' || game.status !== 'PLAYING' || !game.inCheckSide) {
+    return '';
+  }
+  const viewerSide = game.viewerSide || inferViewerSide(game);
+  return game.inCheckSide === viewerSide
+    ? '将军！你的将帅正在被攻击，请立即应将'
+    : '将军！对手的将帅正在被攻击';
 }
 
 function shouldShowAuthOverlay(route) {
@@ -1896,7 +1910,7 @@ function renderOnlineGameView(game) {
             <span class="pill" data-live-game-status>${game.status}</span>
             <span class="pill" data-live-game-termination>${game.terminationReason || 'LIVE'}</span>
           </div>
-          <div class="status" data-live-status>${onlineGameStatusText(game)}</div>
+          <div class="status ${onlineCheckNotice(game) ? 'status--check' : ''}" data-live-status>${onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           <div class="roomRow woodActions" data-live-game-actions>
@@ -1988,7 +2002,7 @@ function renderPracticeView(game) {
 
         <!-- 中栏 (自适应棋盘区) -->
         <section class="boardWrap boardPane boardPane--practice boardStage">
-          <div class="status" data-live-status>${practiceStatusText(game)}</div>
+          <div class="status ${onlineCheckNotice(game) ? 'status--check' : ''}" data-live-status>${practiceStatusText(game)}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           
           <!-- 底部控制按钮组 (悔棋、认输、再来一局、离开) -->
@@ -2405,6 +2419,8 @@ function renderXiangqiBoard(game, options = {}) {
       const cls = ['xiangqiCell'];
       if (piece) cls.push('has-piece');
       if (piece && !redPiece) cls.push('is-black');
+      if (game.inCheckSide === 'RED' && piece === '帅') cls.push('is-in-check');
+      if (game.inCheckSide === 'BLACK' && piece === '将') cls.push('is-in-check');
       if (state.selectedFrom && state.selectedFrom.row === r && state.selectedFrom.col === c) cls.push('is-selected');
       cells.push(`<button class="${cls.join(' ')}" data-board="xiangqi" data-row="${r}" data-col="${c}" data-display-row="${displayRow}" data-display-col="${displayCol}" ${disabled ? 'disabled' : ''}>${renderXiangqiCellLines(displayRow, displayCol)}${renderXiangqiMarkerGlyph(displayRow, displayCol)}${renderXiangqiLastMoveMarker(marker, r, c)}${piece ? `<span class="piece">${escapeHtml(piece)}</span>` : ''}</button>`);
     }
@@ -2690,10 +2706,10 @@ function optimisticMoveNotation(gameType, payload) {
 }
 
 function createMoveMarker(gameType, move, viewerSide) {
-  if (!move || !move.payload) {
+  if (!move) {
     return null;
   }
-  const payload = move.payload;
+  const payload = move.payload || move;
   const side = String(move.side || payload.side || '').trim();
   const owner = moveOwnerClass(side, viewerSide);
   if (gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
@@ -3780,10 +3796,12 @@ function refreshLiveStatusLine(route = currentRoute()) {
   }
   if (route.page === 'game' && !state.game.isTraining) {
     statusEl.textContent = onlineGameStatusText(state.game);
+    statusEl.classList.toggle('status--check', !!onlineCheckNotice(state.game));
     return true;
   }
   if (route.page === 'practice' || (route.page === 'game' && state.game.isTraining)) {
     statusEl.textContent = practiceStatusText(state.game);
+    statusEl.classList.toggle('status--check', !!onlineCheckNotice(state.game));
     return true;
   }
   return false;
@@ -4095,9 +4113,24 @@ function syncGameTransitionFeedback(previousGame, nextGame) {
     state.endGameModal = null;
   }
   maybeNotifyOpponentMove(previousGame, nextGame);
+  maybeNotifyCheck(previousGame, nextGame);
   maybePlayMoveSound(previousGame, nextGame);
   maybePlayFinishSound(previousGame, nextGame);
   maybeOpenEndGameModal(nextGame);
+}
+
+function maybeNotifyCheck(previousGame, nextGame) {
+  if (!nextGame
+    || nextGame.gameType !== 'XIANGQI'
+    || nextGame.status !== 'PLAYING'
+    || !nextGame.inCheckSide
+    || (previousGame
+      && previousGame.gameId === nextGame.gameId
+      && previousGame.inCheckSide === nextGame.inCheckSide)) {
+    return;
+  }
+  showToast(onlineCheckNotice(nextGame), 'move', 4200);
+  notifyOpponentMoveHaptic();
 }
 
 function maybeNotifyOpponentMove(previousGame, nextGame) {
@@ -4575,6 +4608,10 @@ function isSupportedGameType(gameType) {
 }
 
 function practiceStatusText(game) {
+  const checkNotice = onlineCheckNotice(game);
+  if (checkNotice) {
+    return checkNotice;
+  }
   if (state.moveInFlight) {
     if (game && game.isTraining && state.pendingMoveGameId && game.gameId === state.pendingMoveGameId) {
       return '你的落子已落下，等待进入 AI 思考...';

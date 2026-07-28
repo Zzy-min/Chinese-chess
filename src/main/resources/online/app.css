@@ -89,6 +89,7 @@ button,input,select{font:inherit}
 .roomRow select{padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:#fff}
 .pill{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;background:var(--brand-soft);color:var(--brand);font-size:13px}
 .status{font-size:14px;color:var(--muted)}
+.status--check{padding:10px 14px;border:1px solid rgba(176,43,32,.34);border-radius:12px;background:rgba(176,43,32,.1);color:#9f261c;font-weight:800}
 .boardWrap{padding:18px;display:grid;gap:16px}
 .boardMobileTabs{display:none}
 .clockGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -278,6 +279,8 @@ button,input,select{font:inherit}
 .xiangqiLastMove--opponent{border-color:#bf3f24;background:rgba(191,63,36,.2)}
 .xiangqiLastMove--neutral{border-color:#4d4d4d;background:rgba(77,77,77,.16)}
 .xiangqiLastMove--pending{border-style:dashed;animation:xiangqiPendingPulse .9s ease-in-out infinite}
+.xiangqiCell.is-in-check .piece{box-shadow:0 0 0 4px rgba(177,35,25,.32),0 0 18px rgba(177,35,25,.6);animation:xiangqiCheckPulse .9s ease-in-out infinite}
+@keyframes xiangqiCheckPulse{50%{box-shadow:0 0 0 7px rgba(177,35,25,.16),0 0 24px rgba(177,35,25,.72)}}
 .xiangqiCell[disabled],.xiangqiCell--static{cursor:default;opacity:1}
 .gomokuBoard{
   --go-cell-size:clamp(20px,2.7vw,32px);

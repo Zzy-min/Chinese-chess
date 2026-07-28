@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260728m15"));
-        assertTrue(html.contains("mobile.css?v=20260728m15"));
-        assertTrue(html.contains("app.js?v=20260728m15"));
+        assertTrue(html.contains("app.css?v=20260728m16"));
+        assertTrue(html.contains("mobile.css?v=20260728m16"));
+        assertTrue(html.contains("app.js?v=20260728m16"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -166,9 +166,14 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
 
         assertTrue(js.contains("function maybeNotifyOpponentMove"));
+        assertTrue(js.contains("const payload = move.payload || move"));
+        assertTrue(js.contains("function onlineCheckNotice"));
+        assertTrue(js.contains("将军！"));
         assertTrue(js.contains("对手已落子，轮到你了"));
         assertTrue(js.contains("notifyNative('haptic', { style: 'medium' })"));
         assertTrue(js.contains("navigator.vibrate"));
+        assertTrue(css.contains(".xiangqiCell.is-in-check"));
+        assertTrue(css.contains(".status--check"));
         assertTrue(css.contains(".toast--move"));
     }
 
