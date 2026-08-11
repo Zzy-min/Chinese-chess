@@ -10,6 +10,10 @@ public final class BuiltinGomokuEngine implements GomokuEngine {
         return ai.findBestMove(board, aiStone, difficulty);
     }
 
+    public int[] findBestMove(GomokuBoard board, GomokuStone aiStone, GomokuDifficultyProfile profile) {
+        return ai.findBestMove(board, aiStone, profile);
+    }
+
     @Override
     public String getEngineId() {
         return "builtin";

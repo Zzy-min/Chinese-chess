@@ -7,6 +7,7 @@ import com.xiangqi.model.Move;
 import com.xiangqi.model.PieceColor;
 import com.xiangqi.model.gomoku.ConfigurableGomokuEngine;
 import com.xiangqi.model.gomoku.GomokuBoard;
+import com.xiangqi.model.gomoku.GomokuDifficultyProfile;
 import com.xiangqi.model.gomoku.GomokuStone;
 import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.game.GameType;
@@ -70,7 +71,14 @@ public final class PracticeGameHub {
         game.gameType = request.gameType();
         game.human = user;
         game.aiUser = new AuthUser(aiUserId(request.gameType()), "AI");
-        game.difficulty = difficultyOf(request.difficulty());
+        if (request.gameType() == GameType.GOMOKU) {
+            game.gomokuDifficulty = GomokuDifficultyProfile.from(request.difficulty());
+            game.difficulty = game.gomokuDifficulty.builtinDifficulty();
+            game.difficultyKey = game.gomokuDifficulty.name();
+        } else {
+            game.difficulty = difficultyOf(request.difficulty());
+            game.difficultyKey = game.difficulty.name();
+        }
         game.enginePreference = request.preferredEngine() == null ? "" : request.preferredEngine().trim();
         game.updatedAt = Instant.now();
         game.status = "PLAYING";
@@ -95,6 +103,7 @@ public final class PracticeGameHub {
             }
             game.gomokuEngine = new ConfigurableGomokuEngine();
             game.gomokuEngine.setPreferredEngine(game.enginePreference);
+            game.gomokuEngine.setDifficultyProfile(game.gomokuDifficulty);
             game.initialGomokuBoard = new GomokuBoard(((GomokuMatch) game.match).boardState());
         } else {
             Board initialBoard = null;
@@ -128,7 +137,7 @@ public final class PracticeGameHub {
         store.createGameRecord(game.gameId, "", false, snapshot(game, user));
         LOG.info(() -> "practice.create gameId=" + game.gameId
             + " type=" + game.gameType
-            + " difficulty=" + game.difficulty
+            + " difficulty=" + game.difficultyKey
             + " human=" + user.username()
             + " humanSide=" + game.humanSide
             + " aiSide=" + game.aiSide
@@ -234,17 +243,18 @@ public final class PracticeGameHub {
         game.aiPending = true;
         game.aiStartedAtNanos = System.nanoTime();
         game.updatedAt = Instant.now();
-        final MinimaxAI.Difficulty difficulty = game.difficulty;
         final String aiSide = game.aiSide;
         if (game.gameType == GameType.GOMOKU) {
             final GomokuBoard snapshot = new GomokuBoard(((GomokuMatch) game.match).boardState());
             final ConfigurableGomokuEngine engine = game.gomokuEngine;
+            final GomokuDifficultyProfile difficulty = game.gomokuDifficulty;
             game.aiFuture = CompletableFuture.supplyAsync(
                 () -> computeGomokuAiPayload(snapshot, engine, difficulty, aiSide),
                 AI_EXECUTOR
             );
             return;
         }
+        final MinimaxAI.Difficulty difficulty = game.difficulty;
         final Board snapshot = new Board(((XiangqiMatch) game.match).boardState());
         final ConfigurableXiangqiEngine engine = game.xiangqiEngine;
         game.aiFuture = CompletableFuture.supplyAsync(
@@ -454,7 +464,7 @@ public final class PracticeGameHub {
         if (game.gameType == GameType.GOMOKU) {
             GomokuMatch match = (GomokuMatch) game.match;
             GomokuStone stone = "BLACK".equals(game.aiSide) ? GomokuStone.BLACK : GomokuStone.WHITE;
-            int[] move = game.gomokuEngine.findBestMove(match.boardState(), stone, game.difficulty);
+            int[] move = game.gomokuEngine.findBestMove(match.boardState(), stone, game.gomokuDifficulty);
             if (move == null || move.length < 2) {
                 return new LinkedHashMap<String, Object>();
             }
@@ -492,7 +502,7 @@ public final class PracticeGameHub {
         return payload;
     }
 
-    private Map<String, Object> computeGomokuAiPayload(GomokuBoard snapshot, ConfigurableGomokuEngine engine, MinimaxAI.Difficulty difficulty, String aiSide) {
+    private Map<String, Object> computeGomokuAiPayload(GomokuBoard snapshot, ConfigurableGomokuEngine engine, GomokuDifficultyProfile difficulty, String aiSide) {
         GomokuStone stone = "BLACK".equals(aiSide) ? GomokuStone.BLACK : GomokuStone.WHITE;
         int[] move = engine.findBestMove(snapshot, stone, difficulty);
         if (move == null || move.length < 2) {
@@ -528,7 +538,7 @@ public final class PracticeGameHub {
         snapshot.put("opponentType", game.opponentType);
         snapshot.put("aiPending", game.aiPending);
         snapshot.put("aiEngine", aiEngineId(game));
-        snapshot.put("difficulty", game.difficulty.name());
+        snapshot.put("difficulty", game.difficultyKey);
         snapshot.put("ai", aiMap(game));
         snapshot.put("initialFen", game.initialFen);
         Map<String, Object> players = new LinkedHashMap<String, Object>();
@@ -606,9 +616,10 @@ public final class PracticeGameHub {
         Map<String, Object> item = new LinkedHashMap<String, Object>();
         item.put("engineId", aiEngineId(game));
         item.put("engineText", aiEngineText(game));
-        item.put("difficulty", game.difficulty.name());
+        item.put("difficulty", game.difficultyKey);
         item.put("side", game.aiSide);
         item.put("preferredEngine", game.enginePreference);
+        item.put("engineFallback", game.gomokuEngine != null && game.gomokuEngine.isEngineFallback());
         return item;
     }
 
@@ -699,6 +710,8 @@ public final class PracticeGameHub {
         private ConfigurableXiangqiEngine xiangqiEngine;
         private ConfigurableGomokuEngine gomokuEngine;
         private MinimaxAI.Difficulty difficulty;
+        private GomokuDifficultyProfile gomokuDifficulty;
+        private String difficultyKey;
         private String enginePreference;
         private String humanSide;
         private String aiSide;

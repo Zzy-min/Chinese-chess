@@ -762,9 +762,10 @@ function renderGameEndModal() {
         <p class="muted">胜方：${escapeHtml(winner)}</p>
         <p>${resultText}</p>
         <p class="muted">结束原因：${reason}</p>
-        <div class="roomRow">
-          <button class="btn" data-nav="${analysisHref}">进入分析</button>
-          ${isPractice ? '<button class="ghost" data-action="practice-rematch">再开一局</button><button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : `<button class="ghost" data-nav="${roomHref}">回到房间</button>`}
+        <div class="roomRow endGameActions">
+          ${isPractice ? '<button class="btn" data-action="practice-rematch">再开一局</button>' : renderOnlineRematchActions(game)}
+          <button class="ghost" data-nav="${analysisHref}">进入分析</button>
+          ${isPractice ? '<button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : `<button class="ghost danger" data-action="leave-room">离开房间</button>`}
           <button class="ghost" data-action="close-end-modal">关闭</button>
         </div>
       </div>
@@ -900,6 +901,18 @@ function sideLabel(gameType, side) {
   return side;
 }
 
+function renderOnlineRematchActions(game) {
+  const room = state.room && state.room.roomId === game.roomId ? state.room : null;
+  const offer = room && room.rematch;
+  if (offer && state.me && offer.offeredBy === state.me.id) {
+    return '<button class="btn" data-action="rematch-cancel">等待对手接受</button>';
+  }
+  if (offer) {
+    return '<button class="btn" data-action="rematch-accept">接受再战</button><button class="ghost" data-action="rematch-decline">婉拒</button>';
+  }
+  return '<button class="btn" data-action="rematch-offer">请求再战</button>';
+}
+
 function gameTypeDisplayLabel(gameType) {
   return gameType === 'GOMOKU' ? '五子棋' : '中国象棋';
 }
@@ -915,6 +928,7 @@ function liveOpponentSideLabel(game, viewerSide, opponentSide) {
 function liveGameStatusLabel(status) {
   if (status === 'PLAYING') return '对局中';
   if (status === 'FINISHED') return '已结束';
+  if (status === 'BETWEEN_GAMES') return '局间等待';
   if (status === 'WAITING') return '等待中';
   return status || '-';
 }
@@ -1049,7 +1063,7 @@ function renderLearnItemCard(item, completedSet) {
   
   const themeLabel = isTutorial ? '教程' : puzzleThemeLabel(resolvePuzzleTheme(item.theme));
   const gameTypeLabel = isXiangqi ? '中国象棋' : '五子棋';
-  const difficultyLabel = { EASY: '简单', MEDIUM: '中等', HARD: '困难', EXPERT: '专家' }[item.difficulty || 'MEDIUM'] || item.difficulty || '中等';
+  const difficultyLabel = { NOVICE: '入门', EASY: '简单', MEDIUM: '中等', HARD: '困难', MASTER: '大师', EXPERT: '大师' }[item.difficulty || 'MEDIUM'] || item.difficulty || '中等';
   const metaText = `${gameTypeLabel} · ${difficultyLabel} · ${themeLabel}`;
   
   let completeBtn = '';
@@ -1326,6 +1340,8 @@ function puzzleThemeLabel(theme) {
 
 function renderLearnPracticeTab(content) {
   const engines = engineOptions(state.learnConfig.gameType);
+  const difficulties = practiceDifficultyOptions(state.learnConfig.gameType);
+  const selectedDifficulty = difficulties.find(item => item.value === state.learnConfig.difficulty) || difficulties[0];
   return `
     <div class="split">
       <section class="panel">
@@ -1341,10 +1357,9 @@ function renderLearnPracticeTab(content) {
           <div class="field">
             <label>难度</label>
             <select data-learn-field="difficulty">
-              <option value="EASY" ${state.learnConfig.difficulty === 'EASY' ? 'selected' : ''}>简单</option>
-              <option value="MEDIUM" ${state.learnConfig.difficulty === 'MEDIUM' ? 'selected' : ''}>中等</option>
-              <option value="HARD" ${state.learnConfig.difficulty === 'HARD' ? 'selected' : ''}>困难</option>
+              ${difficulties.map(item => `<option value="${item.value}" ${state.learnConfig.difficulty === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
             </select>
+            <small class="fieldHint">${escapeHtml(selectedDifficulty.description)}</small>
           </div>
           <div class="field">
             <label>先后手</label>
@@ -1687,15 +1702,19 @@ function renderRoom(roomId) {
     loadRoom(roomId);
     return '<section class="panel"><h2 class="sectionTitle">房间加载中</h2></section>';
   }
+  const score = room.seriesScore || { host: 0, guest: 0 };
+  const betweenGames = room.status === 'BETWEEN_GAMES' || room.status === 'FINISHED';
+  const rematch = room.rematch;
+  const roundText = `第 ${Math.max(1, Number(room.roundIndex || 1))} 局 · 局分 ${Number(score.host || 0)}-${Number(score.guest || 0)}`;
   return `
     <section class="panel">
       <div class="roomRow">
         <span class="pill">房间码 ${room.roomCode}</span>
         <span class="pill">${room.gameType}</span>
-        <span class="pill">${room.status}</span>
+        <span class="pill">${escapeHtml(roundText)}</span>
       </div>
-      <h2 class="sectionTitle">邀请对手加入并准备</h2>
-      <p class="muted">分享当前链接或房间码。双方都点击准备后会自动进入在线对局。时长 ${room.initialTimeSeconds || 600} 秒。</p>
+      <h2 class="sectionTitle">${betweenGames ? '这一局已落定，再约一盘' : '邀请对手加入并准备'}</h2>
+      <p class="muted">${betweenGames ? '房间码与局分会继续保留；再战默认交换先后手。' : `分享当前链接或房间码。双方都点击准备后会自动进入在线对局。时长 ${room.initialTimeSeconds || 600} 秒。`}</p>
       <div class="split compactSplit">
         <div class="card">
           <div class="meta">Host</div>
@@ -1708,11 +1727,14 @@ function renderRoom(roomId) {
           <p>${room.guest ? (room.guestReady ? '已准备' : '等待准备') : '打开链接即可加入'}</p>
         </div>
       </div>
+      ${betweenGames ? `<div class="rematchBar"><span>${rematch ? `${escapeHtml(rematch.offeredByUsername || '对手')} 已发起再战请求` : '双方可发起再战，也可继续手动准备'}</span><div>${renderOnlineRematchActions({ roomId: room.roomId })}</div></div>` : ''}
       <div class="roomRow" style="margin-top:18px">
         ${room.guest ? '' : '<button class="ghost" data-action="join-room">加入当前房间</button>'}
         <button class="ghost" data-action="share-room" data-room-code="${escapeHtml(room.roomCode || '')}">分享房间</button>
         <button class="btn" data-action="toggle-ready">${isViewerReady(room) ? '取消准备' : '我已准备'}</button>
-        ${room.gameId ? `<button class="btn" data-nav="game/${room.gameId}">进入对局</button>` : ''}
+        ${room.status === 'PLAYING' && room.gameId ? `<button class="btn" data-nav="game/${room.gameId}">进入对局</button>` : ''}
+        ${betweenGames && room.lastGameId ? `<button class="ghost" data-nav="analysis/${room.lastGameId}">复盘上一局</button>` : ''}
+        ${!isRoomHost(room) && room.status !== 'PLAYING' ? '<button class="ghost danger" data-action="leave-room">离开房间</button>' : ''}
         ${isRoomHost(room) && room.status !== 'PLAYING' ? '<button class="ghost danger" data-action="close-room">关闭房间</button>' : ''}
       </div>
     </section>
@@ -2969,7 +2991,12 @@ function bindCommon(route) {
   });
   on('[data-action="join-room"]', joinCurrentRoom);
   on('[data-action="toggle-ready"]', toggleReady);
+  on('[data-action="rematch-offer"]', () => sendRematchAction('offer'));
+  on('[data-action="rematch-accept"]', () => sendRematchAction('accept'));
+  on('[data-action="rematch-decline"]', () => sendRematchAction('decline'));
+  on('[data-action="rematch-cancel"]', () => sendRematchAction('cancel'));
   on('[data-action="close-room"]', closeCurrentRoom);
+  on('[data-action="leave-room"]', leaveCurrentRoom);
   on('[data-action="create-practice"]', createPracticeGame);
   on('[data-action="refresh-watch"]', () => loadWatchOverview(true));
   document.querySelectorAll('[data-board-pane]').forEach(el => el.addEventListener('click', () => {
@@ -3151,6 +3178,7 @@ function updateLearnConfig(input) {
     state.learnConfig[field] = input.value;
   }
   if (field === 'gameType') {
+    state.learnConfig.difficulty = input.value === 'GOMOKU' ? 'EASY' : 'MEDIUM';
     const allowed = engineOptions(state.learnConfig.gameType).map(item => item.value);
     if (!allowed.includes(state.learnConfig.preferredEngine)) {
       state.learnConfig.preferredEngine = allowed[0];
@@ -3183,7 +3211,7 @@ async function submitAuth() {
     render();
     return;
   }
-  await withActionBusy('auth', state.authMode === 'login' ? '正在登录…' : '正在注册…', async () => {
+  const authSucceeded = await withActionBusy('auth', state.authMode === 'login' ? '正在登录…' : '正在注册…', async () => {
     try {
       const url = state.authMode === 'login' ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
       const data = await fetchJson(url, { method: 'POST', body: JSON.stringify({ username, password }) });
@@ -3194,12 +3222,40 @@ async function submitAuth() {
       await Promise.all([loadLearnProgress(), loadProfilePreferences(), loadProfileDashboard(false)]);
       showToast(state.authMode === 'login' ? `欢迎回来，${username}` : `注册成功，已登录 ${username}`, 'success');
       render();
+      return true;
     } catch (error) {
-      state.authError = error.message || '登录失败';
-      showToast(state.authError, 'error', 3200);
-      render();
+      state.authError = friendlyAuthErrorMessage(error, state.authMode);
+      return false;
     }
   });
+  if (authSucceeded === false) {
+    render();
+    window.requestAnimationFrame(() => {
+      const nextUsername = document.getElementById('authUsername');
+      const nextPassword = document.getElementById('authPassword');
+      if (nextUsername) nextUsername.value = username;
+      if (nextPassword) nextPassword.focus();
+    });
+  }
+}
+
+function friendlyAuthErrorMessage(error, mode) {
+  const raw = String(error && error.message ? error.message : '').trim();
+  if (/[\u3400-\u9fff]/.test(raw)) return raw;
+  const normalized = raw.toLowerCase();
+  if (normalized.includes('invalid credentials') || normalized.includes('unauthorized')) {
+    return '用户名或密码不正确';
+  }
+  if (normalized.includes('already exists') || normalized.includes('already registered')) {
+    return '用户名已被使用，请更换后重试';
+  }
+  if (normalized.includes('failed to fetch') || normalized.includes('network')) {
+    return '无法连接服务，请检查网络后重试';
+  }
+  if (normalized.includes('429') || normalized.includes('too many')) {
+    return '操作过于频繁，请稍后重试';
+  }
+  return mode === 'register' ? '注册失败，请稍后重试' : '登录失败，请稍后重试';
 }
 
 async function logout() {
@@ -3434,7 +3490,7 @@ async function quickStartGomokuPractice() {
   }
   state.learnConfig = {
     gameType: 'GOMOKU',
-    difficulty: 'MEDIUM',
+    difficulty: 'EASY',
     humanFirst: true,
     preferredEngine: 'RAPFI'
   };
@@ -4112,8 +4168,19 @@ async function syncRealtime(route) {
         return;
       }
     }
-    if (state.room && state.room.gameId && currentRoute().page === 'room') {
+    if (state.room && state.room.status === 'PLAYING' && state.room.gameId && currentRoute().page === 'room') {
       await refreshBootstrapAndProfile();
+      navTo(`game/${state.room.gameId}`);
+      return;
+    }
+    if (state.room
+      && state.room.status === 'PLAYING'
+      && state.room.gameId
+      && previousGame
+      && previousGame.status === 'FINISHED'
+      && previousGame.gameId !== state.room.gameId
+      && currentRoute().page === 'game') {
+      state.endGameModal = null;
       navTo(`game/${state.room.gameId}`);
       return;
     }
@@ -4148,6 +4215,71 @@ function syncGameTransitionFeedback(previousGame, nextGame) {
   maybePlayMoveSound(previousGame, nextGame);
   maybePlayFinishSound(previousGame, nextGame);
   maybeOpenEndGameModal(nextGame);
+}
+
+async function leaveCurrentRoom() {
+  const room = state.room;
+  if (!room) return;
+  if (!window.confirm('离开后本次连战房间将结束，确定离开吗？')) return;
+  try {
+    await fetchJson(`${API_BASE}/rooms/${room.roomId}/leave`, { method: 'POST' });
+    state.room = null;
+    state.game = null;
+    state.endGameModal = null;
+    closeSocket();
+    await refreshBootstrapAndProfile();
+    showToast('已离开房间', 'success');
+    navTo('play');
+  } catch (error) {
+    state.status = error.message;
+    render();
+  }
+}
+
+async function sendRematchAction(action) {
+  const roomId = (state.room && state.room.roomId) || (state.game && state.game.roomId) || '';
+  if (!roomId || !state.me) return;
+  try {
+    state.status = '';
+    const previousGameId = state.game && state.game.gameId;
+    state.room = await fetchJson(`${API_BASE}/rooms/${roomId}/rematch`, {
+      method: 'POST',
+      body: JSON.stringify({ action })
+    });
+    if (state.room.status === 'PLAYING' && state.room.gameId && state.room.gameId !== previousGameId) {
+      state.endGameModal = null;
+      showToast('再战开始，双方已交换先后手', 'success');
+      navTo(`game/${state.room.gameId}`);
+      return;
+    }
+    const messages = {
+      offer: '再战请求已发出',
+      decline: '已婉拒本次再战',
+      cancel: '已取消再战请求'
+    };
+    showToast(messages[action] || '再战状态已更新', 'info');
+    render();
+  } catch (error) {
+    if (action === 'accept') {
+      try {
+        state.room = await fetchJson(`${API_BASE}/rooms/${roomId}/ready`, {
+          method: 'POST',
+          body: JSON.stringify({ ready: true })
+        });
+        showToast('再战请求已失效，已为你切换到准备状态', 'info');
+        if (state.room.status === 'PLAYING' && state.room.gameId) {
+          state.endGameModal = null;
+          navTo(`game/${state.room.gameId}`);
+          return;
+        }
+      } catch (_) {
+        // Keep the original rematch error when the legacy ready fallback also fails.
+      }
+    }
+    state.status = error.message || '再战操作失败';
+    showToast(state.status, 'error');
+    render();
+  }
 }
 
 function maybeNotifyCheck(previousGame, nextGame) {
@@ -4569,6 +4701,23 @@ function engineOptions(gameType) {
     { value: 'PIKAFISH', label: 'Pikafish' },
     { value: 'AUTO', label: '自动选择' },
     { value: 'BUILTIN', label: '内置 AI' }
+  ];
+}
+
+function practiceDifficultyOptions(gameType) {
+  if (gameType === 'GOMOKU') {
+    return [
+      { value: 'NOVICE', label: '入门', description: '第一次下也没关系；内置 AI 会留出明显机会。' },
+      { value: 'EASY', label: '简单', description: '休闲练习；会防直接取胜点，也会偶尔走次优。' },
+      { value: 'MEDIUM', label: '中等', description: '内置深搜；会主动制造双三与活四压力。' },
+      { value: 'HARD', label: '困难', description: '优先使用 Rapfi 中强档，外部引擎不可用时安全降级。' },
+      { value: 'MASTER', label: '大师', description: 'Rapfi 高强度搜索，适合稳定棋力挑战。' }
+    ];
+  }
+  return [
+    { value: 'EASY', label: '简单', description: '适合熟悉象棋规则与基本走法。' },
+    { value: 'MEDIUM', label: '中等', description: '兼顾响应速度与战术强度。' },
+    { value: 'HARD', label: '困难', description: '更长搜索时间，适合进阶挑战。' }
   ];
 }
 
@@ -5138,28 +5287,34 @@ function renderMobileLobby() {
   const rooms = ((state.lobby && state.lobby.rooms) || []).slice(0, 8);
   return `
     <div class="mobileLobby">
-      ${renderMobilePageHeader({ eyebrow: '对局大厅', title: '找一位棋友' })}
+      ${renderMobilePageHeader({ eyebrow: '对局', title: '开始一盘棋' })}
       <section class="mobileLobbyLead">
-        <span class="mobileEyebrow">中国象棋 · 默认 5 分钟</span>
-        <h2>有人等你落下第一子</h2>
-        <button class="mobilePrimaryAction" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">${mobileIcon('spark')}<span>立即快速匹配</span><small>真人实时对局</small></button>
-      </section>
-      <div class="mobileLobbyActions">
-        <button data-action="create-room-xiangqi"><span>创建房间</span><small>邀请好友对弈</small></button>
-        <label><span>加入房间</span><span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span></label>
-      </div>
-      <section class="mobileSection">
-        <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><button data-action="refresh-lobby" aria-label="刷新大厅">${mobileIcon('refresh')}<span>${rooms.length} 间</span></button></div>
-        <div class="mobileRoomList">
-          ${rooms.length ? rooms.map(room => `
-            <button data-nav="room/${escapeHtml(room.roomId || '')}">
-              <span class="mobileGameSeal ${room.gameType === 'GOMOKU' ? 'is-green' : ''}">${room.gameType === 'GOMOKU' ? '五' : '象'}</span>
-              <span><strong>${escapeHtml(room.hostUsername || '棋友')} 的${room.gameType === 'GOMOKU' ? '五子棋' : '象棋'}房</strong><small>${escapeHtml(room.roomCode || '')} · ${room.guestUsername ? '对局中' : '等待加入'}</small></span>
-              ${mobileIcon('chevron')}
-            </button>
-          `).join('') : '<div class="mobileEmptyState"><strong>暂时没有公开房间</strong><span>创建一间棋室，邀请好友先来一局。</span></div>'}
+        <span class="mobileEyebrow">常用入口</span>
+        <h2>三步之内，直接开局</h2>
+        <div class="mobileLobbyPrimaryActions">
+          <button class="mobilePrimaryAction" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">${mobileIcon('spark')}<span>快速匹配</span><small>默认中国象棋 · 5 分钟</small></button>
+          <button class="mobileLobbyCta" data-action="quick-start-ai-practice">${mobileIcon('play')}<span>人机练习</span><small>立即开始中等象棋练习</small></button>
+          <div class="mobileRoomComposer">
+            <button data-action="create-room-xiangqi"><span>创建好友房</span><small>生成房间码邀请棋友</small></button>
+            <label><span>已有房间码</span><span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span></label>
+          </div>
         </div>
       </section>
+      <details class="mobileRoomDisclosure">
+        <summary><span><small>公开候场</small><strong>${rooms.length ? `${rooms.length} 间房可查看` : '暂时没有候场'}</strong></span>${mobileIcon('chevron')}</summary>
+        <section class="mobileSection">
+          <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><button data-action="refresh-lobby" aria-label="刷新大厅">${mobileIcon('refresh')}<span>刷新</span></button></div>
+          <div class="mobileRoomList">
+            ${rooms.length ? rooms.map(room => `
+              <button data-nav="room/${escapeHtml(room.roomId || '')}">
+                <span class="mobileGameSeal ${room.gameType === 'GOMOKU' ? 'is-green' : ''}">${room.gameType === 'GOMOKU' ? '五' : '象'}</span>
+                <span><strong>${escapeHtml(room.hostUsername || '棋友')} 的${room.gameType === 'GOMOKU' ? '五子棋' : '象棋'}房</strong><small>${escapeHtml(room.roomCode || '')} · ${room.guestUsername ? '对局中' : '等待加入'}</small></span>
+                ${mobileIcon('chevron')}
+              </button>
+            `).join('') : '<div class="mobileEmptyState"><strong>暂时没有公开房间</strong><span>创建一间棋室，邀请好友先来一局。</span></div>'}
+          </div>
+        </section>
+      </details>
     </div>
   `;
 }
@@ -5514,9 +5669,8 @@ function renderBottomNav(activePage) {
 function renderMobileBottomNav(activePage) {
   return `
     <nav class="mobileBottomNav" aria-label="主要导航">
-      <a href="#/home" data-mobile-nav="home" class="${activePage === 'home' ? 'is-active' : ''}">${mobileIcon('home')}<span>首页</span></a>
       <a href="#/play" data-mobile-nav="play" class="${activePage === 'play' ? 'is-active' : ''}">${mobileIcon('play')}<span>对局</span></a>
-      <a href="#/learn/puzzles/ALL" data-mobile-nav="learn" class="${activePage === 'learn' ? 'is-active' : ''}">${mobileIcon('learn')}<span>学习</span></a>
+      <a href="#/learn/puzzles/ALL" data-mobile-nav="learn" class="${activePage === 'learn' ? 'is-active' : ''}">${mobileIcon('learn')}<span>棋谱</span></a>
       <a href="#/watch" data-mobile-nav="watch" class="${activePage === 'watch' ? 'is-active' : ''}">${mobileIcon('watch')}<span>观战</span></a>
       <a href="#/me" data-mobile-nav="me" class="${activePage === 'me' ? 'is-active' : ''}">${mobileIcon('me')}<span>我的</span></a>
     </nav>

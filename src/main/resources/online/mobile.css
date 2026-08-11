@@ -1261,6 +1261,200 @@
 
 }
 
+/* Four-task mobile IA and compact, single-column play entry. */
+@media (max-width: 768px) {
+  .mobileBottomNav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mobileBottomNav a {
+    min-width: 0;
+    min-height: 58px;
+  }
+
+  .mobileLobbyLead {
+    margin: 8px 14px 14px;
+    padding: 20px 16px 16px;
+    border-radius: 20px;
+    background: #f8f2e8;
+    box-shadow: 0 8px 22px rgba(73, 54, 31, .05);
+  }
+
+  .mobileLobbyLead h2 {
+    max-width: none;
+    margin: 8px 0 14px;
+    font-size: 25px;
+    line-height: 1.25;
+  }
+
+  .mobileLobbyPrimaryActions {
+    display: grid;
+    min-width: 0;
+    gap: 9px;
+  }
+
+  .mobileLobbyPrimaryActions > button,
+  .mobileRoomComposer {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(120, 92, 61, .18);
+    border-radius: 15px;
+    background: rgba(255, 253, 248, .9);
+  }
+
+  .mobileLobbyPrimaryActions > button {
+    display: grid;
+    min-height: 60px;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    gap: 2px 10px;
+    padding: 10px 14px;
+    color: var(--mobile-ink);
+    text-align: left;
+  }
+
+  .mobileLobbyPrimaryActions > button:first-child {
+    border-color: var(--mobile-cinnabar);
+    background: var(--mobile-cinnabar);
+    color: #fffaf2;
+  }
+
+  .mobileLobbyPrimaryActions > button > .mobileIcon {
+    grid-row: 1 / 3;
+    width: 22px;
+  }
+
+  .mobileLobbyPrimaryActions > button span,
+  .mobileRoomComposer > button span {
+    font-size: 16px;
+    font-weight: 750;
+  }
+
+  .mobileLobbyPrimaryActions small {
+    color: var(--mobile-muted);
+    font-size: 11px;
+  }
+
+  .mobileLobbyPrimaryActions > button:first-child small {
+    color: rgba(255, 250, 242, .76);
+  }
+
+  .mobileRoomComposer {
+    padding: 10px;
+  }
+
+  .mobileRoomComposer > button {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    align-items: start;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5px 6px 9px;
+    border: 0;
+    border-bottom: 1px solid rgba(120, 92, 61, .14);
+    background: transparent;
+    color: var(--mobile-ink);
+    text-align: left;
+  }
+
+  .mobileRoomComposer label {
+    display: block;
+    padding: 9px 6px 2px;
+    color: var(--mobile-muted);
+    font-size: 12px;
+  }
+
+  .mobileJoinRow {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) 64px;
+    gap: 7px;
+    margin-top: 7px;
+  }
+
+  .mobileJoinRow input,
+  .mobileJoinRow button {
+    min-width: 0;
+    min-height: 44px;
+    border: 1px solid var(--mobile-line);
+    border-radius: 11px;
+  }
+
+  .mobileJoinRow input {
+    width: 100%;
+    padding: 0 10px;
+    background: #fffdf8;
+  }
+
+  .mobileJoinRow button {
+    background: var(--mobile-cinnabar);
+    color: #fff;
+  }
+
+  .mobileRoomDisclosure {
+    margin: 0 14px 22px;
+    border: 1px solid rgba(120, 92, 61, .16);
+    border-radius: 16px;
+    background: rgba(255, 253, 248, .75);
+  }
+
+  .mobileRoomDisclosure > summary {
+    display: grid;
+    min-height: 62px;
+    grid-template-columns: minmax(0, 1fr) 22px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .mobileRoomDisclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobileRoomDisclosure > summary small,
+  .mobileRoomDisclosure > summary strong {
+    display: block;
+  }
+
+  .mobileRoomDisclosure > summary small {
+    color: var(--mobile-muted);
+    font-size: 11px;
+  }
+
+  .mobileRoomDisclosure .mobileSection {
+    margin: 0 10px 12px;
+  }
+
+  .rematchBar,
+  .endGameActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rematchBar button,
+  .endGameActions button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .profileSidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profileSidebarItem {
+    min-height: 58px;
+    grid-template-columns: 28px minmax(0, 1fr);
+    place-items: center start;
+    align-content: center;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 370px) {
   .mobileHero {
     min-height: 440px;
@@ -1448,5 +1642,21 @@
   .profilePage .scrollable {
     max-height: none;
     overflow: visible;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Seven destinations remain visible, but use two readable columns instead of cramped chips. */
+  .profileSidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profileSidebarItem {
+    min-height: 58px;
+    grid-template-columns: 28px minmax(0, 1fr);
+    place-items: center start;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 12px;
   }
 }

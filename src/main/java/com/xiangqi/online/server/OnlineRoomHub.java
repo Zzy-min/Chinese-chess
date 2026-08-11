@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class OnlineRoomHub {
+    private static final long REMATCH_OFFER_SECONDS = 60L;
     private final Clock clock;
     private final ConcurrentHashMap<String, ActiveRoom> roomsById = new ConcurrentHashMap<String, ActiveRoom>();
     private final ConcurrentHashMap<String, ActiveRoom> roomsByCode = new ConcurrentHashMap<String, ActiveRoom>();
@@ -49,6 +50,8 @@ public final class OnlineRoomHub {
         room.initialTimeSeconds = request.initialTimeSeconds();
         room.publicRoom = request.isPublic();
         room.host = host;
+        room.hostFirstSeat = true;
+        room.swapColorsNext = true;
         room.status = RoomStatus.WAITING.name();
         room.updatedAt = now();
         roomsById.put(room.roomId, room);
@@ -71,8 +74,8 @@ public final class OnlineRoomHub {
                 room.guest = user;
                 room.guestReady = true;
                 room.status = RoomStatus.FULL.name();
-                if (room.hostReady && room.gameId == null) {
-                    startGame(room);
+                if (room.hostReady) {
+                    startNextGame(room);
                 }
                 room.updatedAt = now();
                 return quickMatchResult(true, room, user);
@@ -110,6 +113,9 @@ public final class OnlineRoomHub {
             if (room.guest != null && !room.guest.id().equals(user.id())) {
                 throw new IllegalArgumentException("room is full");
             }
+            if (room.guest != null) {
+                return roomSnapshot(room);
+            }
             room.guest = user;
             room.status = RoomStatus.FULL.name();
             room.updatedAt = now();
@@ -121,6 +127,9 @@ public final class OnlineRoomHub {
         ActiveRoom room = room(roomId);
         synchronized (room) {
             ensureOpen(room);
+            if (RoomStatus.PLAYING.name().equals(room.status)) {
+                throw new IllegalStateException("game is already playing");
+            }
             if (room.host.id().equals(userId)) {
                 room.hostReady = ready;
             } else if (room.guest != null && room.guest.id().equals(userId)) {
@@ -128,8 +137,56 @@ public final class OnlineRoomHub {
             } else {
                 throw new IllegalArgumentException("user is not in room");
             }
-            if (room.hostReady && room.guestReady && room.guest != null && room.gameId == null) {
-                startGame(room);
+            if (room.hostReady && room.guestReady && room.guest != null) {
+                startNextGame(room);
+            }
+            room.updatedAt = now();
+            return roomSnapshot(room);
+        }
+    }
+
+    public Map<String, Object> rematch(String roomId, AuthUser actor, String action) {
+        ActiveRoom room = room(roomId);
+        synchronized (room) {
+            ensureOpen(room);
+            ensureRoomMember(room, actor.id());
+            if (!isBetweenGames(room)) {
+                throw new IllegalStateException("rematch is only available between games");
+            }
+            String normalized = action == null ? "" : action.trim().toLowerCase();
+            boolean expired = clearExpiredRematch(room);
+            if ("offer".equals(normalized)) {
+                if (room.rematchOfferedByUserId != null) {
+                    throw new IllegalArgumentException("rematch offer already pending");
+                }
+                room.rematchOfferedByUserId = actor.id();
+                room.rematchOfferedByUsername = actor.username();
+                room.rematchExpiresAt = now().plusSeconds(REMATCH_OFFER_SECONDS);
+            } else if ("accept".equals(normalized)) {
+                if (expired) {
+                    throw new IllegalArgumentException("rematch offer expired");
+                }
+                requireRematchOffer(room);
+                if (room.rematchOfferedByUserId.equals(actor.id())) {
+                    throw new IllegalArgumentException("cannot accept your own rematch offer");
+                }
+                room.hostReady = true;
+                room.guestReady = true;
+                startNextGame(room);
+            } else if ("decline".equals(normalized)) {
+                requireRematchOffer(room);
+                if (room.rematchOfferedByUserId.equals(actor.id())) {
+                    throw new IllegalArgumentException("offerer must cancel the rematch offer");
+                }
+                clearRematch(room);
+            } else if ("cancel".equals(normalized)) {
+                requireRematchOffer(room);
+                if (!room.rematchOfferedByUserId.equals(actor.id())) {
+                    throw new IllegalArgumentException("only the offerer can cancel the rematch offer");
+                }
+                clearRematch(room);
+            } else {
+                throw new IllegalArgumentException("unsupported rematch action");
             }
             room.updatedAt = now();
             return roomSnapshot(room);
@@ -142,25 +199,41 @@ public final class OnlineRoomHub {
             if (!room.host.id().equals(actor.id())) {
                 throw new SecurityException("only room host can close room");
             }
-            ActiveGame game = room.gameId == null ? null : gamesById.get(room.gameId);
-            if (game != null && "PLAYING".equals(game.status)) {
-                throw new IllegalStateException("active game must finish before closing room");
-            }
-            room.closed = true;
-            roomsById.remove(room.roomId, room);
-            roomsByCode.remove(room.roomCode, room);
-            if (game != null) {
-                gamesById.remove(room.gameId, game);
-            }
-            Map<String, Object> result = new LinkedHashMap<String, Object>();
-            result.put("closed", true);
-            result.put("roomId", room.roomId);
-            return result;
+            return closeRoomInternal(room);
         }
     }
 
+    public Map<String, Object> leaveRoom(String roomId, AuthUser actor) {
+        ActiveRoom room = room(roomId);
+        synchronized (room) {
+            ensureRoomMember(room, actor.id());
+            return closeRoomInternal(room);
+        }
+    }
+
+    private Map<String, Object> closeRoomInternal(ActiveRoom room) {
+        ActiveGame game = room.gameId == null ? null : gamesById.get(room.gameId);
+        if (game != null && "PLAYING".equals(game.status)) {
+            throw new IllegalStateException("active game must finish before closing room");
+        }
+        room.closed = true;
+        roomsById.remove(room.roomId, room);
+        roomsByCode.remove(room.roomCode, room);
+        if (game != null) {
+            gamesById.remove(room.gameId, game);
+        }
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("closed", true);
+        result.put("roomId", room.roomId);
+        return result;
+    }
+
     public Map<String, Object> roomSnapshotById(String roomId) {
-        return roomSnapshot(room(roomId));
+        ActiveRoom room = room(roomId);
+        synchronized (room) {
+            clearExpiredRematch(room);
+            return roomSnapshot(room);
+        }
     }
 
     public Map<String, Object> gameSnapshotById(String gameId, AuthUser viewer) {
@@ -212,9 +285,7 @@ public final class OnlineRoomHub {
             Map<String, Object> snapshot = gameSnapshot(game, actor);
             store.appendMove(game.gameId, moves.size(), actor.id(), asString(lastMove.get("side")), asString(lastMove.get("notation")), payload, snapshot);
             if (game.engine.finished()) {
-                ActiveRoom room = room(game.roomId);
-                room.status = RoomStatus.FINISHED.name();
-                room.updatedAt = now();
+                finishRoomEpisode(game);
             }
             return snapshot;
         }
@@ -312,9 +383,20 @@ public final class OnlineRoomHub {
         return game == null ? Optional.<String>empty() : Optional.of(game.roomId);
     }
 
-    private void startGame(ActiveRoom room) {
+    private void startNextGame(ActiveRoom room) {
+        if (room.guest == null) {
+            throw new IllegalStateException("room needs two players");
+        }
+        if (room.roundIndex > 0 && room.swapColorsNext) {
+            room.hostFirstSeat = !room.hostFirstSeat;
+        }
+        String previousGameId = room.gameId;
         room.status = RoomStatus.PLAYING.name();
         room.gameId = UUID.randomUUID().toString();
+        room.roundIndex++;
+        room.hostReady = false;
+        room.guestReady = false;
+        clearRematch(room);
         ActiveGame game = new ActiveGame();
         game.gameId = room.gameId;
         game.roomId = room.roomId;
@@ -332,18 +414,24 @@ public final class OnlineRoomHub {
         game.updatedAt = now();
         gamesById.put(game.gameId, game);
         store.createGameRecord(game.gameId, room.roomId, room.publicRoom, gameSnapshot(game, room.host));
+        if (previousGameId != null && !previousGameId.equals(game.gameId)) {
+            ActiveGame previous = gamesById.get(previousGameId);
+            if (previous != null && "FINISHED".equals(previous.status)) {
+                gamesById.remove(previousGameId, previous);
+            }
+        }
     }
 
     private OnlineMatchEngine createEngine(ActiveRoom room) {
         if (room.gameType == GameType.GOMOKU) {
             return new GomokuMatch(
-                new MatchPlayer(room.host.id(), room.host.username(), PlayerSide.BLACK),
-                new MatchPlayer(room.guest.id(), room.guest.username(), PlayerSide.WHITE)
+                new MatchPlayer(firstPlayer(room).id(), firstPlayer(room).username(), PlayerSide.BLACK),
+                new MatchPlayer(secondPlayer(room).id(), secondPlayer(room).username(), PlayerSide.WHITE)
             );
         }
         return new XiangqiMatch(
-            new MatchPlayer(room.host.id(), room.host.username(), PlayerSide.RED),
-            new MatchPlayer(room.guest.id(), room.guest.username(), PlayerSide.BLACK),
+            new MatchPlayer(firstPlayer(room).id(), firstPlayer(room).username(), PlayerSide.RED),
+            new MatchPlayer(secondPlayer(room).id(), secondPlayer(room).username(), PlayerSide.BLACK),
             null,
             room.initialTimeSeconds,
             clock
@@ -360,12 +448,19 @@ public final class OnlineRoomHub {
         snapshot.put("initialTimeSeconds", room.initialTimeSeconds);
         snapshot.put("hostReady", room.hostReady);
         snapshot.put("guestReady", room.guestReady);
+        snapshot.put("roundIndex", room.roundIndex);
+        snapshot.put("seriesScore", seriesScoreMap(room));
+        snapshot.put("lastGameId", room.lastGameId == null ? "" : room.lastGameId);
+        snapshot.put("swapColorsNext", room.swapColorsNext);
+        snapshot.put("rematch", rematchMap(room));
+        snapshot.put("canStartNext", room.guest != null && isBetweenGames(room));
         snapshot.put("isPublic", room.publicRoom);
         snapshot.put("updatedAt", room.updatedAt.toString());
         snapshot.put("host", userMap(room.host));
         snapshot.put("guest", room.guest == null ? null : userMap(room.guest));
         snapshot.put("firstSeat", userMap(firstPlayer(room)));
         snapshot.put("secondSeat", userMap(secondPlayer(room)));
+        snapshot.put("seatAssignment", seatAssignmentMap(room));
         return snapshot;
     }
 
@@ -379,6 +474,8 @@ public final class OnlineRoomHub {
         item.put("initialTimeSeconds", room.initialTimeSeconds);
         item.put("hostUsername", room.host.username());
         item.put("guestUsername", room.guest == null ? "" : room.guest.username());
+        item.put("roundIndex", room.roundIndex);
+        item.put("seriesScore", seriesScoreMap(room));
         item.put("updatedAt", room.updatedAt.toString());
         return item;
     }
@@ -535,11 +632,11 @@ public final class OnlineRoomHub {
     }
 
     private AuthUser firstPlayer(ActiveRoom room) {
-        return room.host;
+        return room.hostFirstSeat ? room.host : room.guest;
     }
 
     private AuthUser secondPlayer(ActiveRoom room) {
-        return room.guest;
+        return room.hostFirstSeat ? room.guest : room.host;
     }
 
     private ActiveRoom room(String roomId) {
@@ -575,6 +672,12 @@ public final class OnlineRoomHub {
         }
     }
 
+    private void ensureRoomMember(ActiveRoom room, String userId) {
+        if (!containsUser(room, userId)) {
+            throw new IllegalArgumentException("user is not in room");
+        }
+    }
+
     private String playerSideForUser(ActiveGame game, String userId) {
         if (game.first.id().equals(userId)) {
             return game.firstSide();
@@ -604,10 +707,96 @@ public final class OnlineRoomHub {
         game.clockState = "FINISHED";
         clearDrawOffer(game);
         game.updatedAt = now();
+        finishRoomEpisode(game);
+    }
+
+    private void finishRoomEpisode(ActiveGame game) {
+        if (game.roomFinalized) {
+            return;
+        }
         ActiveRoom room = room(game.roomId);
-        room.status = RoomStatus.FINISHED.name();
+        synchronized (room) {
+            if (game.roomFinalized) {
+                return;
+            }
+            game.roomFinalized = true;
+            room.status = RoomStatus.BETWEEN_GAMES.name();
+            room.lastGameId = game.gameId;
+            room.hostReady = false;
+            room.guestReady = false;
+            clearRematch(room);
+            updateSeriesScore(room, game);
+            room.updatedAt = now();
+            store.updateGameRecord(gameSnapshot(game, null));
+        }
+    }
+
+    private void updateSeriesScore(ActiveRoom room, ActiveGame game) {
+        if (game.winnerSide == null || game.winnerSide.isEmpty()) {
+            return;
+        }
+        AuthUser winner = game.firstSide().equals(game.winnerSide) ? game.first : game.second;
+        if (winner != null && winner.id().equals(room.host.id())) {
+            room.hostScore++;
+        } else if (winner != null && room.guest != null && winner.id().equals(room.guest.id())) {
+            room.guestScore++;
+        }
+    }
+
+    private boolean isBetweenGames(ActiveRoom room) {
+        return RoomStatus.BETWEEN_GAMES.name().equals(room.status)
+            || RoomStatus.FINISHED.name().equals(room.status);
+    }
+
+    private void requireRematchOffer(ActiveRoom room) {
+        if (room.rematchOfferedByUserId == null) {
+            throw new IllegalArgumentException("no rematch offer pending");
+        }
+    }
+
+    private boolean clearExpiredRematch(ActiveRoom room) {
+        if (room.rematchExpiresAt == null || now().isBefore(room.rematchExpiresAt)) {
+            return false;
+        }
+        clearRematch(room);
         room.updatedAt = now();
-        store.updateGameRecord(gameSnapshot(game, null));
+        return true;
+    }
+
+    private void clearRematch(ActiveRoom room) {
+        room.rematchOfferedByUserId = null;
+        room.rematchOfferedByUsername = null;
+        room.rematchExpiresAt = null;
+    }
+
+    private Map<String, Object> rematchMap(ActiveRoom room) {
+        if (room.rematchOfferedByUserId == null) {
+            return null;
+        }
+        Map<String, Object> item = new LinkedHashMap<String, Object>();
+        item.put("state", "OFFERED");
+        item.put("offeredBy", room.rematchOfferedByUserId);
+        item.put("offeredByUsername", room.rematchOfferedByUsername);
+        item.put("expiresAt", room.rematchExpiresAt == null ? "" : room.rematchExpiresAt.toString());
+        return item;
+    }
+
+    private Map<String, Object> seriesScoreMap(ActiveRoom room) {
+        Map<String, Object> score = new LinkedHashMap<String, Object>();
+        score.put("host", room.hostScore);
+        score.put("guest", room.guestScore);
+        return score;
+    }
+
+    private Map<String, Object> seatAssignmentMap(ActiveRoom room) {
+        Map<String, Object> seats = new LinkedHashMap<String, Object>();
+        AuthUser first = firstPlayer(room);
+        AuthUser second = secondPlayer(room);
+        seats.put("firstUserId", first == null ? "" : first.id());
+        seats.put("secondUserId", second == null ? "" : second.id());
+        seats.put("firstSide", room.gameType == GameType.GOMOKU ? "BLACK" : "RED");
+        seats.put("secondSide", room.gameType == GameType.GOMOKU ? "WHITE" : "BLACK");
+        return seats;
     }
 
     private boolean applyElapsed(ActiveGame game, String side) {
@@ -652,6 +841,15 @@ public final class OnlineRoomHub {
         private AuthUser guest;
         private boolean hostReady;
         private boolean guestReady;
+        private int roundIndex;
+        private int hostScore;
+        private int guestScore;
+        private boolean hostFirstSeat;
+        private boolean swapColorsNext;
+        private String lastGameId;
+        private String rematchOfferedByUserId;
+        private String rematchOfferedByUsername;
+        private Instant rematchExpiresAt;
         private String status;
         private String gameId;
         private Instant updatedAt;
@@ -679,6 +877,7 @@ public final class OnlineRoomHub {
         private String drawOfferUsername;
         private String drawOfferSide;
         private Instant updatedAt;
+        private boolean roomFinalized;
 
         private String firstSide() {
             return gameType == GameType.GOMOKU ? "BLACK" : "RED";

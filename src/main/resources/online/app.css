@@ -4106,3 +4106,81 @@ select:focus-visible,
   border-radius: 16px;
   background: linear-gradient(135deg, #f6ede0, #fbf7ef);
 }
+
+/* 2026-08 light refinement: keep the established paper-and-cinnabar language. */
+.fieldHint {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.rematchBar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(154, 48, 35, .16);
+  border-radius: 14px;
+  background: rgba(154, 48, 35, .045);
+}
+
+.rematchBar > span {
+  min-width: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.rematchBar .roomRow,
+.endGameActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panel,
+.deskModePanel,
+.deskLobbyRecent,
+.deskLobbyAside,
+.watchLiveCard,
+.watchReplayCard {
+  box-shadow: 0 10px 28px rgba(73, 54, 31, .055);
+}
+
+.btn,
+.ghost,
+.danger,
+button {
+  transition: border-color .18s ease, background-color .18s ease, color .18s ease,
+    box-shadow .18s ease, transform .18s ease;
+}
+
+.btn:hover:not(:disabled) {
+  box-shadow: 0 6px 14px rgba(154, 48, 35, .14);
+  transform: translateY(-1px);
+}
+
+.ghost:hover:not(:disabled) {
+  border-color: rgba(154, 48, 35, .35);
+  background: rgba(154, 48, 35, .045);
+}
+
+button:disabled,
+.btn:disabled,
+.ghost:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.watchHero,
+.profileDiagnostic {
+  background: #f8f2e8;
+}

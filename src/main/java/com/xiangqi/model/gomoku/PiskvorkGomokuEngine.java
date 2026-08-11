@@ -45,6 +45,10 @@ public final class PiskvorkGomokuEngine implements GomokuEngine {
 
     @Override
     public synchronized int[] findBestMove(GomokuBoard board, GomokuStone aiStone, MinimaxAI.Difficulty difficulty) {
+        return findBestMove(board, aiStone, GomokuDifficultyProfile.fromLegacy(difficulty));
+    }
+
+    public synchronized int[] findBestMove(GomokuBoard board, GomokuStone aiStone, GomokuDifficultyProfile difficulty) {
         try {
             ensureProcess();
             applyDifficultyInfo(difficulty);
@@ -114,7 +118,7 @@ public final class PiskvorkGomokuEngine implements GomokuEngine {
         waitForOk(IO_TIMEOUT_MS);
     }
 
-    private void applyDifficultyInfo(MinimaxAI.Difficulty difficulty) throws IOException {
+    private void applyDifficultyInfo(GomokuDifficultyProfile difficulty) throws IOException {
         DifficultyProfile profile = difficultyProfile(difficulty);
         // Piskvork INFO keys supported by Rapfi.
         sendLine("INFO timeout_turn " + profile.timeoutTurnMs);
@@ -125,13 +129,12 @@ public final class PiskvorkGomokuEngine implements GomokuEngine {
     }
 
     static DifficultyProfile difficultyProfile(MinimaxAI.Difficulty difficulty) {
-        if (difficulty == MinimaxAI.Difficulty.EASY) {
-            return new DifficultyProfile(200, 5);
-        }
-        if (difficulty == MinimaxAI.Difficulty.MEDIUM) {
-            return new DifficultyProfile(800, 9);
-        }
-        return new DifficultyProfile(2_500, 15);
+        return difficultyProfile(GomokuDifficultyProfile.fromLegacy(difficulty));
+    }
+
+    static DifficultyProfile difficultyProfile(GomokuDifficultyProfile difficulty) {
+        GomokuDifficultyProfile profile = difficulty == null ? GomokuDifficultyProfile.EASY : difficulty;
+        return new DifficultyProfile(profile.timeoutTurnMs(), profile.maxDepth());
     }
 
     static final class DifficultyProfile {

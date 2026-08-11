@@ -146,6 +146,8 @@ public final class PublicSiteServer {
             .post("/online/api/rooms/join-by-code", this::handleJoinByCode)
             .post("/online/api/rooms/{roomId}/join", this::handleJoinRoom)
             .post("/online/api/rooms/{roomId}/ready", this::handleReady)
+            .post("/online/api/rooms/{roomId}/rematch", this::handleRematch)
+            .post("/online/api/rooms/{roomId}/leave", this::handleLeaveRoom)
             .delete("/online/api/rooms/{roomId}", this::handleCloseRoom)
             .post("/online/api/games/{gameId}/move", this::handleMove)
             .post("/online/api/games/{gameId}/resign", this::handleResign)
@@ -904,6 +906,26 @@ public final class PublicSiteServer {
         }
     }
 
+    private void handleRematch(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        String roomId = pathParam(exchange, "roomId");
+        try {
+            Map<String, Object> payload = readJson(exchange);
+            Map<String, Object> room = roomHub.rematch(roomId, user.get(), asString(payload.get("action")));
+            wsHub.broadcastRoom(roomId, roomEvent(roomId));
+            wsHub.broadcastLobby();
+            sendJson(exchange, room);
+        } catch (IllegalStateException ex) {
+            sendError(exchange, StatusCodes.CONFLICT, ex.getMessage());
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
     private void handleCloseRoom(HttpServerExchange exchange) {
         Optional<AuthUser> user = currentUser(exchange);
         if (!user.isPresent()) {
@@ -913,6 +935,27 @@ public final class PublicSiteServer {
         String roomId = pathParam(exchange, "roomId");
         try {
             Map<String, Object> result = roomHub.closeRoom(roomId, user.get());
+            wsHub.broadcastRoom(roomId, roomClosedEvent(roomId));
+            wsHub.broadcastLobby();
+            sendJson(exchange, result);
+        } catch (SecurityException ex) {
+            sendError(exchange, StatusCodes.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            sendError(exchange, StatusCodes.CONFLICT, ex.getMessage());
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handleLeaveRoom(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        String roomId = pathParam(exchange, "roomId");
+        try {
+            Map<String, Object> result = roomHub.leaveRoom(roomId, user.get());
             wsHub.broadcastRoom(roomId, roomClosedEvent(roomId));
             wsHub.broadcastLobby();
             sendJson(exchange, result);

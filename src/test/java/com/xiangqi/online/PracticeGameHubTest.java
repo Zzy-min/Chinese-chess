@@ -74,6 +74,25 @@ class PracticeGameHubTest {
     }
 
     @Test
+    void gomokuUsesFiveLevelKeysAndDefaultsUnknownValuesToEasy() throws Exception {
+        PracticeGameHub hub = new PracticeGameHub(newStore());
+        AuthUser user = new AuthUser("u-levels", "level-user");
+
+        Map<String, Object> novice = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.GOMOKU, "NOVICE", true, "RAPFI", ""));
+        Map<String, Object> master = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.GOMOKU, "MASTER", true, "RAPFI", ""));
+        Map<String, Object> fallback = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.GOMOKU, "unknown", true, "RAPFI", ""));
+
+        assertEquals("NOVICE", novice.get("difficulty"));
+        assertEquals("builtin", asMap(novice.get("ai")).get("engineId"));
+        assertEquals(Boolean.FALSE, asMap(novice.get("ai")).get("engineFallback"));
+        assertEquals("MASTER", master.get("difficulty"));
+        assertEquals("EASY", fallback.get("difficulty"));
+    }
+
+    @Test
     void humanMoveTriggersAiReplyInPracticeGame() throws Exception {
         OnlineStore store = newStore();
         PracticeGameHub hub = new PracticeGameHub(store);

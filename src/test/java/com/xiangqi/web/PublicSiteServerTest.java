@@ -507,7 +507,9 @@ class PublicSiteServerTest {
             assertEquals(200, second.statusCode());
             assertTrue(second.body().contains("\"matched\":true"));
             assertTrue(second.body().contains("\"roomId\":\"" + roomId + "\""));
-            assertTrue(second.body().contains("\"guestReady\":true"));
+            // Ready flags are consumed when an episode starts so the next episode
+            // always requires a fresh confirmation from both players.
+            assertTrue(second.body().contains("\"guestReady\":false"));
             assertTrue(second.body().contains("\"status\":\"PLAYING\""));
             assertTrue(second.body().contains("\"game\""));
             String gameId = extract(second.body(), "gameId");

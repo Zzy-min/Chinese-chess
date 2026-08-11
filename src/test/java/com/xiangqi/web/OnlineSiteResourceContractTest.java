@@ -51,7 +51,7 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("function renderMobileQuickStartSheet"));
         assertTrue(js.contains("function renderMobileBottomNav"));
         assertTrue(js.contains("data-action=\"open-mobile-quick-start\""));
-        assertTrue(js.contains("data-mobile-nav=\"home\""));
+        assertFalse(js.contains("data-mobile-nav=\"home\""));
         assertTrue(js.contains("data-mobile-nav=\"play\""));
         assertTrue(js.contains("data-mobile-nav=\"learn\""));
         assertTrue(js.contains("data-mobile-nav=\"watch\""));
@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260728m17"));
-        assertTrue(html.contains("mobile.css?v=20260728m17"));
-        assertTrue(html.contains("app.js?v=20260728m17"));
+        assertTrue(html.contains("app.css?v=20260811m18"));
+        assertTrue(html.contains("mobile.css?v=20260811m18"));
+        assertTrue(html.contains("app.js?v=20260811m19"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -104,6 +104,62 @@ class OnlineSiteResourceContractTest {
         assertTrue(mobileCss.contains("order: 1"));
         assertTrue(mobileCss.contains(".boardPlayerCard"));
         assertTrue(mobileCss.contains("font-size: 18px"));
+    }
+
+    @Test
+    void onlineServersAndClientExposeMultiRoundRematchContract() throws Exception {
+        String js = readResource("/online/app.js");
+        String onlineServer = readSource("src/main/java/com/xiangqi/online/server/OnlineSiteServer.java");
+        String publicServer = readSource("src/main/java/com/xiangqi/web/PublicSiteServer.java");
+
+        assertTrue(onlineServer.contains("/api/rooms/{roomId}/rematch"));
+        assertTrue(publicServer.contains("/online/api/rooms/{roomId}/rematch"));
+        assertTrue(onlineServer.contains("/api/rooms/{roomId}/leave"));
+        assertTrue(publicServer.contains("/online/api/rooms/{roomId}/leave"));
+        assertTrue(js.contains("/rematch"));
+        assertTrue(js.contains("请求再战"));
+        assertTrue(js.contains("接受再战"));
+        assertTrue(js.contains("roundIndex"));
+        assertTrue(js.contains("seriesScore"));
+    }
+
+    @Test
+    void mobileLobbyUsesFourTasksAndThreePrimaryActions() throws Exception {
+        String js = readResource("/online/app.js");
+        String mobileCss = readResource("/online/mobile.css");
+
+        assertTrue(js.contains("mobileLobbyPrimaryActions"));
+        assertTrue(js.contains("快速匹配"));
+        assertTrue(js.contains("人机练习"));
+        assertTrue(js.contains("创建好友房"));
+        assertTrue(js.contains("data-mobile-nav=\"play\""));
+        assertTrue(js.contains("data-mobile-nav=\"learn\""));
+        assertTrue(js.contains("data-mobile-nav=\"watch\""));
+        assertTrue(js.contains("data-mobile-nav=\"me\""));
+        assertFalse(js.contains("data-mobile-nav=\"home\""));
+        assertTrue(mobileCss.contains("grid-template-columns: repeat(4, minmax(0, 1fr))"));
+    }
+
+    @Test
+    void gomokuPracticeOffersFiveUnderstandableDifficultyLevels() throws Exception {
+        String js = readResource("/online/app.js");
+
+        assertTrue(js.contains("value: 'NOVICE', label: '入门'"));
+        assertTrue(js.contains("value: 'EASY', label: '简单'"));
+        assertTrue(js.contains("value: 'MEDIUM', label: '中等'"));
+        assertTrue(js.contains("value: 'HARD', label: '困难'"));
+        assertTrue(js.contains("value: 'MASTER', label: '大师'"));
+        assertTrue(js.contains("input.value === 'GOMOKU' ? 'EASY' : 'MEDIUM'"));
+    }
+
+    @Test
+    void authFailureUsesOneLocalizedInlineMessageAndRestoresTheSubmitButton() throws Exception {
+        String js = readResource("/online/app.js");
+
+        assertTrue(js.contains("function friendlyAuthErrorMessage"));
+        assertTrue(js.contains("用户名或密码不正确"));
+        assertTrue(js.contains("if (authSucceeded === false)"));
+        assertFalse(js.contains("showToast(state.authError, 'error'"));
     }
 
     @Test
@@ -248,5 +304,9 @@ class OnlineSiteResourceContractTest {
             }
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    private String readSource(String path) throws IOException {
+        return java.nio.file.Files.readString(java.nio.file.Path.of(path), StandardCharsets.UTF_8);
     }
 }

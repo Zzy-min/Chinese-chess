@@ -31,6 +31,9 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
     private GomokuEngine selected;
     private String selectedId;
     private String selectedText;
+    private GomokuDifficultyProfile difficultyProfile = GomokuDifficultyProfile.EASY;
+    private boolean lastMoveUsedBuiltin;
+    private boolean engineFallback;
 
     public ConfigurableGomokuEngine() {
         this.rapfiCmdText = readSetting("xq.gomoku.rapfi.cmd", "XQ_GOMOKU_RAPFI_CMD",
@@ -44,13 +47,28 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
 
     @Override
     public synchronized int[] findBestMove(GomokuBoard board, GomokuStone aiStone, MinimaxAI.Difficulty difficulty) {
+        return findBestMove(board, aiStone, GomokuDifficultyProfile.fromLegacy(difficulty));
+    }
+
+    public synchronized int[] findBestMove(GomokuBoard board, GomokuStone aiStone, GomokuDifficultyProfile profile) {
+        difficultyProfile = profile == null ? GomokuDifficultyProfile.EASY : profile;
+        engineFallback = !difficultyProfile.preferBuiltin()
+            && selected == builtin
+            && !PREF_BUILTIN.equals(preferredEngine);
+        if (difficultyProfile.preferBuiltin()) {
+            lastMoveUsedBuiltin = true;
+            return builtin.findBestMove(board, aiStone, difficultyProfile);
+        }
+        lastMoveUsedBuiltin = false;
         if (selected == null) {
             selectEngineForPreference(preferredEngine);
         }
         if (selected != builtin) {
             int[] move;
             try {
-                move = selected.findBestMove(board, aiStone, difficulty);
+                move = selected instanceof PiskvorkGomokuEngine
+                    ? ((PiskvorkGomokuEngine) selected).findBestMove(board, aiStone, difficultyProfile)
+                    : selected.findBestMove(board, aiStone, difficultyProfile.builtinDifficulty());
             } catch (Exception ignored) {
                 move = null;
             }
@@ -61,18 +79,41 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
             selected = builtin;
             selectedId = builtin.getEngineId();
             selectedText = builtin.getEngineText() + "（外部引擎异常已回退）";
+            engineFallback = true;
+            lastMoveUsedBuiltin = true;
         }
-        return builtin.findBestMove(board, aiStone, difficulty);
+        return builtin.findBestMove(board, aiStone, difficultyProfile);
     }
 
     @Override
     public synchronized String getEngineId() {
+        if (difficultyProfile.preferBuiltin() || lastMoveUsedBuiltin) {
+            return builtin.getEngineId();
+        }
         return selectedId == null ? builtin.getEngineId() : selectedId;
     }
 
     @Override
     public synchronized String getEngineText() {
+        if (difficultyProfile.preferBuiltin()) {
+            return builtin.getEngineText() + "（当前难度）";
+        }
         return selectedText == null ? builtin.getEngineText() : selectedText;
+    }
+
+    public synchronized void setDifficultyProfile(GomokuDifficultyProfile profile) {
+        difficultyProfile = profile == null ? GomokuDifficultyProfile.EASY : profile;
+        lastMoveUsedBuiltin = difficultyProfile.preferBuiltin();
+        engineFallback = !difficultyProfile.preferBuiltin()
+            && selected == builtin
+            && !PREF_BUILTIN.equals(preferredEngine);
+        if (engineFallback) {
+            selectedText = builtin.getEngineText() + "（外部引擎不可用，已回退）";
+        }
+    }
+
+    public synchronized boolean isEngineFallback() {
+        return engineFallback;
     }
 
     public synchronized String getPreferredEngine() {
@@ -85,6 +126,8 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
             return;
         }
         preferredEngine = normalized;
+        lastMoveUsedBuiltin = difficultyProfile.preferBuiltin();
+        engineFallback = false;
         selectEngineForPreference(preferredEngine);
     }
 

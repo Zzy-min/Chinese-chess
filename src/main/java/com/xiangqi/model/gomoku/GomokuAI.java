@@ -17,6 +17,12 @@ public final class GomokuAI {
     private final Random random = new Random();
 
     public int[] findBestMove(GomokuBoard board, GomokuStone aiStone, MinimaxAI.Difficulty difficulty) {
+        return findBestMove(board, aiStone, GomokuDifficultyProfile.fromLegacy(difficulty));
+    }
+
+    public int[] findBestMove(GomokuBoard board, GomokuStone aiStone, GomokuDifficultyProfile profile) {
+        GomokuDifficultyProfile effectiveProfile = profile == null ? GomokuDifficultyProfile.EASY : profile;
+        MinimaxAI.Difficulty difficulty = effectiveProfile.builtinDifficulty();
         List<int[]> candidates = collectCandidates(board);
         if (candidates.isEmpty()) {
             return new int[] {GomokuBoard.SIZE / 2, GomokuBoard.SIZE / 2};
@@ -30,7 +36,11 @@ public final class GomokuAI {
         GomokuStone opp = aiStone.opposite();
         int[] urgentBlock = findImmediateBlock(board, aiStone, opp, candidates);
         if (urgentBlock != null) {
-            return urgentBlock;
+            boolean noviceMiss = effectiveProfile == GomokuDifficultyProfile.NOVICE
+                && random.nextDouble() < effectiveProfile.blunderRate();
+            if (!noviceMiss) {
+                return urgentBlock;
+            }
         }
 
         candidates = limitCandidatesByDifficulty(board, aiStone, candidates, difficulty);
@@ -54,8 +64,8 @@ public final class GomokuAI {
             return null;
         }
 
-        if (difficulty == MinimaxAI.Difficulty.EASY) {
-            int k = Math.min(5, scored.size());
+        if (effectiveProfile.blunderRate() > 0.0 && random.nextDouble() < effectiveProfile.blunderRate()) {
+            int k = Math.min(Math.max(2, effectiveProfile.candidateWidth()), scored.size());
             ScoredMove pick = scored.get(random.nextInt(k));
             return new int[] {pick.row, pick.col};
         }

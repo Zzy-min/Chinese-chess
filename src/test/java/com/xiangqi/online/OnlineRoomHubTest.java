@@ -15,9 +15,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OnlineRoomHubTest {
 
@@ -79,7 +82,7 @@ class OnlineRoomHubTest {
         assertEquals("u-host", asMap(reoffered.get("drawOffer")).get("userId"));
         assertEquals("FINISHED", accepted.get("status"));
         assertEquals("draw agreed", accepted.get("resultText"));
-        assertEquals("FINISHED", hub.roomSnapshotById(asString(room.get("roomId"))).get("status"));
+        assertEquals("BETWEEN_GAMES", hub.roomSnapshotById(asString(room.get("roomId"))).get("status"));
     }
 
     @Test
@@ -186,6 +189,104 @@ class OnlineRoomHubTest {
         assertEquals("WHITE", timedOut.get("winnerSide"));
         assertEquals("TIMEOUT", timedOut.get("terminationReason"));
         assertEquals(0, timedOut.get("firstRemainingSeconds"));
+    }
+
+    @Test
+    void eitherMemberCanLeaveAfterAnEpisodeAndDissolveTheSession() throws Exception {
+        OnlineRoomHub hub = new OnlineRoomHub(newStore());
+        AuthUser host = new AuthUser("u-host", "host");
+        AuthUser guest = new AuthUser("u-guest", "guest");
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.GOMOKU, 600, false));
+        String roomId = asString(room.get("roomId"));
+        hub.joinRoom(roomId, guest);
+        hub.setReady(roomId, host.id(), true);
+        room = hub.setReady(roomId, guest.id(), true);
+        hub.resign(asString(room.get("gameId")), host);
+
+        Map<String, Object> left = hub.leaveRoom(roomId, guest);
+
+        assertEquals(true, left.get("closed"));
+        assertEquals(0, hub.activeRoomCount());
+        assertThrows(IllegalArgumentException.class, () -> hub.roomSnapshotById(roomId));
+    }
+
+    @Test
+    void roomCanPlayThreeEpisodesWithStableCodeAndAlternatingSeats() throws Exception {
+        OnlineRoomHub hub = new OnlineRoomHub(newStore());
+        AuthUser host = new AuthUser("u-host", "host");
+        AuthUser guest = new AuthUser("u-guest", "guest");
+
+        Map<String, Object> created = hub.createRoom(host, new CreateRoomRequest(GameType.GOMOKU, 600, false));
+        String roomId = asString(created.get("roomId"));
+        String roomCode = asString(created.get("roomCode"));
+        hub.joinRoom(roomId, guest);
+        hub.setReady(roomId, host.id(), true);
+        Map<String, Object> roundOne = hub.setReady(roomId, guest.id(), true);
+        String gameOne = asString(roundOne.get("gameId"));
+
+        assertEquals(1, roundOne.get("roundIndex"));
+        assertEquals(host.id(), asMap(roundOne.get("seatAssignment")).get("firstUserId"));
+        hub.resign(gameOne, host);
+        Map<String, Object> betweenOne = hub.roomSnapshotById(roomId);
+
+        assertEquals("BETWEEN_GAMES", betweenOne.get("status"));
+        assertEquals(gameOne, betweenOne.get("lastGameId"));
+        assertEquals(1, asMap(betweenOne.get("seriesScore")).get("guest"));
+        assertFalse((Boolean) betweenOne.get("hostReady"));
+        assertFalse((Boolean) betweenOne.get("guestReady"));
+
+        hub.rematch(roomId, host, "offer");
+        Map<String, Object> roundTwo = hub.rematch(roomId, guest, "accept");
+        String gameTwo = asString(roundTwo.get("gameId"));
+
+        assertEquals(roomCode, roundTwo.get("roomCode"));
+        assertEquals(2, roundTwo.get("roundIndex"));
+        assertNotEquals(gameOne, gameTwo);
+        assertEquals(guest.id(), asMap(roundTwo.get("seatAssignment")).get("firstUserId"));
+        assertEquals(gameOne, hub.analysis(gameOne).get("gameId"));
+
+        hub.resign(gameTwo, guest);
+        hub.setReady(roomId, host.id(), true);
+        Map<String, Object> roundThree = hub.setReady(roomId, guest.id(), true);
+
+        assertEquals(3, roundThree.get("roundIndex"));
+        assertNotEquals(gameTwo, roundThree.get("gameId"));
+        assertEquals(host.id(), asMap(roundThree.get("seatAssignment")).get("firstUserId"));
+        assertEquals(1, asMap(roundThree.get("seriesScore")).get("host"));
+        assertEquals(1, asMap(roundThree.get("seriesScore")).get("guest"));
+    }
+
+    @Test
+    void rematchOfferCanBeDeclinedCancelledOrExpired() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-03-21T00:00:00Z"));
+        OnlineRoomHub hub = new OnlineRoomHub(newStore(), clock);
+        AuthUser host = new AuthUser("u-host", "host");
+        AuthUser guest = new AuthUser("u-guest", "guest");
+        AuthUser outsider = new AuthUser("u-outsider", "outsider");
+
+        Map<String, Object> room = hub.createRoom(host, new CreateRoomRequest(GameType.XIANGQI, 600, false));
+        String roomId = asString(room.get("roomId"));
+        hub.joinRoom(roomId, guest);
+        hub.setReady(roomId, host.id(), true);
+        room = hub.setReady(roomId, guest.id(), true);
+        hub.resign(asString(room.get("gameId")), host);
+
+        assertThrows(IllegalArgumentException.class, () -> hub.rematch(roomId, outsider, "offer"));
+        Map<String, Object> offered = hub.rematch(roomId, host, "offer");
+        assertEquals("OFFERED", asMap(offered.get("rematch")).get("state"));
+        assertThrows(IllegalArgumentException.class, () -> hub.rematch(roomId, host, "accept"));
+        assertNull(hub.rematch(roomId, guest, "decline").get("rematch"));
+
+        hub.rematch(roomId, guest, "offer");
+        assertNull(hub.rematch(roomId, guest, "cancel").get("rematch"));
+
+        hub.rematch(roomId, host, "offer");
+        clock.plusSeconds(61);
+        IllegalArgumentException expired = assertThrows(IllegalArgumentException.class,
+            () -> hub.rematch(roomId, guest, "accept"));
+        assertEquals("rematch offer expired", expired.getMessage());
+        assertNull(hub.roomSnapshotById(roomId).get("rematch"));
+        assertTrue((Boolean) hub.roomSnapshotById(roomId).get("canStartNext"));
     }
 
     private OnlineStore newStore() throws Exception {
