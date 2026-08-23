@@ -145,6 +145,7 @@ private fun WebAppScreen(
                     )
                     setBackgroundColor(android.graphics.Color.rgb(245, 240, 230))
                     WebView.setWebContentsDebuggingEnabled(true)
+                    clearCache(true)
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true

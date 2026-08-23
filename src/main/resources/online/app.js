@@ -942,6 +942,70 @@ function renderLearnItemCard(item, completedSet) {
   const themeLabel = isTutorial ? '教程' : puzzleThemeLabel(resolvePuzzleTheme(item.theme));
   const metaText = `${item.gameType} · ${item.difficulty || 'MEDIUM'} · ${themeLabel}`;
   
+  if (!isMobileLayout()) {
+    let completeBtn = '';
+    if (isCompleted) {
+      completeBtn = '<span class="pill" style="background:var(--pane-bg); color:var(--text-muted); padding:6px 14px; border-radius:4px; font-size:12px; font-weight:bold;">已完成</span>';
+    } else if (!state.me) {
+      completeBtn = '<button class="ghost" disabled style="padding:6px 14px; font-size:12px;">登录后记录</button>';
+    } else {
+      completeBtn = `<button class="btn btn-red btn-small" data-learn-complete="${kind}" data-id="${escapeHtml(item.id || '')}" style="padding:6px 14px; font-size:12px; background:#8c2e21; color:#fff; border:none; border-radius:4px; cursor:pointer;">标记完成</button>`;
+    }
+    
+    let actionBtn = '';
+    const expandId = item.id || '';
+    const expanded = !!expandId && state.expandedTutorialId === expandId;
+    if (isTutorial) {
+      actionBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起详情' : '查看详情'}</button>`;
+    } else {
+      const detailBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起参考' : '参考着法'}</button>`;
+      if (canStartPuzzlePractice(item)) {
+        actionBtn = `${detailBtn}<button class="ghost" data-action="start-puzzle-practice" data-puzzle-id="${escapeHtml(item.id || '')}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">开始研究</button>`;
+      } else {
+        actionBtn = `${detailBtn}<button class="ghost" disabled style="margin-top:6px; padding:4px 12px; font-size:11px; color:var(--text-muted); border-color:transparent; background:transparent;">FEN 待补全</button>`;
+      }
+    }
+
+    const solutionLine = Array.isArray(item.solutionLine) ? item.solutionLine : [];
+    const solutionText = Array.isArray(item.solution) ? item.solution : [];
+    const hasEngineLine = solutionLine.length > 0;
+    const detailHtml = expanded ? `
+      <div class="learnTutorialDetail" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color); text-align:left; width:100%;">
+        ${item.objective ? `<div class="muted" style="margin-bottom:8px;"><strong>目标：</strong>${escapeHtml(item.objective)}</div>` : ''}
+        ${item.goal ? `<div class="muted" style="margin-bottom:8px;"><strong>任务：</strong>${escapeHtml(item.goal)}</div>` : ''}
+        ${renderLearnListBlock('要点', item.keyPoints || item.hints || [])}
+        ${renderLearnListBlock('示例着法', item.exampleLine || [])}
+        ${renderLearnListBlock(hasEngineLine ? '引擎参考着法' : '参考说明', hasEngineLine ? solutionLine.map((mv, i) => `${i + 1}. ${mv}`) : solutionText)}
+        ${item.solver || item.endedBy ? `<div class="muted" style="margin-top:8px;font-size:12px;">求解：${escapeHtml(item.solver || '-')} · 终止：${escapeHtml(item.endedBy || '-')} · 半步：${escapeHtml(String(item.solutionPlies || solutionLine.length || 0))}</div>` : ''}
+        ${item.fen ? renderLearnFenBlock(item.fen) : ''}
+        ${renderLearnListBlock('练习清单', item.practiceChecklist || [])}
+      </div>
+    ` : '';
+    
+    return `
+      <div class="panel learnCard" style="display:flex; flex-direction:column; margin-bottom:12px; padding:16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.02); background:var(--pane-bg); border:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; width:100%;">
+        <div class="learnCardLeft" style="display:flex; align-items:center; flex:1;">
+          <span class="learnCardBadge" style="background:${badgeBg}; color:#fff; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-weight:bold; font-size:18px; flex-shrink:0;">
+            ${badgeChar}
+          </span>
+          <div class="learnCardInfo" style="margin-left:16px; text-align:left;">
+            <h3 style="margin:0 0 4px; font-size:16px; font-weight:bold; color:var(--text-color);">${escapeHtml(item.title || '')}${hasEngineLine ? ' <span class="pill" style="font-size:10px;padding:2px 6px;">有参考着法</span>' : ''}</h3>
+            <div class="muted" style="margin-bottom:4px; font-size:12px; color:var(--text-muted); font-weight:500;">${escapeHtml(metaText)}</div>
+            <div class="muted learnSummaryOneLine" style="font-size:13px; color:var(--text-muted);">${escapeHtml(item.summary || '暂无详细介绍')}</div>
+          </div>
+        </div>
+        <div class="learnAction" style="display:flex; flex-direction:column; align-items:flex-end; margin-left:16px; flex-shrink:0;">
+          ${completeBtn}
+          ${actionBtn}
+        </div>
+        </div>
+        ${detailHtml}
+      </div>
+    `;
+  }
+
+  // Mobile layout
   let completeBtn = '';
   if (isCompleted) {
     completeBtn = '<span class="pill is-completed">已完成</span>';
@@ -1105,6 +1169,136 @@ function renderLearnPage(route) {
 
 
 function renderWatchPage() {
+  if (isMobileLayout()) {
+    return renderMobileWatchPage();
+  }
+  return renderDesktopWatchPage();
+}
+
+function renderDesktopWatchRooms(items) {
+  if (!items.length) {
+    return '<div class="banner">暂无公开房间。</div>';
+  }
+  return items.map(item => `
+    <div class="move">
+      <div>
+        <strong>${escapeHtml(item.gameType || '')}</strong>
+        <div class="muted">${escapeHtml(item.players && item.players.first ? item.players.first.username : '')} vs ${escapeHtml(item.players && item.players.second ? item.players.second.username : '等待加入')}</div>
+        <div class="muted">状态：${escapeHtml(item.status || '')}</div>
+      </div>
+      ${watchActionButton(item)}
+    </div>
+  `).join('');
+}
+
+function renderDesktopWatchGames(items) {
+  if (!items.length) {
+    return '<div class="banner">暂无可观战归档对局。</div>';
+  }
+  return items.map(item => `
+    <div class="move">
+      <div>
+        <strong>${escapeHtml(item.gameType || '')}</strong>
+        <div class="muted">${escapeHtml(item.players && item.players.first ? item.players.first.username : '')} vs ${escapeHtml(item.players && item.players.second ? item.players.second.username : '')}</div>
+        <div class="muted">状态：${escapeHtml(item.status || '')} · 手数：${escapeHtml(String(item.moveCount || 0))}</div>
+      </div>
+      ${watchActionButton(item)}
+    </div>
+  `).join('');
+}
+
+function renderDesktopWatchPage() {
+  if (!state.watchOverview) {
+    loadWatchOverview();
+    return '<section class="panel"><h2 class="sectionTitle">观战数据加载中</h2></section>';
+  }
+  const rooms = filterWatchRooms((state.watchOverview.publicRooms || []), state.watchFilters);
+  const games = filterWatchGames((state.watchOverview.archivedGames || []), state.watchFilters);
+  return `
+    <section class="hero">
+      <div class="meta">Watch</div>
+      <h1>公开观战入口</h1>
+      <p>先提供稳定轮询刷新（${Math.floor(WATCH_POLL_INTERVAL_MS / 1000)} 秒）。可按棋种和状态过滤，并快速跳转分析页。</p>
+    </section>
+    <section class="panel" style="margin-top:18px">
+      <div class="roomRow" style="margin-bottom:12px">
+        <select data-watch-filter="gameType">
+          <option value="ALL" ${state.watchFilters.gameType === 'ALL' ? 'selected' : ''}>全部棋种</option>
+          <option value="XIANGQI" ${state.watchFilters.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
+          <option value="GOMOKU" ${state.watchFilters.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
+        </select>
+        <select data-watch-filter="status">
+          <option value="ALL" ${state.watchFilters.status === 'ALL' ? 'selected' : ''}>全部状态</option>
+          <option value="PLAYING" ${state.watchFilters.status === 'PLAYING' ? 'selected' : ''}>进行中</option>
+          <option value="FINISHED" ${state.watchFilters.status === 'FINISHED' ? 'selected' : ''}>已结束</option>
+        </select>
+        <button class="ghost" data-action="refresh-watch">手动刷新</button>
+      </div>
+      <div class="split">
+        <section class="panel">
+          <h3>公开房间</h3>
+          <div class="moves">${renderDesktopWatchRooms(rooms)}</div>
+        </section>
+        <section class="panel">
+          <h3>可观战归档对局</h3>
+          <div class="moves">${renderDesktopWatchGames(games)}</div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function renderMobileWatchRooms(items) {
+  if (!items.length) {
+    return '<div class="clEmptyNote">暂无进行中的公开对局</div>';
+  }
+  return items.map(item => {
+    const isXiangqi = item.gameType === 'XIANGQI';
+    const sealClass = isXiangqi ? 'is-red' : 'is-green';
+    const sealChar = isXiangqi ? '象' : '五';
+    const p1 = (item.players && item.players.first) ? item.players.first.username : '棋手';
+    const p2 = (item.players && item.players.second) ? item.players.second.username : '等待加入';
+    return `
+      <div class="clWatchItem">
+        <span class="clModeSeal ${sealClass}">${sealChar}</span>
+        <div class="clWatchInfo">
+          <div class="clWatchHeading">
+            <strong>${escapeHtml(p1)}</strong> 对 <strong>${escapeHtml(p2)}</strong>
+          </div>
+          <div class="clWatchMeta">${escapeHtml(item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋')} · 状态：${escapeHtml(item.status || '等候对局')}</div>
+        </div>
+        <div class="clWatchAction">${watchActionButton(item)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderMobileWatchGames(items) {
+  if (!items.length) {
+    return '<div class="clEmptyNote">暂无可观战归档对局</div>';
+  }
+  return items.map(item => {
+    const isXiangqi = item.gameType === 'XIANGQI';
+    const sealClass = isXiangqi ? 'is-red' : 'is-green';
+    const sealChar = isXiangqi ? '谱' : '五';
+    const p1 = (item.players && item.players.first) ? item.players.first.username : '红方';
+    const p2 = (item.players && item.players.second) ? item.players.second.username : '黑方';
+    return `
+      <div class="clWatchItem">
+        <span class="clModeSeal ${sealClass}">${sealChar}</span>
+        <div class="clWatchInfo">
+          <div class="clWatchHeading">
+            <strong>${escapeHtml(p1)}</strong> 对 <strong>${escapeHtml(p2)}</strong>
+          </div>
+          <div class="clWatchMeta">${escapeHtml(item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋')} · 状态：${escapeHtml(item.status || '已结束')} · 手数：${escapeHtml(String(item.moveCount || 0))}</div>
+        </div>
+        <div class="clWatchAction">${watchActionButton(item)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderMobileWatchPage() {
   if (!state.watchOverview) {
     loadWatchOverview();
     return '<div class="clEmptyNote">观战数据加载中...</div>';
@@ -1132,7 +1326,7 @@ function renderWatchPage() {
           <span class="clSectionTitle">正在对弈 (${rooms.length})</span>
         </div>
         <div class="clWatchList">
-          ${renderWatchRooms(rooms)}
+          ${renderMobileWatchRooms(rooms)}
         </div>
       </section>
 
@@ -1141,7 +1335,7 @@ function renderWatchPage() {
           <span class="clSectionTitle">可观战归档对局 (${games.length})</span>
         </div>
         <div class="clWatchList">
-          ${renderWatchGames(games)}
+          ${renderMobileWatchGames(games)}
         </div>
       </section>
     </div>
@@ -1492,55 +1686,6 @@ function watchActionButton(item, roomFallbackId) {
   return '<span class="pill">等待开局</span>';
 }
 
-function renderWatchRooms(items) {
-  if (!items.length) {
-    return '<div class="clEmptyNote">暂无进行中的公开对局</div>';
-  }
-  return items.map(item => {
-    const isXiangqi = item.gameType === 'XIANGQI';
-    const sealClass = isXiangqi ? 'is-red' : 'is-green';
-    const sealChar = isXiangqi ? '象' : '五';
-    const p1 = (item.players && item.players.first) ? item.players.first.username : '棋手';
-    const p2 = (item.players && item.players.second) ? item.players.second.username : '等待加入';
-    return `
-      <div class="clWatchItem">
-        <span class="clModeSeal ${sealClass}">${sealChar}</span>
-        <div class="clWatchInfo">
-          <div class="clWatchHeading">
-            <strong>${escapeHtml(p1)}</strong> 对 <strong>${escapeHtml(p2)}</strong>
-          </div>
-          <div class="clWatchMeta">${escapeHtml(item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋')} · 状态：${escapeHtml(item.status || '等候对局')}</div>
-        </div>
-        <div class="clWatchAction">${watchActionButton(item)}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderWatchGames(items) {
-  if (!items.length) {
-    return '<div class="clEmptyNote">暂无可观战归档对局</div>';
-  }
-  return items.map(item => {
-    const isXiangqi = item.gameType === 'XIANGQI';
-    const sealClass = isXiangqi ? 'is-red' : 'is-green';
-    const sealChar = isXiangqi ? '谱' : '五';
-    const p1 = (item.players && item.players.first) ? item.players.first.username : '红方';
-    const p2 = (item.players && item.players.second) ? item.players.second.username : '黑方';
-    return `
-      <div class="clWatchItem">
-        <span class="clModeSeal ${sealClass}">${sealChar}</span>
-        <div class="clWatchInfo">
-          <div class="clWatchHeading">
-            <strong>${escapeHtml(p1)}</strong> 对 <strong>${escapeHtml(p2)}</strong>
-          </div>
-          <div class="clWatchMeta">${escapeHtml(item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋')} · 状态：${escapeHtml(item.status || '已结束')} · 手数：${escapeHtml(String(item.moveCount || 0))}</div>
-        </div>
-        <div class="clWatchAction">${watchActionButton(item)}</div>
-      </div>
-    `;
-  }).join('');
-}
 
 function renderCommunityItems(items, isWinBoard) {
   if (!items.length) {
@@ -2071,6 +2216,202 @@ function renderBoardPaneTabs() {
 }
 
 function renderProfile() {
+  if (isMobileLayout()) {
+    return renderMobileProfile();
+  }
+  return renderDesktopProfile();
+}
+
+function renderDesktopProfileGameCard(game) {
+  return `
+    <div class="move">
+      <div>
+        <strong>${gameLabel(game)}</strong>
+        <div class="muted">${game.side} vs ${game.opponentUsername || '-'}</div>
+        <div class="muted">${game.resultText || game.terminationReason || '-'}</div>
+      </div>
+      <button class="ghost" data-nav="analysis/${game.gameId}">分析</button>
+    </div>
+  `;
+}
+
+function renderMobileProfileGameCard(game) {
+  return `
+    <button class="clRecentItem" data-nav="analysis/${escapeHtml(game.gameId || '')}">
+      <span class="clOutcomeTag is-ink">谱</span>
+      <div class="clRecentInfo">
+        <div class="clRecentHeading">
+          <strong>${gameLabel(game)}</strong>
+          <span class="clRecentResult">${escapeHtml(game.resultText || game.terminationReason || '-')}</span>
+        </div>
+        <div class="clRecentPlayers">${escapeHtml(game.side || '红方')} 对 ${escapeHtml(game.opponentUsername || '-')}</div>
+      </div>
+      <span class="clChevron">›</span>
+    </button>
+  `;
+}
+
+function renderDesktopProfile() {
+  const me = state.me;
+  if (!me) {
+    return renderPlaceholder('个人', '登录后可查看战绩、最近对局与活动入口。');
+  }
+  if (!state.profileDashboard && !state.profile) {
+    loadProfileDashboard(true);
+    return '<section class="panel"><h2 class="sectionTitle">个人摘要加载中</h2></section>';
+  }
+  const route = currentRoute();
+  const meTab = route.meTab || 'overview';
+  const dash = state.profileDashboard || {};
+  const summary = dash.summary || (state.profile && state.profile.summary) || {};
+  const recentGames = dash.recentGames || (state.profile && state.profile.recentGames) || [];
+  const activity = dash.activity || {};
+  const learnProgress = dash.learnProgress || state.learnProgress || { tutorialsCompleted: [], puzzlesCompleted: [] };
+  const achievements = dash.achievements || [];
+  const notifications = dash.notifications || [];
+  const prefs = dash.preferences || {};
+  const totalGames = summary.totalGames || 0;
+  const wins = summary.wins || 0;
+  const losses = summary.losses || 0;
+  const winRate = totalGames ? Math.round((wins * 100) / totalGames) : 0;
+  const earnedCount = achievements.filter(item => item.earned).length;
+  const sidebar = [
+    { tab: 'overview', label: '个人信息' },
+    { tab: 'records', label: '对局记录' },
+    { tab: 'study', label: '学习档案' },
+    { tab: 'inbox', label: '消息通知' },
+    { tab: 'achievements', label: '我的成就' },
+    { tab: 'settings', label: '偏好设置' },
+    { tab: 'help', label: '帮助与反馈' }
+  ].map(item => `
+    <button class="profileSidebarItem ${meTab === item.tab ? 'is-active' : ''}" data-nav="me/${item.tab}">${item.label}</button>
+  `).join('');
+
+  let mainHtml = '';
+  if (meTab === 'records') {
+    mainHtml = `
+      <section class="panel">
+        <h2 class="sectionTitle">对局记录</h2>
+        <div class="moves">
+          ${recentGames.length ? recentGames.map(renderDesktopProfileGameCard).join('') : '<div class="banner">暂无对局记录，去大厅或练习开一局吧。</div>'}
+        </div>
+      </section>`;
+  } else if (meTab === 'study') {
+    const tDone = (learnProgress.tutorialsCompleted || []).length;
+    const pDone = (learnProgress.puzzlesCompleted || []).length;
+    mainHtml = `
+      <section class="panel">
+        <h2 class="sectionTitle">学习档案</h2>
+        <div class="profileStatsGrid">
+          <div class="statBox"><strong>${tDone}</strong><span>已完成教程</span></div>
+          <div class="statBox"><strong>${pDone}</strong><span>已完成题目</span></div>
+        </div>
+        <div class="roomRow" style="margin-top:12px">
+          <button class="btn" data-nav="learn/puzzles/ALL">继续题库</button>
+          <button class="ghost" data-nav="learn/practice">AI 练习</button>
+        </div>
+      </section>`;
+  } else if (meTab === 'inbox') {
+    mainHtml = `
+      <section class="panel">
+        <h2 class="sectionTitle">消息通知</h2>
+        <div class="moves">
+          ${notifications.length ? notifications.map(item => `
+            <div class="move">
+              <div>
+                <strong>${escapeHtml(item.title || '')}</strong>
+                <div class="muted">${escapeHtml(item.body || '')}</div>
+              </div>
+              ${item.path ? `<button class="ghost" data-nav="${escapeHtml(item.path)}">查看</button>` : ''}
+            </div>
+          `).join('') : '<div class="banner">暂无系统通知。</div>'}
+        </div>
+      </section>`;
+  } else if (meTab === 'achievements') {
+    mainHtml = `
+      <section class="panel">
+        <h2 class="sectionTitle">我的成就</h2>
+        <div class="moves">
+          ${achievements.length ? achievements.map(item => {
+            const pct = item.target ? Math.min(100, Math.round((Number(item.current || 0) * 100) / Number(item.target))) : 0;
+            return `
+              <div class="move">
+                <div style="flex:1">
+                  <strong>${escapeHtml(item.title || '')}${item.earned ? ' ✓' : ''}</strong>
+                  <div class="muted">${escapeHtml(item.description || '')}</div>
+                  <div class="muted">${item.current || 0} / ${item.target || 0}</div>
+                  <div style="height:6px;background:var(--border-color);border-radius:3px;margin-top:6px;overflow:hidden">
+                    <div style="height:100%;width:${pct}%;background:var(--brand-red,#8c2e21)"></div>
+                  </div>
+                </div>
+              </div>`;
+          }).join('') : '<div class="banner">暂无成就数据。</div>'}
+        </div>
+      </section>`;
+  } else if (meTab === 'settings') {
+    const soundOn = state.soundEnabled !== false;
+    const theme = state.boardTheme || prefs.boardTheme || 'wood';
+    const flipped = !!state.boardFlipped;
+    mainHtml = `
+      <section class="panel">
+        <h2 class="sectionTitle">偏好设置</h2>
+        <div class="settingRow" style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
+          <span>对局落子音效</span>
+          <button class="btn btn-small ${soundOn ? 'btn-red' : 'ghost'}" data-action="toggle-sound">${soundOn ? '开启' : '关闭'}</button>
+        </div>
+        <div class="settingRow" style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
+          <span>视觉背景主题</span>
+          <button class="btn btn-small btn-red" data-action="toggle-theme">${theme === 'wood' ? '古雅木纹' : '清雅水墨'}</button>
+        </div>
+        <div class="settingRow" style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
+          <span>默认翻转棋盘</span>
+          <button class="btn btn-small ghost" data-action="flip-board">${flipped ? '已翻转' : '正位'}</button>
+        </div>
+        <button class="settingRow mobileVersionRow" data-action="mobile-version-tap" type="button">
+          <span>轻棋局 Android</span><span class="muted">版本信息</span>
+        </button>
+        <p class="muted">登录账号下会同步到服务器，刷新后仍保留。</p>
+      </section>`;
+  } else if (meTab === 'help') {
+    mainHtml = renderHelpPage();
+  } else {
+    const activeRoom = activity.room;
+    const activeGame = activity.game;
+    mainHtml = `
+      <section class="panel profileHeaderCard">
+        <div class="profileUserRow">
+          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%238c2e21'/%3E%3Ctext x='20' y='25' text-anchor='middle' font-size='18' fill='white'%3E${escapeHtml((me.username || '棋').slice(0,1))}%3C/text%3E%3C/svg%3E" />
+          <div class="profileUserMeta">
+            <strong>${escapeHtml(me.username)}</strong>
+            <span class="vipBadge">棋友 · ${escapeHtml(String(me.id || '').slice(0, 8) || '账号')}</span>
+          </div>
+          <button class="btn btn-red btn-small" data-nav="play">开始对局</button>
+        </div>
+        <div class="profileStatsGrid">
+          <div class="statBox"><strong>${totalGames}</strong><span>对局数</span></div>
+          <div class="statBox"><strong>${winRate}%</strong><span>胜率</span></div>
+          <div class="statBox"><strong>${wins}/${losses}</strong><span>胜/负</span></div>
+          <div class="statBox"><strong>${earnedCount}</strong><span>已获成就</span></div>
+        </div>
+      </section>
+      ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
+      <section class="panel" style="margin-top:12px">
+        <h3 class="sectionTitle">最近对局</h3>
+        <div class="moves">
+          ${recentGames.slice(0, 5).length ? recentGames.slice(0, 5).map(renderDesktopProfileGameCard).join('') : '<div class="banner">暂无对局。</div>'}
+        </div>
+      </section>`;
+  }
+
+  return `
+    <div class="profilePage">
+      <aside class="panel profileSidebar">${sidebar}</aside>
+      <div class="profileMain">${mainHtml}</div>
+    </div>
+  `;
+}
+
+function renderMobileProfile() {
   const me = state.me;
   if (!me) {
     return renderPlaceholder('个人', '登录后可查看战绩、最近对局与活动入口。');
@@ -2100,7 +2441,7 @@ function renderProfile() {
     let subTitle = '个人中心';
     if (meTab === 'records') {
       subTitle = '对局记录';
-      subContent = `<div class="clRecentList">${recentGames.length ? recentGames.map(renderProfileGameCard).join('') : '<div class="clEmptyNote">暂无对局记录，去大厅或练习开一局吧。</div>'}</div>`;
+      subContent = `<div class="clRecentList">${recentGames.length ? recentGames.map(renderMobileProfileGameCard).join('') : '<div class="clEmptyNote">暂无对局记录，去大厅或练习开一局吧。</div>'}</div>`;
     } else if (meTab === 'study') {
       subTitle = '学习档案';
       const tDone = (learnProgress.tutorialsCompleted || []).length;
@@ -2246,26 +2587,10 @@ function renderProfile() {
           <button class="clLinkBtn" data-nav="me/records">全部 ›</button>
         </div>
         <div class="clRecentList">
-          ${recentGames.slice(0, 3).length ? recentGames.slice(0, 3).map(renderProfileGameCard).join('') : '<div class="clEmptyNote">暂无对战记录</div>'}
+          ${recentGames.slice(0, 3).length ? recentGames.slice(0, 3).map(renderMobileProfileGameCard).join('') : '<div class="clEmptyNote">暂无对战记录</div>'}
         </div>
       </section>
     </div>
-  `;
-}
-
-function renderProfileGameCard(game) {
-  return `
-    <button class="clRecentItem" data-nav="analysis/${escapeHtml(game.gameId || '')}">
-      <span class="clOutcomeTag is-ink">谱</span>
-      <div class="clRecentInfo">
-        <div class="clRecentHeading">
-          <strong>${gameLabel(game)}</strong>
-          <span class="clRecentResult">${escapeHtml(game.resultText || game.terminationReason || '-')}</span>
-        </div>
-        <div class="clRecentPlayers">${escapeHtml(game.side || '红方')} 对 ${escapeHtml(game.opponentUsername || '-')}</div>
-      </div>
-      <span class="clChevron">›</span>
-    </button>
   `;
 }
 
