@@ -2013,13 +2013,15 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 }
 
 /* 3. Board Room & Practice Redesign */
-.boardDesk {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px !important;
-  gap: 20px;
-  min-height: calc(100vh - 120px) !important;
-  position: relative;
-  z-index: 1;
+@media (min-width: 769px) {
+  .boardDesk {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 340px;
+    gap: 20px;
+    min-height: calc(100vh - 120px);
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Background Wall Art Decoration */
@@ -2443,13 +2445,15 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 }
 
 /* 3. Board Room & Practice Redesign */
-.boardDesk {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px !important;
-  gap: 20px;
-  min-height: calc(100vh - 120px) !important;
-  position: relative;
-  z-index: 1;
+@media (min-width: 769px) {
+  .boardDesk {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 340px;
+    gap: 20px;
+    min-height: calc(100vh - 120px);
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Background Wall Art Decoration */

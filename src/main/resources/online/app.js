@@ -939,24 +939,24 @@ function renderLearnItemCard(item, completedSet) {
   
   let completeBtn = '';
   if (isCompleted) {
-    completeBtn = '<span class="pill" style="background:var(--pane-bg); color:var(--text-muted); padding:6px 14px; border-radius:4px; font-size:12px; font-weight:bold;">已完成</span>';
+    completeBtn = '<span class="pill is-completed">已完成</span>';
   } else if (!state.me) {
-    completeBtn = '<button class="ghost" disabled style="padding:6px 14px; font-size:12px;">登录后记录</button>';
+    completeBtn = '<span class="learnGuestTag">登录后记录</span>';
   } else {
-    completeBtn = `<button class="btn btn-red btn-small" data-learn-complete="${kind}" data-id="${escapeHtml(item.id || '')}" style="padding:6px 14px; font-size:12px; background:#8c2e21; color:#fff; border:none; border-radius:4px; cursor:pointer;">标记完成</button>`;
+    completeBtn = `<button class="btn btn-red btn-small" data-learn-complete="${kind}" data-id="${escapeHtml(item.id || '')}">标记完成</button>`;
   }
   
   let actionBtn = '';
   const expandId = item.id || '';
   const expanded = !!expandId && state.expandedTutorialId === expandId;
   if (isTutorial) {
-    actionBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起详情' : '查看详情'}</button>`;
+    actionBtn = `<button class="ghost learnGhostBtn" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}">${expanded ? '收起详情' : '查看详情'}</button>`;
   } else {
-    const detailBtn = `<button class="ghost" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">${expanded ? '收起参考' : '参考着法'}</button>`;
+    const detailBtn = `<button class="ghost learnGhostBtn" data-action="view-tutorial-detail" data-id="${escapeHtml(expandId)}">${expanded ? '收起参考' : '参考着法'}</button>`;
     if (canStartPuzzlePractice(item)) {
-      actionBtn = `${detailBtn}<button class="ghost" data-action="start-puzzle-practice" data-puzzle-id="${escapeHtml(item.id || '')}" style="margin-top:6px; padding:4px 12px; font-size:11px; border-color:var(--border-color); color:var(--text-muted);">开始研究</button>`;
+      actionBtn = `${detailBtn}<button class="ghost learnGhostBtn" data-action="start-puzzle-practice" data-puzzle-id="${escapeHtml(item.id || '')}">开始研究</button>`;
     } else {
-      actionBtn = `${detailBtn}<button class="ghost" disabled style="margin-top:6px; padding:4px 12px; font-size:11px; color:var(--text-muted); border-color:transparent; background:transparent;">FEN 待补全</button>`;
+      actionBtn = `${detailBtn}<button class="ghost learnGhostBtn" disabled style="opacity:0.6;">FEN 待补全</button>`;
     }
   }
 
@@ -964,7 +964,7 @@ function renderLearnItemCard(item, completedSet) {
   const solutionText = Array.isArray(item.solution) ? item.solution : [];
   const hasEngineLine = solutionLine.length > 0;
   const detailHtml = expanded ? `
-    <div class="learnTutorialDetail" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color); text-align:left; width:100%;">
+    <div class="learnTutorialDetail">
       ${item.objective ? `<div class="muted" style="margin-bottom:8px;"><strong>目标：</strong>${escapeHtml(item.objective)}</div>` : ''}
       ${item.goal ? `<div class="muted" style="margin-bottom:8px;"><strong>任务：</strong>${escapeHtml(item.goal)}</div>` : ''}
       ${renderLearnListBlock('要点', item.keyPoints || item.hints || [])}
@@ -977,22 +977,18 @@ function renderLearnItemCard(item, completedSet) {
   ` : '';
   
   return `
-    <div class="panel learnCard" style="display:flex; flex-direction:column; margin-bottom:12px; padding:16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.02); background:var(--pane-bg); border:1px solid var(--border-color);">
-      <div style="display:flex; align-items:center; width:100%;">
-      <div class="learnCardLeft" style="display:flex; align-items:center; flex:1;">
-        <span class="learnCardBadge" style="background:${badgeBg}; color:#fff; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-weight:bold; font-size:18px; flex-shrink:0;">
-          ${badgeChar}
-        </span>
-        <div class="learnCardInfo" style="margin-left:16px; text-align:left;">
-          <h3 style="margin:0 0 4px; font-size:16px; font-weight:bold; color:var(--text-color);">${escapeHtml(item.title || '')}${hasEngineLine ? ' <span class="pill" style="font-size:10px;padding:2px 6px;">有参考着法</span>' : ''}</h3>
-          <div class="muted" style="margin-bottom:4px; font-size:12px; color:var(--text-muted); font-weight:500;">${escapeHtml(metaText)}</div>
-          <div class="muted learnSummaryOneLine" style="font-size:13px; color:var(--text-muted);">${escapeHtml(item.summary || '暂无详细介绍')}</div>
+    <div class="panel learnCard">
+      <div class="learnCardTop">
+        <span class="learnCardBadge" style="background:${badgeBg};">${badgeChar}</span>
+        <div class="learnCardInfo">
+          <h3>${escapeHtml(item.title || '')}${hasEngineLine ? ' <span class="pill pill--mini">有参考着法</span>' : ''}</h3>
+          <div class="muted learnMeta">${escapeHtml(metaText)}</div>
         </div>
       </div>
-      <div class="learnAction" style="display:flex; flex-direction:column; align-items:flex-end; margin-left:16px; flex-shrink:0;">
-        ${completeBtn}
-        ${actionBtn}
-      </div>
+      ${item.summary ? `<div class="muted learnSummaryOneLine">${escapeHtml(item.summary)}</div>` : ''}
+      <div class="learnAction">
+        <div class="learnActionLeft">${actionBtn}</div>
+        <div class="learnActionRight">${completeBtn}</div>
       </div>
       ${detailHtml}
     </div>
@@ -1106,41 +1102,44 @@ function renderLearnPage(route) {
 function renderWatchPage() {
   if (!state.watchOverview) {
     loadWatchOverview();
-    return '<section class="panel"><h2 class="sectionTitle">观战数据加载中</h2></section>';
+    return '<div class="clEmptyNote">观战数据加载中...</div>';
   }
   const rooms = filterWatchRooms((state.watchOverview.publicRooms || []), state.watchFilters);
   const games = filterWatchGames((state.watchOverview.archivedGames || []), state.watchFilters);
   return `
-    <section class="hero">
-      <div class="meta">Watch</div>
-      <h1>公开观战入口</h1>
-      <p>先提供稳定轮询刷新（${Math.floor(WATCH_POLL_INTERVAL_MS / 1000)} 秒）。可按棋种和状态过滤，并快速跳转分析页。</p>
-    </section>
-    <section class="panel" style="margin-top:18px">
-      <div class="roomRow" style="margin-bottom:12px">
-        <select data-watch-filter="gameType">
+    <div class="clWatchPage">
+      <div class="clWatchFilterBar">
+        <select data-watch-filter="gameType" class="clSelect">
           <option value="ALL" ${state.watchFilters.gameType === 'ALL' ? 'selected' : ''}>全部棋种</option>
           <option value="XIANGQI" ${state.watchFilters.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
           <option value="GOMOKU" ${state.watchFilters.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
         </select>
-        <select data-watch-filter="status">
+        <select data-watch-filter="status" class="clSelect">
           <option value="ALL" ${state.watchFilters.status === 'ALL' ? 'selected' : ''}>全部状态</option>
           <option value="PLAYING" ${state.watchFilters.status === 'PLAYING' ? 'selected' : ''}>进行中</option>
           <option value="FINISHED" ${state.watchFilters.status === 'FINISHED' ? 'selected' : ''}>已结束</option>
         </select>
-        <button class="ghost" data-action="refresh-watch">手动刷新</button>
+        <button class="clRefreshBtn" data-action="refresh-watch">🔄 刷新</button>
       </div>
-      <div class="split">
-        <section class="panel">
-          <h3>公开房间</h3>
-          <div class="moves">${renderWatchRooms(rooms)}</div>
-        </section>
-        <section class="panel">
-          <h3>可观战归档对局</h3>
-          <div class="moves">${renderWatchGames(games)}</div>
-        </section>
-      </div>
-    </section>
+
+      <section class="clWatchSection">
+        <div class="clSectionHeader">
+          <span class="clSectionTitle">正在对弈 (${rooms.length})</span>
+        </div>
+        <div class="clWatchList">
+          ${renderWatchRooms(rooms)}
+        </div>
+      </section>
+
+      <section class="clWatchSection">
+        <div class="clSectionHeader">
+          <span class="clSectionTitle">可观战归档对局 (${games.length})</span>
+        </div>
+        <div class="clWatchList">
+          ${renderWatchGames(games)}
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -1490,34 +1489,52 @@ function watchActionButton(item, roomFallbackId) {
 
 function renderWatchRooms(items) {
   if (!items.length) {
-    return '<div class="banner">暂无公开房间。</div>';
+    return '<div class="clEmptyNote">暂无进行中的公开对局</div>';
   }
-  return items.map(item => `
-    <div class="move">
-      <div>
-        <strong>${escapeHtml(item.gameType || '')}</strong>
-        <div class="muted">${escapeHtml(item.players && item.players.first ? item.players.first.username : '')} vs ${escapeHtml(item.players && item.players.second ? item.players.second.username : '等待加入')}</div>
-        <div class="muted">状态：${escapeHtml(item.status || '')}</div>
+  return items.map(item => {
+    const isXiangqi = item.gameType === 'XIANGQI';
+    const sealClass = isXiangqi ? 'is-red' : 'is-green';
+    const sealChar = isXiangqi ? '象' : '五';
+    const p1 = (item.players && item.players.first) ? item.players.first.username : '棋手';
+    const p2 = (item.players && item.players.second) ? item.players.second.username : '等待加入';
+    return `
+      <div class="clWatchItem">
+        <span class="clModeSeal ${sealClass}">${sealChar}</span>
+        <div class="clWatchInfo">
+          <div class="clWatchHeading">
+            <strong>${escapeHtml(p1)}</strong> 对 <strong>${escapeHtml(p2)}</strong>
+          </div>
+          <div class="clWatchMeta">${escapeHtml(item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋')} · 状态：${escapeHtml(item.status || '等候对局')}</div>
+        </div>
+        <div class="clWatchAction">${watchActionButton(item)}</div>
       </div>
-      ${watchActionButton(item)}
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function renderWatchGames(items) {
   if (!items.length) {
-    return '<div class="banner">暂无可观战归档对局。</div>';
+    return '<div class="clEmptyNote">暂无可观战归档对局</div>';
   }
-  return items.map(item => `
-    <div class="move">
-      <div>
-        <strong>${escapeHtml(item.gameType || '')}</strong>
-        <div class="muted">${escapeHtml(item.players && item.players.first ? item.players.first.username : '')} vs ${escapeHtml(item.players && item.players.second ? item.players.second.username : '')}</div>
-        <div class="muted">状态：${escapeHtml(item.status || '')} · 手数：${escapeHtml(String(item.moveCount || 0))}</div>
+  return items.map(item => {
+    const isXiangqi = item.gameType === 'XIANGQI';
+    const sealClass = isXiangqi ? 'is-red' : 'is-green';
+    const sealChar = isXiangqi ? '谱' : '五';
+    const p1 = (item.players && item.players.first) ? item.players.first.username : '红方';
+    const p2 = (item.players && item.players.second) ? item.players.second.username : '黑方';
+    return `
+      <div class="clWatchItem">
+        <span class="clModeSeal ${sealClass}">${sealChar}</span>
+        <div class="clWatchInfo">
+          <div class="clWatchHeading">
+            <strong>${escapeHtml(p1)}</strong> 对 <strong>${escapeHtml(p2)}</strong>
+          </div>
+          <div class="clWatchMeta">${escapeHtml(item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋')} · 状态：${escapeHtml(item.status || '已结束')} · 手数：${escapeHtml(String(item.moveCount || 0))}</div>
+        </div>
+        <div class="clWatchAction">${watchActionButton(item)}</div>
       </div>
-      ${watchActionButton(item)}
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function renderCommunityItems(items, isWinBoard) {
@@ -2055,7 +2072,7 @@ function renderProfile() {
   }
   if (!state.profileDashboard && !state.profile) {
     loadProfileDashboard(true);
-    return '<section class="panel"><h2 class="sectionTitle">个人摘要加载中</h2></section>';
+    return '<div class="clEmptyNote">个人摘要加载中...</div>';
   }
   const route = currentRoute();
   const meTab = route.meTab || 'overview';
@@ -2072,152 +2089,178 @@ function renderProfile() {
   const losses = summary.losses || 0;
   const winRate = totalGames ? Math.round((wins * 100) / totalGames) : 0;
   const earnedCount = achievements.filter(item => item.earned).length;
-  const sidebar = [
-    { tab: 'overview', label: '个人信息' },
-    { tab: 'records', label: '对局记录' },
-    { tab: 'study', label: '学习档案' },
-    { tab: 'inbox', label: '消息通知' },
-    { tab: 'achievements', label: '我的成就' },
-    { tab: 'settings', label: '偏好设置' },
-    { tab: 'help', label: '帮助与反馈' }
-  ].map(item => `
-    <button class="profileSidebarItem ${meTab === item.tab ? 'is-active' : ''}" data-nav="me/${item.tab}">${item.label}</button>
-  `).join('');
 
-  let mainHtml = '';
-  if (meTab === 'records') {
-    mainHtml = `
-      <section class="panel">
-        <h2 class="sectionTitle">对局记录</h2>
-        <div class="moves">
-          ${recentGames.length ? recentGames.map(renderProfileGameCard).join('') : '<div class="banner">暂无对局记录，去大厅或练习开一局吧。</div>'}
+  if (meTab !== 'overview') {
+    let subContent = '';
+    let subTitle = '个人中心';
+    if (meTab === 'records') {
+      subTitle = '对局记录';
+      subContent = `<div class="clRecentList">${recentGames.length ? recentGames.map(renderProfileGameCard).join('') : '<div class="clEmptyNote">暂无对局记录，去大厅或练习开一局吧。</div>'}</div>`;
+    } else if (meTab === 'study') {
+      subTitle = '学习档案';
+      const tDone = (learnProgress.tutorialsCompleted || []).length;
+      const pDone = (learnProgress.puzzlesCompleted || []).length;
+      subContent = `
+        <div class="clProfileStatsGrid" style="margin-bottom:14px">
+          <div class="clStatBox"><strong>${tDone}</strong><span>已完成教程</span></div>
+          <div class="clStatBox"><strong>${pDone}</strong><span>已完成题目</span></div>
         </div>
-      </section>`;
-  } else if (meTab === 'study') {
-    const tDone = (learnProgress.tutorialsCompleted || []).length;
-    const pDone = (learnProgress.puzzlesCompleted || []).length;
-    mainHtml = `
-      <section class="panel">
-        <h2 class="sectionTitle">学习档案</h2>
-        <div class="profileStatsGrid">
-          <div class="statBox"><strong>${tDone}</strong><span>已完成教程</span></div>
-          <div class="statBox"><strong>${pDone}</strong><span>已完成题目</span></div>
+        <div class="clProfileActions" style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn btn-red" data-nav="learn/puzzles/ALL" style="flex:1">进入题库</button>
+          <button class="ghost" data-nav="learn/practice" style="flex:1">AI 练习</button>
         </div>
-        <div class="roomRow" style="margin-top:12px">
-          <button class="btn" data-nav="learn/puzzles/ALL">继续题库</button>
-          <button class="ghost" data-nav="learn/practice">AI 练习</button>
-        </div>
-      </section>`;
-  } else if (meTab === 'inbox') {
-    mainHtml = `
-      <section class="panel">
-        <h2 class="sectionTitle">消息通知</h2>
-        <div class="moves">
-          ${notifications.length ? notifications.map(item => `
-            <div class="move">
-              <div>
-                <strong>${escapeHtml(item.title || '')}</strong>
-                <div class="muted">${escapeHtml(item.body || '')}</div>
-              </div>
-              ${item.path ? `<button class="ghost" data-nav="${escapeHtml(item.path)}">查看</button>` : ''}
-            </div>
-          `).join('') : '<div class="banner">暂无系统通知。</div>'}
-        </div>
-      </section>`;
-  } else if (meTab === 'achievements') {
-    mainHtml = `
-      <section class="panel">
-        <h2 class="sectionTitle">我的成就</h2>
-        <div class="moves">
-          ${achievements.length ? achievements.map(item => {
-            const pct = item.target ? Math.min(100, Math.round((Number(item.current || 0) * 100) / Number(item.target))) : 0;
-            return `
-              <div class="move">
-                <div style="flex:1">
-                  <strong>${escapeHtml(item.title || '')}${item.earned ? ' ✓' : ''}</strong>
-                  <div class="muted">${escapeHtml(item.description || '')}</div>
-                  <div class="muted">${item.current || 0} / ${item.target || 0}</div>
-                  <div style="height:6px;background:var(--border-color);border-radius:3px;margin-top:6px;overflow:hidden">
-                    <div style="height:100%;width:${pct}%;background:var(--brand-red,#8c2e21)"></div>
-                  </div>
-                </div>
-              </div>`;
-          }).join('') : '<div class="banner">暂无成就数据。</div>'}
-        </div>
-      </section>`;
-  } else if (meTab === 'settings') {
-    const soundOn = state.soundEnabled !== false;
-    const theme = state.boardTheme || prefs.boardTheme || 'wood';
-    const flipped = !!state.boardFlipped;
-    mainHtml = `
-      <section class="panel">
-        <h2 class="sectionTitle">偏好设置</h2>
-        <div class="settingRow" style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
-          <span>对局落子音效</span>
-          <button class="btn btn-small ${soundOn ? 'btn-red' : 'ghost'}" data-action="toggle-sound">${soundOn ? '开启' : '关闭'}</button>
-        </div>
-        <div class="settingRow" style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
-          <span>视觉背景主题</span>
-          <button class="btn btn-small btn-red" data-action="toggle-theme">${theme === 'wood' ? '古雅木纹' : '清雅水墨'}</button>
-        </div>
-        <div class="settingRow" style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
-          <span>默认翻转棋盘</span>
-          <button class="btn btn-small ghost" data-action="flip-board">${flipped ? '已翻转' : '正位'}</button>
-        </div>
-        <button class="settingRow mobileVersionRow" data-action="mobile-version-tap" type="button">
-          <span>轻棋局 Android</span><span class="muted">版本信息</span>
-        </button>
-        <p class="muted">登录账号下会同步到服务器，刷新后仍保留。</p>
-      </section>`;
-  } else if (meTab === 'help') {
-    mainHtml = renderHelpPage();
-  } else {
-    const activeRoom = activity.room;
-    const activeGame = activity.game;
-    mainHtml = `
-      <section class="panel profileHeaderCard">
-        <div class="profileUserRow">
-          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%238c2e21'/%3E%3Ctext x='20' y='25' text-anchor='middle' font-size='18' fill='white'%3E${escapeHtml((me.username || '棋').slice(0,1))}%3C/text%3E%3C/svg%3E" />
-          <div class="profileUserMeta">
-            <strong>${escapeHtml(me.username)}</strong>
-            <span class="vipBadge">棋友 · ${escapeHtml(String(me.id || '').slice(0, 8) || '账号')}</span>
+      `;
+    } else if (meTab === 'inbox') {
+      subTitle = '消息通知';
+      subContent = notifications.length ? notifications.map(item => `
+        <div class="clWatchItem">
+          <div class="clWatchInfo">
+            <strong>${escapeHtml(item.title || '')}</strong>
+            <div class="muted">${escapeHtml(item.body || '')}</div>
           </div>
-          <button class="btn btn-red btn-small" data-nav="play">开始对局</button>
+          ${item.path ? `<button class="ghost btn-small" data-nav="${escapeHtml(item.path)}">查看</button>` : ''}
         </div>
-        <div class="profileStatsGrid">
-          <div class="statBox"><strong>${totalGames}</strong><span>对局数</span></div>
-          <div class="statBox"><strong>${winRate}%</strong><span>胜率</span></div>
-          <div class="statBox"><strong>${wins}/${losses}</strong><span>胜/负</span></div>
-          <div class="statBox"><strong>${earnedCount}</strong><span>已获成就</span></div>
+      `).join('') : '<div class="clEmptyNote">暂无系统通知。</div>';
+    } else if (meTab === 'achievements') {
+      subTitle = '我的成就';
+      subContent = achievements.length ? achievements.map(item => {
+        const pct = item.target ? Math.min(100, Math.round((Number(item.current || 0) * 100) / Number(item.target))) : 0;
+        return `
+          <div class="clWatchItem">
+            <div class="clWatchInfo" style="width:100%">
+              <div style="display:flex;justify-content:space-between">
+                <strong>${escapeHtml(item.title || '')}${item.earned ? ' ✓' : ''}</strong>
+                <span class="muted">${item.current || 0} / ${item.target || 0}</span>
+              </div>
+              <div class="muted" style="font-size:12px;margin:2px 0 6px">${escapeHtml(item.description || '')}</div>
+              <div style="height:4px;background:var(--cl-border);border-radius:2px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:var(--cl-cinnabar,#8c2e21)"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="clEmptyNote">暂无成就数据。</div>';
+    } else if (meTab === 'settings') {
+      subTitle = '偏好设置';
+      const soundOn = state.soundEnabled !== false;
+      const theme = state.boardTheme || prefs.boardTheme || 'wood';
+      const flipped = !!state.boardFlipped;
+      subContent = `
+        <div class="clProfileMenu">
+          <div class="clProfileMenuItem">
+            <span>对局落子音效</span>
+            <button class="btn btn-small ${soundOn ? 'btn-red' : 'ghost'}" data-action="toggle-sound">${soundOn ? '开启' : '关闭'}</button>
+          </div>
+          <div class="clProfileMenuItem">
+            <span>视觉背景主题</span>
+            <button class="btn btn-small btn-red" data-action="toggle-theme">${theme === 'wood' ? '古雅木纹' : '清雅水墨'}</button>
+          </div>
+          <div class="clProfileMenuItem">
+            <span>默认翻转棋盘</span>
+            <button class="btn btn-small ghost" data-action="flip-board">${flipped ? '已翻转' : '正位'}</button>
+          </div>
+          <button class="clProfileMenuItem mobileVersionRow" data-action="mobile-version-tap" type="button">
+            <span>轻棋局 Android</span><span class="muted">版本信息</span>
+          </button>
         </div>
-      </section>
-      ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
-      <section class="panel" style="margin-top:12px">
-        <h3 class="sectionTitle">最近对局</h3>
-        <div class="moves">
-          ${recentGames.slice(0, 5).length ? recentGames.slice(0, 5).map(renderProfileGameCard).join('') : '<div class="banner">暂无对局。</div>'}
+        <p class="muted" style="font-size:12px;margin-top:10px;text-align:center">登录账号下会同步到服务器，刷新后仍保留。</p>
+      `;
+    } else if (meTab === 'help') {
+      subTitle = '帮助与反馈';
+      subContent = renderHelpPage();
+    }
+
+    return `
+      <div class="clProfileSubPage">
+        <div class="clSubNav">
+          <button class="clBackBtn" data-nav="me">‹ 返回个人中心</button>
+          <strong>${subTitle}</strong>
         </div>
-      </section>`;
+        <div class="clSubBody">${subContent}</div>
+      </div>
+    `;
   }
 
+  const activeRoom = activity.room;
+  const activeGame = activity.game;
+
   return `
-    <div class="profilePage">
-      <aside class="panel profileSidebar">${sidebar}</aside>
-      <div class="profileMain">${mainHtml}</div>
+    <div class="clProfilePage">
+      <section class="clProfileHeader">
+        <div class="clProfileUserRow">
+          <span class="clAvatarLarge">${escapeHtml((me.username || '棋').slice(0, 1))}</span>
+          <div class="clProfileMeta">
+            <strong>${escapeHtml(me.username)}</strong>
+            <span class="clVipTag">棋友 · ${escapeHtml(String(me.id || '').slice(0, 8) || '账号')}</span>
+          </div>
+          <button class="clQuickPlayBtn" data-nav="play">⚡ 对弈</button>
+        </div>
+
+        <div class="clProfileStatsGrid">
+          <div class="clStatBox"><strong>${totalGames}</strong><span>对局数</span></div>
+          <div class="clStatBox"><strong>${winRate}%</strong><span>胜率</span></div>
+          <div class="clStatBox"><strong>${wins}/${losses}</strong><span>胜/负</span></div>
+          <div class="clStatBox"><strong>${earnedCount}</strong><span>已获成就</span></div>
+        </div>
+      </section>
+
+      ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
+
+      <section class="clProfileMenuSection">
+        <div class="clProfileMenu">
+          <button class="clProfileMenuItem" data-nav="me/records">
+            <span class="clMenuLabel">📜 对局记录与棋谱</span>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clProfileMenuItem" data-nav="me/study">
+            <span class="clMenuLabel">📚 学习进阶档案</span>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clProfileMenuItem" data-nav="me/achievements">
+            <span class="clMenuLabel">🏆 我的成就与荣誉</span>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clProfileMenuItem" data-nav="me/inbox">
+            <span class="clMenuLabel">🔔 消息与对局提醒</span>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clProfileMenuItem" data-nav="me/settings">
+            <span class="clMenuLabel">⚙️ 棋盘风格与偏好设置</span>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clProfileMenuItem" data-nav="me/help">
+            <span class="clMenuLabel">❓ 规则说明与反馈</span>
+            <span class="clChevron">›</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="clSection" style="margin-top:14px">
+        <div class="clSectionHeader">
+          <span class="clSectionTitle">最近对战</span>
+          <button class="clLinkBtn" data-nav="me/records">全部 ›</button>
+        </div>
+        <div class="clRecentList">
+          ${recentGames.slice(0, 3).length ? recentGames.slice(0, 3).map(renderProfileGameCard).join('') : '<div class="clEmptyNote">暂无对战记录</div>'}
+        </div>
+      </section>
     </div>
   `;
 }
 
 function renderProfileGameCard(game) {
   return `
-    <div class="move">
-      <div>
-        <strong>${gameLabel(game)}</strong>
-        <div class="muted">${game.side} vs ${game.opponentUsername || '-'}</div>
-        <div class="muted">${game.resultText || game.terminationReason || '-'}</div>
+    <button class="clRecentItem" data-nav="analysis/${escapeHtml(game.gameId || '')}">
+      <span class="clOutcomeTag is-ink">谱</span>
+      <div class="clRecentInfo">
+        <div class="clRecentHeading">
+          <strong>${gameLabel(game)}</strong>
+          <span class="clRecentResult">${escapeHtml(game.resultText || game.terminationReason || '-')}</span>
+        </div>
+        <div class="clRecentPlayers">${escapeHtml(game.side || '红方')} 对 ${escapeHtml(game.opponentUsername || '-')}</div>
       </div>
-      <button class="ghost" data-nav="analysis/${game.gameId}">分析</button>
-    </div>
+      <span class="clChevron">›</span>
+    </button>
   `;
 }
 
@@ -4671,15 +4714,18 @@ async function shareCurrentRoom(event) {
 
 function mobileIcon(name) {
   const paths = {
-    home: '<path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"/>',
-    play: '<path d="M7 4h10l3 6-3 10h-4l-1-3-1 3H7L4 10Zm1.5 6H6m10 0h2m-8-2v4m-2-2h4"/>',
-    learn: '<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22Zm16 0A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22Z"/>',
-    watch: '<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/>',
-    me: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5H4a1 1 0 0 1-1-1Z"/><path d="M9 21v-5h6v5"/>',
+    play: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M7.5 12h9M8.5 8.5l7 7M8.5 15.5l7-7"/>',
+    learn: '<path d="M4 19.5v-14A2.5 2.5 0 0 1 6.5 3H20v16H6.5a2.5 2.5 0 0 0-2.5 2.5"/><path d="M6 3v16.5A2.5 2.5 0 0 1 8.5 22H20v-3"/>',
+    watch: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
+    me: '<circle cx="12" cy="8" r="4.2"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/><path d="M9 13.5c1 .8 2 1 3 1s2-.2 3-1"/>',
     spark: '<path d="m13 2-8 11h6l-1 9 9-12h-6Z"/>',
     robot: '<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8"/>',
     friends: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0m0-5a5 5 0 0 1 6 5"/>',
-    chevron: '<path d="m9 18 6-6-6-6"/>'
+    puzzle: '<path d="M19.4 7.8a2.8 2.8 0 0 1-2.8-2.8 2.8 2.8 0 0 1-2.8-2.8V2H10.2v.2a2.8 2.8 0 0 1-2.8 2.8 2.8 2.8 0 0 1-2.8-2.8H4.4v3.5h.2a2.8 2.8 0 0 1 2.8 2.8 2.8 2.8 0 0 1-2.8 2.8H4.4V18h3.5v-.2a2.8 2.8 0 0 1 2.8-2.8 2.8 2.8 0 0 1 2.8-2.8v.2h3.5v-3.5h.2a2.8 2.8 0 0 1 2.8-2.8 2.8 2.8 0 0 1 2.8 2.8h.2V7.8Z"/>',
+    crown: '<path d="M2 19h20M4 19l2-11 5 4 5-4 2 11"/>',
+    chevron: '<path d="m15 18-6-6 6-6"/>',
+    chevronRight: '<path d="m9 18 6-6-6-6"/>'
   };
   return `<svg class="mobileIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.chevron}</svg>`;
 }
@@ -4728,66 +4774,128 @@ function renderMobileModePage(route) {
 
 function renderMobileHomePage() {
   const b = state.bootstrap || { recentGames: [], activeRooms: 0, totalUsers: 0, totalGames: 0, activity: {} };
-  const recent = (b.recentGames || []).slice(0, 2);
+  const recent = (b.recentGames || []).slice(0, 5);
   const activity = b.activity || {};
   const board = leaderboardBucket(state.communityLeaderboard || {}, 'XIANGQI').slice(0, 1);
   const continuePath = activity.game && activity.game.gameId
     ? `game/${escapeHtml(activity.game.gameId)}`
-    : (activity.room && activity.room.roomId ? `room/${escapeHtml(activity.room.roomId)}` : 'learn/puzzles/ALL');
-  const continueLabel = activity.game ? '继续未完棋局' : (activity.room ? '回到等候房间' : '今日残局挑战');
+    : (activity.room && activity.room.roomId ? `room/${escapeHtml(activity.room.roomId)}` : '');
+  const continueLabel = activity.game ? '继续未完棋局' : (activity.room ? '回到等候房间' : '');
 
   return `
-    <div class="mobileHome">
-      <header class="mobileAppHeader">
-        <a class="mobileBrand" href="#/home" aria-label="轻棋局首页"><span class="mobileBrandSeal">棋</span><span><strong>轻棋局</strong><small>落子之间，自有风雅</small></span></a>
-        <button class="mobileProfileButton" data-nav="me" aria-label="进入个人中心">${state.me ? escapeHtml((state.me.username || '棋').slice(0, 1)) : '客'}</button>
+    <div class="mobileHome clContainer">
+      <!-- Classical Minimalist Header -->
+      <header class="clAppHeader">
+        <div class="clBrand">
+          <span class="clSeal">棋</span>
+          <div class="clBrandText">
+            <strong>轻棋局</strong>
+            <small>落子从容 · 方寸乾坤</small>
+          </div>
+        </div>
+        <button class="clAvatarBtn" data-nav="me" aria-label="进入个人中心">
+          ${state.me ? escapeHtml((state.me.username || '棋').slice(0, 1)) : '客'}
+        </button>
       </header>
 
-      <section class="mobileHero" aria-labelledby="mobile-home-title">
-        <div class="mobileHeroWash" aria-hidden="true"><span class="mobileBoardGlyph">楚河<br>汉界</span></div>
-        <div class="mobileHeroCopy">
-          <span class="mobileEyebrow">随时开局 · 从容落子</span>
-          <h1 id="mobile-home-title">下一局，<br>从这一手开始</h1>
-          <p>真人匹配、好友约棋与 AI 练习，一处完成。</p>
-          <button class="mobilePrimaryAction" data-action="open-mobile-quick-start">
-            ${mobileIcon('spark')}<span>快速开始一局</span><small>默认中国象棋</small>
+      ${continuePath ? `
+        <div class="clResumeStrip" data-nav="${continuePath}">
+          <span class="clResumeTag">续弈</span>
+          <span class="clResumeText">${continueLabel} · 点击回到棋盘</span>
+          <span class="clChevron">›</span>
+        </div>
+      ` : ''}
+
+      <!-- Compact Quick Match Ribbon (High Efficiency) -->
+      <section class="clQuickRibbon">
+        <div class="clRibbonMain">
+          <div class="clRibbonMeta">
+            <span class="clPill">中国象棋</span>
+            <span class="clSubPill">5分钟快棋</span>
+          </div>
+          <div class="clRibbonTitle">随时开局 · 智能寻弈</div>
+        </div>
+        <button class="clMatchBtn" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">
+          <span>⚡ 快速开局</span>
+        </button>
+      </section>
+
+      <!-- Classical 4-Mode Matrix (2x2 Compact Grid) -->
+      <section class="clModeSection">
+        <div class="clModeGrid">
+          <button class="clModeTile" data-action="open-mobile-quick-start">
+            <span class="clModeSeal is-red">配</span>
+            <div class="clModeText">
+              <strong>真人对决</strong>
+              <small>快速匹配</small>
+            </div>
+          </button>
+          <button class="clModeTile" data-action="quick-start-ai-practice">
+            <span class="clModeSeal is-green">机</span>
+            <div class="clModeText">
+              <strong>AI 磨砺</strong>
+              <small>人机切磋</small>
+            </div>
+          </button>
+          <button class="clModeTile" data-action="create-room-xiangqi">
+            <span class="clModeSeal is-gold">房</span>
+            <div class="clModeText">
+              <strong>好友约局</strong>
+              <small>开房邀战</small>
+            </div>
+          </button>
+          <button class="clModeTile" data-nav="learn/puzzles/ALL">
+            <span class="clModeSeal is-ink">残</span>
+            <div class="clModeText">
+              <strong>残局闯关</strong>
+              <small>破局杀法</small>
+            </div>
           </button>
         </div>
       </section>
 
-      <section class="mobileContinueStrip" data-nav="${continuePath}" aria-label="${continueLabel}">
-        <span class="mobileContinueMark">${activity.game || activity.room ? '续' : '题'}</span>
-        <span><strong>${continueLabel}</strong><small>${activity.game || activity.room ? '保留当前进度，继续落子' : '用一盘短题热热手'}</small></span>
-        ${mobileIcon('chevron')}
-      </section>
-
-      <section class="mobileSection">
-        <div class="mobileSectionHead"><div><span>常用入口</span><h2>你想怎么下？</h2></div><button data-nav="play">全部模式</button></div>
-        <div class="mobileActionList">
-          <button data-action="quick-start-ai-practice"><span class="mobileActionIcon is-red">${mobileIcon('robot')}</span><span><strong>人机练习</strong><small>无需等待，随时开局</small></span>${mobileIcon('chevron')}</button>
-          <button data-action="create-room-xiangqi"><span class="mobileActionIcon is-green">${mobileIcon('friends')}</span><span><strong>好友约棋</strong><small>创建房间，分享房间码</small></span>${mobileIcon('chevron')}</button>
-          <button data-nav="play/gomoku"><span class="mobileActionIcon is-ink"><b>五</b></span><span><strong>五子棋</strong><small>黑白落点，轻松一局</small></span>${mobileIcon('chevron')}</button>
+      <!-- High Density Recent Games List -->
+      <section class="clSection">
+        <div class="clSectionHeader">
+          <span class="clSectionTitle">最近战绩</span>
+          <button class="clLinkBtn" data-nav="me/records">全部 ›</button>
+        </div>
+        <div class="clRecentList">
+          ${recent.length ? recent.map(game => {
+            const isWin = game.winnerSide && ((game.viewerSide && game.winnerSide === game.viewerSide) || (game.winnerSide === 'RED' && game.resultText && game.resultText.includes('红方胜')));
+            const isDraw = game.resultText && game.resultText.includes('和');
+            const outcomeClass = isWin ? 'is-win' : (isDraw ? 'is-draw' : 'is-loss');
+            const outcomeText = isWin ? '胜' : (isDraw ? '和' : '负');
+            return `
+              <button class="clRecentItem" data-nav="analysis/${escapeHtml(game.gameId || '')}">
+                <span class="clOutcomeTag ${outcomeClass}">${outcomeText}</span>
+                <div class="clRecentInfo">
+                  <div class="clRecentHeading">
+                    <strong>${game.gameType === 'GOMOKU' ? '五子棋' : '中国象棋'}</strong>
+                    <span class="clRecentResult">${escapeHtml(game.resultText || '对局记录')}</span>
+                  </div>
+                  <div class="clRecentPlayers">${escapeHtml(game.firstUsername || '-')} 对 ${escapeHtml(game.secondUsername || '-')}</div>
+                </div>
+                <span class="clChevron">›</span>
+              </button>
+            `;
+          }).join('') : '<div class="clEmptyNote">暂无对局记录，点击上方“快速开局”落下第一子</div>'}
         </div>
       </section>
 
-      <section class="mobileSection mobileRecentSection">
-        <div class="mobileSectionHead"><div><span>最近棋局</span><h2>留下的每一步</h2></div><button data-nav="me/records">全部战绩</button></div>
-        <div class="mobileRecentList">
-          ${recent.length ? recent.map(game => `
-            <button data-nav="analysis/${escapeHtml(game.gameId || '')}">
-              <span class="mobileGameSeal ${game.gameType === 'GOMOKU' ? 'is-green' : ''}">${game.gameType === 'GOMOKU' ? '五' : '象'}</span>
-              <span><strong>${game.gameType === 'GOMOKU' ? '五子棋' : '中国象棋'} · ${escapeHtml(game.resultText || '已归档')}</strong><small>${escapeHtml(game.firstUsername || '-')} 对 ${escapeHtml(game.secondUsername || '-')}</small></span>
-              ${mobileIcon('chevron')}
-            </button>
-          `).join('') : '<div class="mobileEmptyState"><strong>还没有棋局记录</strong><span>从上面的快速开始，落下第一子。</span></div>'}
-        </div>
+      <!-- Compact Daily Challenge / Rank Bar -->
+      <section class="clRankBar">
+        <span class="clRankTitle">🏆 象棋榜首</span>
+        <span class="clRankUser">${board.length ? escapeHtml(board[0].username || '-') + ' (' + (board[0].score || 1500) + '分)' : '虚位以待'}</span>
+        <button class="clLinkBtn" data-nav="community">榜单 ›</button>
       </section>
 
-      <section class="mobileRankNote">
-        <span>象棋榜</span>
-        ${board.length ? `<strong>${escapeHtml(board[0].username || '-')}</strong><small>${board[0].wins != null ? board[0].wins : (board[0].score || 0)} 胜</small>` : '<strong>榜单正在静候高手</strong><small>完成对局后将出现真实排名</small>'}
-        <button data-nav="community">查看榜单</button>
+      <!-- Classical Chess Maxim Ribbon -->
+      <section class="clMaximBar">
+        <span class="clMaximTag">棋理</span>
+        <span class="clMaximText">“观棋不语真君子，起手无回大丈夫”</span>
       </section>
+
       ${renderMobileQuickStartSheet()}
     </div>
   `;
@@ -4796,50 +4904,98 @@ function renderMobileHomePage() {
 function renderMobileQuickStartSheet() {
   if (!state.mobileQuickStartOpen) return '';
   const gameType = state.mobileQuickStartGameType === 'GOMOKU' ? 'GOMOKU' : 'XIANGQI';
+  const gameName = gameType === 'GOMOKU' ? '五子棋' : '中国象棋';
   return `
     <div class="mobileSheetOverlay" data-action="close-mobile-quick-start">
-      <section class="mobileQuickStartSheet" role="dialog" aria-modal="true" aria-labelledby="quick-start-title" data-mobile-sheet>
-        <span class="mobileSheetHandle" aria-hidden="true"></span>
-        <div class="mobileSheetHeading"><span>快速开始</span><h2 id="quick-start-title">这一局，怎么下？</h2></div>
-        <div class="mobileGameToggle" role="group" aria-label="选择棋种">
+      <section class="mobileQuickStartSheet clQuickSheet" role="dialog" aria-modal="true" data-mobile-sheet>
+        <div class="clSheetHeader">
+          <strong>快速开局 · ${gameName}</strong>
+          <button class="clCloseBtn" data-action="close-mobile-quick-start">✕</button>
+        </div>
+        <div class="clGameSwitcher" role="group">
           <button class="${gameType === 'XIANGQI' ? 'is-active' : ''}" data-action="select-mobile-game" data-game-type="XIANGQI">中国象棋</button>
           <button class="${gameType === 'GOMOKU' ? 'is-active' : ''}" data-action="select-mobile-game" data-game-type="GOMOKU">五子棋</button>
         </div>
-        <div class="mobileStartModes">
-          <button data-action="quick-start-public-match" data-game-type="${gameType}" data-time-seconds="300">${mobileIcon('spark')}<span><strong>真人快速匹配</strong><small>5 分钟场，匹配在线棋友</small></span>${mobileIcon('chevron')}</button>
-          <button data-action="${gameType === 'GOMOKU' ? 'quick-start-gomoku-practice' : 'quick-start-ai-practice'}">${mobileIcon('robot')}<span><strong>人机练习</strong><small>立即开局，磨练棋力</small></span>${mobileIcon('chevron')}</button>
-          <button data-action="${gameType === 'GOMOKU' ? 'create-room-gomoku' : 'create-room-xiangqi'}">${mobileIcon('friends')}<span><strong>好友约棋</strong><small>创建房间并分享房间码</small></span>${mobileIcon('chevron')}</button>
+        <div class="clSheetModeList">
+          <button class="clSheetModeItem is-primary" data-action="quick-start-public-match" data-game-type="${gameType}" data-time-seconds="300">
+            <span class="clModeSeal is-red">配</span>
+            <div class="clSheetModeMeta">
+              <strong>真人快速匹配 (5 分钟)</strong>
+              <small>全网寻弈 · 极速落子</small>
+            </div>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clSheetModeItem" data-action="${gameType === 'GOMOKU' ? 'quick-start-gomoku-practice' : 'quick-start-ai-practice'}">
+            <span class="clModeSeal is-green">机</span>
+            <div class="clSheetModeMeta">
+              <strong>人机智能对弈</strong>
+              <small>内置 AI · 自选难度随时开局</small>
+            </div>
+            <span class="clChevron">›</span>
+          </button>
+          <button class="clSheetModeItem" data-action="${gameType === 'GOMOKU' ? 'create-room-gomoku' : 'create-room-xiangqi'}">
+            <span class="clModeSeal is-gold">房</span>
+            <div class="clSheetModeMeta">
+              <strong>创建好友棋室</strong>
+              <small>专属房间码 · 微信/链接直接邀战</small>
+            </div>
+            <span class="clChevron">›</span>
+          </button>
         </div>
-        <button class="mobileSheetCancel" data-action="close-mobile-quick-start">暂不开始</button>
       </section>
     </div>
   `;
 }
 
 function renderMobileLobby() {
-  const rooms = ((state.lobby && state.lobby.rooms) || []).slice(0, 8);
+  const rooms = ((state.lobby && state.lobby.rooms) || []).slice(0, 12);
   return `
-    <div class="mobileLobby">
-      <header class="mobilePageHeader"><button data-nav="home" aria-label="返回首页">‹</button><div><span>对局大厅</span><h1>找一位棋友</h1></div><button data-action="refresh-lobby" aria-label="刷新大厅">↻</button></header>
-      <section class="mobileLobbyLead">
-        <span class="mobileEyebrow">中国象棋 · 默认 5 分钟</span>
-        <h2>有人等你落下第一子</h2>
-        <button class="mobilePrimaryAction" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">${mobileIcon('spark')}<span>立即快速匹配</span><small>真人实时对局</small></button>
-      </section>
-      <div class="mobileLobbyActions">
-        <button data-action="create-room-xiangqi"><span>创建房间</span><small>邀请好友对弈</small></button>
-        <label><span>加入房间</span><span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span></label>
+    <div class="mobileLobby clContainer">
+      <header class="clAppHeader">
+        <button class="clBackBtn" data-nav="home">‹</button>
+        <h1 class="clPageTitle">寻弈大厅</h1>
+        <button class="clRefreshBtn" data-action="refresh-lobby" aria-label="刷新大厅">↻</button>
+      </header>
+
+      <!-- Quick Match & AI Bar -->
+      <div class="clLobbyQuickRow">
+        <button class="clLobbyBtn is-primary" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">
+          <strong>⚡ 5分钟快棋匹配</strong>
+          <small>真人对弈 · 极速开局</small>
+        </button>
+        <button class="clLobbyBtn" data-action="quick-start-ai-practice">
+          <strong>🤖 人机对战练习</strong>
+          <small>随时练习 · 不限用时</small>
+        </button>
       </div>
-      <section class="mobileSection">
-        <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><small>${rooms.length} 个可见房间</small></div>
-        <div class="mobileRoomList">
+
+      <!-- Compact Room Code & Create Row -->
+      <div class="clRoomActions">
+        <div class="clJoinInputWrap">
+          <input id="joinCode" type="text" placeholder="输入6位房间码" autocomplete="off" maxlength="12">
+          <button data-action="join-by-code">加入</button>
+        </div>
+        <button class="clCreateRoomBtn" data-action="create-room-xiangqi">+ 创建棋室</button>
+      </div>
+
+      <!-- High Density Public Rooms List -->
+      <section class="clSection">
+        <div class="clSectionHeader">
+          <span class="clSectionTitle">公开等候棋室 (${rooms.length})</span>
+        </div>
+        <div class="clRoomList">
           ${rooms.length ? rooms.map(room => `
-            <button data-nav="room/${escapeHtml(room.roomId || '')}">
-              <span class="mobileGameSeal ${room.gameType === 'GOMOKU' ? 'is-green' : ''}">${room.gameType === 'GOMOKU' ? '五' : '象'}</span>
-              <span><strong>${escapeHtml(room.hostUsername || '棋友')} 的${room.gameType === 'GOMOKU' ? '五子棋' : '象棋'}房</strong><small>${escapeHtml(room.roomCode || '')} · ${room.guestUsername ? '对局中' : '等待加入'}</small></span>
-              ${mobileIcon('chevron')}
-            </button>
-          `).join('') : '<div class="mobileEmptyState"><strong>暂时没有公开房间</strong><span>创建一间棋室，邀请好友先来一局。</span></div>'}
+            <div class="clRoomItem">
+              <span class="clSeal ${room.gameType === 'GOMOKU' ? 'is-green' : ''}">${room.gameType === 'GOMOKU' ? '五' : '象'}</span>
+              <div class="clRoomMeta">
+                <strong>${escapeHtml(room.hostUsername || '棋友')} 的棋室</strong>
+                <small>房号: ${escapeHtml(room.roomCode || '')} · ${room.guestUsername ? '对局中' : '等待挑战'}</small>
+              </div>
+              <button class="clEnterBtn ${room.guestUsername ? 'ghost' : 'is-primary'}" data-nav="room/${escapeHtml(room.roomId || '')}">
+                ${room.guestUsername ? '观战' : '入座'}
+              </button>
+            </div>
+          `).join('') : '<div class="clEmptyNote">暂无等候棋室，点击上方“创建棋室”邀好友对局</div>'}
         </div>
       </section>
     </div>
@@ -5180,11 +5336,26 @@ function renderBottomNav(activePage) {
 function renderMobileBottomNav(activePage) {
   return `
     <nav class="mobileBottomNav" aria-label="主要导航">
-      <a href="#/home" data-mobile-nav="home" class="${activePage === 'home' ? 'is-active' : ''}">${mobileIcon('home')}<span>首页</span></a>
-      <a href="#/play" data-mobile-nav="play" class="${activePage === 'play' ? 'is-active' : ''}">${mobileIcon('play')}<span>对局</span></a>
-      <a href="#/learn/puzzles/ALL" data-mobile-nav="learn" class="${activePage === 'learn' ? 'is-active' : ''}">${mobileIcon('learn')}<span>学习</span></a>
-      <a href="#/watch" data-mobile-nav="watch" class="${activePage === 'watch' ? 'is-active' : ''}">${mobileIcon('watch')}<span>观战</span></a>
-      <a href="#/me" data-mobile-nav="me" class="${activePage === 'me' ? 'is-active' : ''}">${mobileIcon('me')}<span>我的</span></a>
+      <a href="#/home" data-mobile-nav="home" class="mobileNavItem ${activePage === 'home' ? 'is-active' : ''}">
+        <span class="mobileNavIconWrap">${mobileIcon('home')}</span>
+        <span class="mobileNavLabel">首页</span>
+      </a>
+      <a href="#/play" data-mobile-nav="play" class="mobileNavItem ${activePage === 'play' ? 'is-active' : ''}">
+        <span class="mobileNavIconWrap">${mobileIcon('play')}</span>
+        <span class="mobileNavLabel">对局</span>
+      </a>
+      <a href="#/learn/puzzles/ALL" data-mobile-nav="learn" class="mobileNavItem ${activePage === 'learn' ? 'is-active' : ''}">
+        <span class="mobileNavIconWrap">${mobileIcon('learn')}</span>
+        <span class="mobileNavLabel">学习</span>
+      </a>
+      <a href="#/watch" data-mobile-nav="watch" class="mobileNavItem ${activePage === 'watch' ? 'is-active' : ''}">
+        <span class="mobileNavIconWrap">${mobileIcon('watch')}</span>
+        <span class="mobileNavLabel">观战</span>
+      </a>
+      <a href="#/me" data-mobile-nav="me" class="mobileNavItem ${activePage === 'me' ? 'is-active' : ''}">
+        <span class="mobileNavIconWrap">${mobileIcon('me')}</span>
+        <span class="mobileNavLabel">我的</span>
+      </a>
     </nav>
   `;
 }

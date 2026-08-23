@@ -1,21 +1,27 @@
 :root {
-  --mobile-paper: #f5f0e6;
-  --mobile-paper-deep: #e9dfcf;
-  --mobile-ink: #211d18;
-  --mobile-muted: #6f675c;
-  --mobile-cinnabar: #9d3023;
-  --mobile-cinnabar-dark: #782219;
-  --mobile-pine: #315c4d;
-  --mobile-gold: #b47a36;
-  --mobile-line: #d9cfbf;
-  --mobile-panel: #fbf8f1;
-  --mobile-ease: cubic-bezier(.22, 1, .36, 1);
+  --cl-paper: #fcfaf6;
+  --cl-paper-deep: #f5efe4;
+  --cl-surface: #ffffff;
+  --cl-ink: #221e19;
+  --cl-muted: #6b6357;
+  --cl-cinnabar: #9c2f22;
+  --cl-cinnabar-dark: #7d2015;
+  --cl-green: #2f5f4a;
+  --cl-gold: #b97c38;
+  --cl-border: rgba(60, 48, 36, 0.12);
+  --cl-border-bold: rgba(60, 48, 36, 0.22);
+  --cl-shadow-sm: 0 2px 8px rgba(34, 30, 25, 0.04);
+  --cl-shadow-md: 0 6px 16px rgba(34, 30, 25, 0.07);
+  --cl-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .mobileHome,
 .mobileLobby,
 .mobileBottomNav,
-.mobileSheetOverlay {
+.mobileSheetOverlay,
+.mobileQuickStartSheet,
+.mobileContentPage,
+.mobileModePage {
   display: none;
 }
 
@@ -26,28 +32,18 @@
     box-sizing: border-box;
   }
 
-  .mobileVersionRow {
-    width: 100%;
-    min-height: 48px;
-    padding: 12px 0;
-    border: 0;
-    border-top: 1px solid var(--mobile-line);
-    background: transparent;
-    color: inherit;
-    text-align: left;
-  }
   html,
   body {
     width: 100%;
     max-width: 100%;
     min-height: 100%;
+    margin: 0;
+    padding: 0;
     overflow-x: hidden;
-    background: var(--mobile-paper) !important;
-  }
-
-  body {
-    font-family: "Noto Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
-    color: var(--mobile-ink) !important;
+    background: var(--cl-paper) !important;
+    color: var(--cl-ink) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei UI", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
   button,
@@ -60,6 +56,7 @@
   a {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    cursor: pointer;
   }
 
   .site {
@@ -80,7 +77,7 @@
     max-width: 100%;
     min-width: 0;
     margin: 0;
-    padding: 0 0 calc(82px + env(safe-area-inset-bottom)) !important;
+    padding: 0 0 calc(76px + env(safe-area-inset-bottom)) !important;
     overflow-x: hidden;
   }
 
@@ -95,837 +92,796 @@
   }
 
   .mobileHome,
-  .mobileLobby {
-    display: block;
+  .mobileLobby,
+  .mobileContentPage,
+  .mobileModePage {
+    display: block !important;
     width: 100%;
     min-width: 0;
-    background:
-      radial-gradient(circle at 92% 7%, rgba(157, 48, 35, .07), transparent 24%),
-      linear-gradient(180deg, #faf7f0 0, var(--mobile-paper) 54%, #eee6d9 100%);
+    background: var(--cl-paper);
+  }
+
+  .clContainer {
+    padding: max(8px, env(safe-area-inset-top)) 14px 16px 14px;
   }
 
   .mobileIcon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     flex: 0 0 auto;
   }
 
-  .mobileAppHeader {
+  /* ==========================================================================
+     1. Classical Top Header & Brand
+     ========================================================================== */
+  .clAppHeader {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 72px;
-    padding: max(12px, env(safe-area-inset-top)) 20px 8px;
+    min-height: 52px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cl-border);
   }
 
-  .mobileBrand {
+  .clBrand {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--mobile-ink);
-    text-decoration: none;
   }
 
-  .mobileBrandSeal {
+  .clSeal {
     display: grid;
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
     place-items: center;
-    border-radius: 50%;
-    background: var(--mobile-cinnabar);
-    color: #fffaf2;
-    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
-    font-size: 22px;
-    box-shadow: 0 7px 18px rgba(120, 34, 25, .16);
+    border-radius: 8px;
+    background: var(--cl-cinnabar);
+    color: #ffffff;
+    font-family: "Songti SC", "Source Han Serif SC", "KaiTi", serif;
+    font-size: 18px;
+    font-weight: 750;
+    box-shadow: 0 2px 6px rgba(156, 47, 34, 0.25);
+    flex-shrink: 0;
   }
 
-  .mobileBrand strong,
-  .mobileBrand small {
+  .clSeal.is-green {
+    background: var(--cl-green);
+  }
+
+  .clBrandText strong {
     display: block;
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", "KaiTi", serif;
+    font-size: 17px;
+    font-weight: 750;
+    color: var(--cl-ink);
+    letter-spacing: 0.05em;
+    line-height: 1.2;
   }
 
-  .mobileBrand strong {
-    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
-    font-size: 19px;
-    letter-spacing: .12em;
+  .clBrandText small {
+    display: block;
+    font-size: 11px;
+    color: var(--cl-muted);
+    letter-spacing: 0.04em;
+    margin-top: 1px;
   }
 
-  .mobileBrand small {
-    margin-top: 2px;
-    color: var(--mobile-muted);
-    font-size: 10px;
-    letter-spacing: .08em;
-  }
-
+  .clAvatarBtn,
   .mobileProfileButton {
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 34px;
+    height: 34px;
     place-items: center;
-    border: 1px solid rgba(157, 48, 35, .18);
+    border: 1px solid var(--cl-border-bold);
     border-radius: 50%;
-    background: rgba(251, 248, 241, .88);
-    color: var(--mobile-cinnabar);
-    font-family: "Source Han Serif SC", "Songti SC", serif;
-    font-size: 16px;
+    background: #fffdfa;
+    color: var(--cl-cinnabar);
+    font-family: "Songti SC", "KaiTi", serif;
+    font-size: 15px;
+    font-weight: 750;
+    box-shadow: var(--cl-shadow-sm);
+    transition: transform 0.12s ease;
   }
 
-  .mobileHero {
-    position: relative;
-    min-height: 470px;
-    margin: 8px 16px 0;
-    overflow: hidden;
-    border: 1px solid rgba(120, 92, 61, .2);
-    border-radius: 28px 28px 64px 28px;
-    background:
-      linear-gradient(148deg, rgba(255, 253, 248, .98), rgba(238, 227, 210, .94)),
-      var(--mobile-panel);
+  .clAvatarBtn:active,
+  .mobileProfileButton:active {
+    transform: scale(0.92);
   }
 
-  .mobileHero::before {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(66, 55, 43, .025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(66, 55, 43, .025) 1px, transparent 1px);
-    background-size: 24px 24px;
-    content: "";
-    mask-image: linear-gradient(to bottom, #000, transparent 72%);
-  }
-
-  .mobileHeroWash {
-    position: absolute;
-    top: -30px;
-    right: -76px;
-    width: 310px;
-    height: 310px;
-    border-radius: 50%;
-    background:
-      radial-gradient(circle at 50% 48%, rgba(255, 253, 247, .82) 0 38%, transparent 39%),
-      conic-gradient(from 50deg, rgba(49, 92, 77, .32), rgba(180, 122, 54, .16), rgba(157, 48, 35, .18), rgba(49, 92, 77, .32));
-    filter: blur(.2px);
-    opacity: .72;
-  }
-
-  .mobileHeroWash::after {
-    position: absolute;
-    inset: 76px;
-    border: 1px solid rgba(49, 92, 77, .26);
-    border-radius: 50%;
-    content: "";
-  }
-
-  .mobileBoardGlyph {
-    position: absolute;
-    top: 92px;
-    left: 72px;
-    color: rgba(33, 29, 24, .4);
-    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
-    font-size: 18px;
-    line-height: 1.8;
-    letter-spacing: .35em;
-    writing-mode: vertical-rl;
-  }
-
-  .mobileHeroCopy {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    min-height: 470px;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 38px 26px 24px;
-  }
-
-  .mobileEyebrow,
-  .mobileSectionHead span,
-  .mobileSheetHeading span {
-    color: var(--mobile-cinnabar);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .18em;
-  }
-
-  .mobileHero h1 {
-    max-width: 260px;
-    margin: 18px 0 12px;
-    color: var(--mobile-ink);
-    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif !important;
-    font-size: clamp(40px, 12vw, 54px);
-    font-weight: 700;
-    line-height: 1.16;
-    letter-spacing: -.02em;
-  }
-
-  .mobileHeroCopy > p {
-    max-width: 245px;
-    margin: 0;
-    color: var(--mobile-muted);
-    font-size: 14px;
-    line-height: 1.75;
-  }
-
-  .mobilePrimaryAction {
+  .clSquareBtn {
     display: grid;
-    width: 100%;
-    min-height: 64px;
-    grid-template-columns: 34px 1fr auto;
-    align-items: center;
-    gap: 10px;
-    margin-top: auto;
-    padding: 10px 16px;
-    border: 0;
-    border-radius: 18px;
-    background: linear-gradient(145deg, var(--mobile-cinnabar), var(--mobile-cinnabar-dark));
-    color: #fffaf2;
-    text-align: left;
-    box-shadow: 0 16px 32px rgba(120, 34, 25, .22);
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 1px solid var(--cl-border);
+    border-radius: 8px;
+    background: #fffdfa;
+    color: var(--cl-ink);
+    font-size: 18px;
+    font-weight: 700;
   }
 
-  .mobilePrimaryAction span {
+  .clPageTitle {
+    margin: 0;
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", serif;
     font-size: 17px;
+    font-weight: 750;
+    color: var(--cl-ink);
+  }
+
+  /* Resume Strip */
+  .clResumeStrip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    background: rgba(185, 124, 56, 0.08);
+    border: 1px solid rgba(185, 124, 56, 0.22);
+    font-size: 13px;
+    color: var(--cl-ink);
+    cursor: pointer;
+  }
+
+  .clResumeTag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--cl-gold);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 750;
+    flex-shrink: 0;
+  }
+
+  .clResumeText {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+  }
+
+  .clChevron {
+    color: var(--cl-muted);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* ==========================================================================
+     2. High Efficiency Quick Match Ribbon
+     ========================================================================== */
+  .clQuickRibbon {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ffffff, #faf6ee);
+    border: 1px solid var(--cl-border-bold);
+    box-shadow: var(--cl-shadow-sm);
+  }
+
+  .clRibbonMain {
+    min-width: 0;
+  }
+
+  .clRibbonMeta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .clPill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--cl-cinnabar);
+    color: #ffffff;
+    font-size: 11px;
     font-weight: 750;
   }
 
-  .mobilePrimaryAction small {
-    color: rgba(255, 250, 242, .74);
-    font-size: 11px;
-  }
-
-  .mobilePrimaryAction:active,
-  .mobileActionList button:active,
-  .mobileBottomNav a:active {
-    transform: scale(.98);
-  }
-
-  .mobileContinueStrip {
-    display: grid;
-    min-height: 78px;
-    grid-template-columns: 42px 1fr 24px;
-    align-items: center;
-    gap: 12px;
-    margin: 14px 20px 28px;
-    color: var(--mobile-ink);
-    text-decoration: none;
-  }
-
-  .mobileContinueMark,
-  .mobileGameSeal {
-    display: grid;
-    width: 42px;
-    height: 42px;
-    place-items: center;
-    border: 1px solid rgba(157, 48, 35, .22);
-    border-radius: 50%;
-    background: rgba(157, 48, 35, .08);
-    color: var(--mobile-cinnabar);
-    font-family: "Source Han Serif SC", "Songti SC", serif;
-    font-weight: 700;
-  }
-
-  .mobileContinueStrip strong,
-  .mobileContinueStrip small,
-  .mobileActionList strong,
-  .mobileActionList small,
-  .mobileRecentList strong,
-  .mobileRecentList small,
-  .mobileRoomList strong,
-  .mobileRoomList small {
-    display: block;
-  }
-
-  .mobileContinueStrip strong {
-    font-size: 15px;
-  }
-
-  .mobileContinueStrip small,
-  .mobileActionList small,
-  .mobileRecentList small,
-  .mobileRoomList small {
-    margin-top: 4px;
-    color: var(--mobile-muted);
+  .clSubPill {
     font-size: 12px;
+    color: var(--cl-muted);
+    font-weight: 600;
   }
 
-  .mobileContinueStrip > .mobileIcon {
-    color: var(--mobile-muted);
+  .clRibbonTitle {
+    margin-top: 4px;
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", serif;
+    font-size: 15px;
+    font-weight: 750;
+    color: var(--cl-ink);
   }
 
-  .mobileSection {
-    margin: 0 20px 32px;
+  .clMatchBtn {
+    flex-shrink: 0;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--cl-cinnabar), var(--cl-cinnabar-dark));
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 750;
+    box-shadow: 0 3px 10px rgba(156, 47, 34, 0.25);
+    transition: transform 0.12s ease;
   }
 
-  .mobileSectionHead {
+  .clMatchBtn:active {
+    transform: scale(0.95);
+  }
+
+  /* ==========================================================================
+     3. Classical 4-Mode Matrix (2x2 Compact Grid)
+     ========================================================================== */
+  .clModeSection {
+    margin-bottom: 10px;
+  }
+
+  .clModeGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .clModeTile {
     display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 14px;
+    align-items: center;
+    gap: 10px;
+    min-height: 54px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    box-shadow: 0 1px 4px rgba(34, 30, 25, 0.03);
+    text-align: left;
+    transition: all 0.15s ease;
   }
 
-  .mobileSectionHead h2,
-  .mobileSheetHeading h2 {
-    margin: 5px 0 0;
-    color: var(--mobile-ink);
-    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif !important;
-    font-size: 25px;
+  .clModeTile:active {
+    transform: scale(0.96);
+    background: var(--cl-paper-deep);
+  }
+
+  .clModeSeal {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 6px;
+    color: #ffffff;
+    font-family: "Songti SC", "KaiTi", serif;
+    font-size: 14px;
+    font-weight: 750;
+    flex-shrink: 0;
+  }
+
+  .clModeSeal.is-red {
+    background: var(--cl-cinnabar);
+  }
+
+  .clModeSeal.is-green {
+    background: var(--cl-green);
+  }
+
+  .clModeSeal.is-gold {
+    background: var(--cl-gold);
+  }
+
+  .clModeSeal.is-ink {
+    background: var(--cl-ink);
+  }
+
+  .clModeText strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 750;
+    color: var(--cl-ink);
     line-height: 1.2;
   }
 
-  .mobileSectionHead > button,
-  .mobileSectionHead > small,
-  .mobileRankNote button {
-    min-height: 40px;
-    padding: 6px 0;
-    border: 0;
-    background: transparent;
-    color: var(--mobile-muted);
-    font-size: 12px;
+  .clModeText small {
+    display: block;
+    font-size: 11px;
+    color: var(--cl-muted);
+    margin-top: 2px;
   }
 
-  .mobileActionList,
-  .mobileRecentList,
-  .mobileRoomList {
-    overflow: hidden;
-    border: 1px solid rgba(120, 92, 61, .18);
-    border-radius: 22px;
-    background: rgba(251, 248, 241, .9);
+  /* ==========================================================================
+     4. High Density Classical Sections & Recent Lists
+     ========================================================================== */
+  .clSection {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    box-shadow: var(--cl-shadow-sm);
   }
 
-  .mobileActionList > button,
-  .mobileRecentList > button,
-  .mobileRoomList > button {
-    display: grid;
-    width: 100%;
-    min-height: 76px;
-    grid-template-columns: 46px 1fr 22px;
+  .clSectionHeader {
+    display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 0;
-    border-bottom: 1px solid rgba(120, 92, 61, .13);
-    background: transparent;
-    color: var(--mobile-ink);
-    text-align: left;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cl-border);
+    margin-bottom: 6px;
   }
 
-  .mobileActionList > button:last-child,
-  .mobileRecentList > button:last-child,
-  .mobileRoomList > button:last-child {
+  .clSectionTitle {
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", serif;
+    font-size: 14px;
+    font-weight: 750;
+    color: var(--cl-ink);
+    letter-spacing: 0.04em;
+  }
+
+  .clLinkBtn {
+    border: 0;
+    background: transparent;
+    color: var(--cl-cinnabar);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 4px;
+  }
+
+  .clRecentList {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .clRecentItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 0;
+    border: 0;
+    border-bottom: 1px dashed var(--cl-border);
+    background: transparent;
+    text-align: left;
+    transition: background 0.12s ease;
+  }
+
+  .clRecentItem:last-child {
     border-bottom: 0;
   }
 
-  .mobileActionIcon {
+  .clRecentItem:active {
+    background: var(--cl-paper-deep);
+  }
+
+  .clOutcomeTag {
     display: grid;
-    width: 44px;
-    height: 44px;
+    width: 24px;
+    height: 24px;
     place-items: center;
-    border-radius: 15px;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 750;
+    font-family: "Songti SC", "KaiTi", serif;
+    flex-shrink: 0;
   }
 
-  .mobileActionIcon .mobileIcon {
-    width: 22px;
+  .clOutcomeTag.is-win {
+    background: var(--cl-cinnabar);
   }
 
-  .mobileActionIcon.is-red {
-    background: rgba(157, 48, 35, .1);
-    color: var(--mobile-cinnabar);
+  .clOutcomeTag.is-loss {
+    background: #8b8377;
   }
 
-  .mobileActionIcon.is-green,
-  .mobileGameSeal.is-green {
-    border-color: rgba(49, 92, 77, .24);
-    background: rgba(49, 92, 77, .1);
-    color: var(--mobile-pine);
+  .clOutcomeTag.is-draw {
+    background: var(--cl-green);
   }
 
-  .mobileActionIcon.is-ink {
-    background: rgba(33, 29, 24, .09);
-    color: var(--mobile-ink);
-    font-family: "Source Han Serif SC", "Songti SC", serif;
-    font-size: 20px;
+  .clRecentInfo {
+    flex: 1;
+    min-width: 0;
   }
 
-  .mobileActionList strong,
-  .mobileRecentList strong,
-  .mobileRoomList strong {
-    color: var(--mobile-ink);
-    font-size: 14px;
-  }
-
-  .mobileActionList > button > .mobileIcon,
-  .mobileRecentList > button > .mobileIcon,
-  .mobileRoomList > button > .mobileIcon {
-    width: 19px;
-    color: #9d9387;
-  }
-
-  .mobileEmptyState {
+  .clRecentHeading {
     display: flex;
-    min-height: 116px;
-    flex-direction: column;
-    justify-content: center;
-    padding: 20px;
+    align-items: center;
+    gap: 6px;
   }
 
-  .mobileEmptyState strong {
-    font-family: "Source Han Serif SC", "Songti SC", serif;
-    font-size: 17px;
-  }
-
-  .mobileEmptyState span {
-    margin-top: 6px;
-    color: var(--mobile-muted);
+  .clRecentHeading strong {
     font-size: 13px;
+    font-weight: 750;
+    color: var(--cl-ink);
   }
 
-  .mobileRankNote {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 10px;
-    margin: 0 20px 28px;
-    padding: 18px 0;
-    border-top: 1px solid var(--mobile-line);
-    border-bottom: 1px solid var(--mobile-line);
+  .clRecentResult {
+    font-size: 12px;
+    color: var(--cl-muted);
   }
 
-  .mobileRankNote > span {
-    color: var(--mobile-cinnabar);
+  .clRecentPlayers {
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .12em;
-    writing-mode: vertical-rl;
+    color: var(--cl-muted);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .mobileRankNote strong,
-  .mobileRankNote small {
-    display: block;
+  .clEmptyNote {
+    padding: 16px 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--cl-muted);
   }
 
-  .mobileRankNote strong {
-    font-family: "Source Han Serif SC", "Songti SC", serif;
-    font-size: 16px;
-  }
-
-  .mobileRankNote small {
-    margin-top: 4px;
-    color: var(--mobile-muted);
-    font-size: 11px;
-  }
-
-  .mobileBottomNav {
-    position: fixed;
-    z-index: 9000;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    display: grid;
-    min-height: 66px;
-    grid-template-columns: repeat(5, 1fr);
-    padding: 4px 8px;
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    border-top: 1px solid rgba(120, 92, 61, .2);
-    background: rgba(250, 247, 240, .96);
-    box-shadow: 0 -12px 28px rgba(62, 45, 29, .07);
-    backdrop-filter: blur(14px);
-  }
-
-  .mobileBottomNav a {
-    position: relative;
+  /* Classical Rank Bar */
+  .clRankBar {
     display: flex;
-    min-width: 48px;
-    min-height: 58px;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 3px;
-    color: #847a6e;
-    font-size: 10px;
-    text-decoration: none;
-    transition: color .2s var(--mobile-ease), transform .18s var(--mobile-ease);
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(185, 124, 56, 0.08);
+    border: 1px solid rgba(185, 124, 56, 0.2);
+    font-size: 12px;
+    margin-bottom: 10px;
   }
 
-  .mobileBottomNav a .mobileIcon {
-    width: 22px;
-    height: 22px;
+  .clRankTitle {
+    font-weight: 750;
+    color: var(--cl-gold);
   }
 
-  .mobileBottomNav a.is-active {
-    color: var(--mobile-cinnabar);
+  .clRankUser {
     font-weight: 700;
+    color: var(--cl-ink);
   }
 
-  .mobileBottomNav a.is-active::before {
-    position: absolute;
-    top: 2px;
-    width: 20px;
-    height: 2px;
-    border-radius: 999px;
-    background: var(--mobile-cinnabar);
-    content: "";
-  }
-
-  .mobileSheetOverlay {
-    position: fixed;
-    z-index: 10000;
-    inset: 0;
-    display: flex;
-    align-items: end;
-    justify-content: center;
-    background: rgba(25, 21, 17, .46);
-    animation: mobileFadeIn .2s ease-out;
-  }
-
-  .mobileQuickStartSheet {
-    width: 100%;
-    max-height: min(720px, 90dvh);
-    overflow-y: auto;
-    padding: 10px 20px 18px;
-    padding-bottom: max(18px, env(safe-area-inset-bottom));
-    border-radius: 28px 28px 0 0;
-    background: var(--mobile-panel);
-    box-shadow: 0 -24px 54px rgba(26, 19, 13, .18);
-    animation: mobileSheetIn .24s var(--mobile-ease);
-  }
-
-  .mobileSheetHandle {
-    display: block;
-    width: 38px;
-    height: 4px;
-    margin: 2px auto 20px;
-    border-radius: 99px;
-    background: #c8beb0;
-  }
-
-  .mobileGameToggle {
+  /* ==========================================================================
+     5. Classical Lobby Styles
+     ========================================================================== */
+  .clLobbyQuickRow {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    margin: 20px 0 16px;
-    padding: 4px;
-    border-radius: 14px;
-    background: #eae2d6;
-  }
-
-  .mobileGameToggle button {
-    min-height: 44px;
-    border: 0;
-    border-radius: 11px;
-    background: transparent;
-    color: var(--mobile-muted);
-  }
-
-  .mobileGameToggle button.is-active {
-    background: #fffdf8;
-    color: var(--mobile-cinnabar);
-    font-weight: 700;
-    box-shadow: 0 3px 10px rgba(50, 38, 27, .08);
-  }
-
-  .mobileStartModes {
-    display: grid;
     gap: 8px;
+    margin-bottom: 10px;
   }
 
-  .mobileStartModes > button {
-    display: grid;
-    min-height: 72px;
-    grid-template-columns: 32px 1fr 20px;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid rgba(120, 92, 61, .16);
-    border-radius: 16px;
-    background: #fffdf8;
-    color: var(--mobile-ink);
-    text-align: left;
-  }
-
-  .mobileStartModes strong,
-  .mobileStartModes small {
-    display: block;
-  }
-
-  .mobileStartModes small {
-    margin-top: 4px;
-    color: var(--mobile-muted);
-    font-size: 11px;
-  }
-
-  .mobileSheetCancel {
-    width: 100%;
-    min-height: 48px;
-    margin-top: 10px;
-    border: 0;
-    background: transparent;
-    color: var(--mobile-muted);
-  }
-
-  .mobilePageHeader {
-    display: grid;
-    min-height: 82px;
-    grid-template-columns: 48px 1fr 48px;
-    align-items: center;
-    padding: max(12px, env(safe-area-inset-top)) 14px 8px;
-  }
-
-  .mobilePageHeader > button {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    place-items: center;
-    border: 1px solid rgba(120, 92, 61, .18);
-    border-radius: 50%;
-    background: rgba(251, 248, 241, .82);
-    color: var(--mobile-ink);
-    font-size: 25px;
-  }
-
-  .mobilePageHeader > div {
-    text-align: center;
-  }
-
-  .mobilePageHeader span {
-    color: var(--mobile-cinnabar);
-    font-size: 10px;
-    letter-spacing: .16em;
-  }
-
-  .mobilePageHeader h1 {
-    margin: 2px 0 0;
-    font-family: "Source Han Serif SC", "Songti SC", serif !important;
-    font-size: 20px;
-  }
-
-  .mobileContentPage,
-  .mobileModePage {
-    min-height: 100dvh;
-    background:
-      radial-gradient(circle at 90% 0, rgba(180, 122, 54, .12), transparent 30%),
-      linear-gradient(180deg, #faf7f0, var(--mobile-paper));
-  }
-
-  .mobileContentHeader {
-    display: grid;
-    min-height: 82px;
-    grid-template-columns: 48px minmax(0, 1fr) 48px;
-    align-items: center;
-    gap: 8px;
-    padding: max(12px, env(safe-area-inset-top)) 16px 10px;
-  }
-
-  .mobileContentHeader > button {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    place-items: center;
-    border: 1px solid rgba(120, 92, 61, .18);
-    border-radius: 50%;
-    background: rgba(251, 248, 241, .92);
-    color: var(--mobile-ink);
-  }
-
-  .mobileContentHeader > div {
-    min-width: 0;
-    text-align: center;
-  }
-
-  .mobileContentHeader span {
-    color: var(--mobile-cinnabar);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .16em;
-  }
-
-  .mobileContentHeader h1 {
-    overflow: hidden;
-    margin: 3px 0 0;
-    color: var(--mobile-ink);
-    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif !important;
-    font-size: 20px;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .mobileContentBody {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    padding: 0 16px calc(88px + env(safe-area-inset-bottom));
-  }
-
-  .mobileContentBody > * {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .mobileContentPage .panel,
-  .mobileContentPage .card,
-  .mobileContentPage .banner,
-  .mobileContentPage .profileCard {
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .mobileContentPage .tableWrap,
-  .mobileContentPage .rankTable,
-  .mobileContentPage .moveList {
-    max-width: 100%;
-    overscroll-behavior-inline: contain;
-  }
-
-  .mobileModePage .modeSelectPage {
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-  }
-
-  .mobileModePage .modeContentSplit,
-  .mobileModePage .featuresGrid,
-  .mobileModePage .quickActions,
-  .mobileModePage .statsGrid {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .mobileModePage .modeContentSplit,
-  .mobileModePage .quickActions,
-  .mobileModePage .featuresGrid {
-    display: grid;
-    gap: 12px;
-  }
-
-  .mobileModePage .modeTopIllust,
-  .mobileModePage .modeDetailCard,
-  .mobileModePage .modeContentSplit,
-  .mobileModePage .modeBottomActions {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .mobileLobbyLead {
-    margin: 10px 16px 18px;
-    padding: 28px 22px 20px;
-    border-radius: 28px 28px 56px 28px;
-    background:
-      radial-gradient(circle at 88% 18%, rgba(180, 122, 54, .2), transparent 30%),
-      linear-gradient(145deg, #fdfaf4, #eadfce);
-    border: 1px solid rgba(120, 92, 61, .18);
-  }
-
-  .mobileLobbyLead h2 {
-    max-width: 260px;
-    margin: 14px 0 28px;
-    font-family: "Source Han Serif SC", "Songti SC", serif !important;
-    font-size: 34px;
-    line-height: 1.2;
-  }
-
-  .mobileLobbyActions {
-    display: grid;
-    gap: 10px;
-    margin: 0 20px 30px;
-  }
-
-  .mobileLobbyActions > button,
-  .mobileLobbyActions > label {
+  .clLobbyBtn {
     display: flex;
-    min-height: 66px;
     flex-direction: column;
+    align-items: flex-start;
     justify-content: center;
-    padding: 12px 16px;
-    border: 1px solid rgba(120, 92, 61, .18);
-    border-radius: 18px;
-    background: rgba(251, 248, 241, .88);
-    color: var(--mobile-ink);
+    min-height: 54px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    box-shadow: var(--cl-shadow-sm);
     text-align: left;
   }
 
-  .mobileLobbyActions small {
-    margin-top: 3px;
-    color: var(--mobile-muted);
+  .clLobbyBtn.is-primary {
+    background: linear-gradient(135deg, #ffffff, #fdf5f4);
+    border-color: rgba(156, 47, 34, 0.25);
   }
 
-  .mobileJoinRow {
-    display: grid;
-    grid-template-columns: 1fr 68px;
-    gap: 8px;
-    margin-top: 8px;
+  .clLobbyBtn strong {
+    font-size: 14px;
+    font-weight: 750;
+    color: var(--cl-ink);
   }
 
-  .mobileJoinRow input,
-  .mobileJoinRow button {
-    min-width: 0;
-    min-height: 46px;
-    border: 1px solid var(--mobile-line);
-    border-radius: 12px;
+  .clLobbyBtn.is-primary strong {
+    color: var(--cl-cinnabar);
   }
 
-  .mobileJoinRow input {
-    padding: 0 12px;
-    background: #fffdf8;
+  .clLobbyBtn small {
+    font-size: 11px;
+    color: var(--cl-muted);
+    margin-top: 2px;
   }
 
-  .mobileJoinRow button {
-    background: var(--mobile-cinnabar);
-    color: #fff;
-  }
-
-  /* Existing content pages share the mobile rhythm without losing features. */
-  .site.route-learn .shell,
-  .site.route-watch .shell,
-  .site.route-community .shell,
-  .site.route-me .shell,
-  .site.route-help .shell,
-  .site.route-room .shell {
-    padding: 16px 16px calc(88px + env(safe-area-inset-bottom)) !important;
-  }
-
-  .profilePage,
-  .learnLayout,
-  .watchGrid,
-  .communityGrid,
-  .split,
-  .grid.cards {
-    min-width: 0;
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .profileSidebar,
-  .deskSidebar {
+  .clRoomActions {
     display: flex;
-    width: 100%;
-    overflow-x: auto;
-    flex-direction: row;
-    padding: 6px;
-    scroll-snap-type: x proximity;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
   }
 
-  .profileSidebarItem,
-  .deskSidebarItem {
-    min-width: max-content;
-    scroll-snap-align: start;
-  }
-
-  /* Board routes become a board-first vertical workspace. */
-  .boardPage--desk {
-    width: 100%;
-    min-width: 0;
-    min-height: 100dvh;
-    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) !important;
+  .clJoinInputWrap {
+    flex: 1;
+    display: flex;
+    height: 40px;
+    border: 1px solid var(--cl-border-bold);
+    border-radius: 8px;
     overflow: hidden;
-    background: var(--mobile-paper);
+    background: #ffffff;
   }
 
-  .boardPage--desk .boardDesk {
-    display: flex !important;
+  .clJoinInputWrap input {
+    flex: 1;
     min-width: 0;
-    min-height: 0;
+    border: 0;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--cl-ink);
+    background: transparent;
+    outline: none;
+  }
+
+  .clJoinInputWrap button {
+    border: 0;
+    padding: 0 12px;
+    background: var(--cl-ink);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .clCreateRoomBtn {
+    flex-shrink: 0;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--cl-cinnabar);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--cl-cinnabar);
+    font-size: 13px;
+    font-weight: 750;
+  }
+
+  .clRoomList {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .clRoomItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--cl-border);
+  }
+
+  .clRoomItem:last-child {
+    border-bottom: 0;
+  }
+
+  .clRoomMeta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .clRoomMeta strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 750;
+    color: var(--cl-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .clRoomMeta small {
+    display: block;
+    font-size: 11px;
+    color: var(--cl-muted);
+    margin-top: 1px;
+  }
+
+  .clEnterBtn {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .clEnterBtn.is-primary {
+    background: var(--cl-cinnabar);
+    color: #ffffff;
+  }
+
+  .clEnterBtn.ghost {
+    background: transparent;
+    border: 1px solid var(--cl-border-bold);
+    color: var(--cl-ink);
+  }
+
+  /* ==========================================================================
+     6. Quick Start Sheet
+     ========================================================================== */
+  .mobileSheetOverlay {
+    position: fixed;
+    z-index: 9999;
+    inset: 0;
+    display: flex !important;
+    align-items: flex-end;
+    background: rgba(34, 30, 25, 0.45);
+    backdrop-filter: blur(4px);
+  }
+
+  .clQuickSheet,
+  .mobileQuickStartSheet {
+    display: block !important;
+    width: 100%;
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+    background: #fffdfa;
+    border-top: 1px solid var(--cl-border-bold);
+    box-shadow: 0 -8px 24px rgba(34, 30, 25, 0.12);
+  }
+
+  .clSheetHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cl-border);
+  }
+
+  .clSheetHeader strong {
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", serif;
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--cl-ink);
+  }
+
+  .clCloseBtn {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    background: var(--cl-paper-deep);
+    border-radius: 50%;
+    font-size: 13px;
+    color: var(--cl-muted);
+  }
+
+  .clGameSwitcher {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 4px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: var(--cl-paper-deep);
+    border: 1px solid var(--cl-border);
+  }
+
+  .clGameSwitcher button {
+    min-height: 38px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cl-muted);
+  }
+
+  .clGameSwitcher button.is-active {
+    background: #ffffff;
+    color: var(--cl-cinnabar);
+    box-shadow: var(--cl-shadow-sm);
+  }
+
+  .clSheetModeList {
+    display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .clSheetModeItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    text-align: left;
+    transition: background 0.12s ease;
+  }
+
+  .clSheetModeItem.is-primary {
+    border-color: rgba(156, 47, 34, 0.25);
+    background: linear-gradient(135deg, #ffffff, #fdf8f7);
+  }
+
+  .clSheetModeMeta {
+    flex: 1;
+  }
+
+  .clSheetModeMeta strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 750;
+    color: var(--cl-ink);
+  }
+
+  .clSheetModeMeta small {
+    display: block;
+    font-size: 11px;
+    color: var(--cl-muted);
+    margin-top: 2px;
+  }
+
+  /* ==========================================================================
+     7. Board Page & Controls (Game Desk)
+     ========================================================================== */
+  .boardPage,
+  .boardPage--desk,
+  .boardPage--practice,
+  .boardPage--analysis {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 100dvh;
+    padding: max(6px, env(safe-area-inset-top)) 8px max(6px, env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+    background: var(--cl-paper) !important;
+  }
+
+  .boardDesk,
+  .boardDesk--practice,
+  .boardDesk--game,
+  .boardDesk--analysis {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+  }
+
+  .boardMobileTabs {
+    position: relative;
+    z-index: 2;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin-bottom: 6px !important;
+    padding: 3px !important;
+    border-radius: 10px !important;
+    background: var(--cl-paper-deep) !important;
+    border: 1px solid var(--cl-border) !important;
+  }
+
+  .boardMobileTabs button,
+  .boardMobileTabs .btn,
+  .boardMobileTabs .ghost {
+    min-height: 38px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 750 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .boardMobileTabs button.ghost,
+  .boardMobileTabs .ghost {
+    background: transparent !important;
+    color: var(--cl-muted) !important;
+    box-shadow: none !important;
+  }
+
+  .boardMobileTabs button.btn,
+  .boardMobileTabs .btn,
+  .boardMobileTabs button.is-active {
+    background: var(--cl-cinnabar) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(156, 47, 34, 0.25) !important;
   }
 
   .boardRail {
@@ -933,13 +889,15 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 4px;
-    padding: 6px !important;
-    border-radius: 16px;
+    padding: 4px !important;
+    border-radius: 12px;
+    background: rgba(255, 253, 250, 0.9);
+    border: 1px solid var(--cl-border);
   }
 
   .boardRailHeader,
   .boardRailNote {
-    display: none;
+    display: none !important;
   }
 
   .clockGrid {
@@ -953,37 +911,56 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    padding: 5px 7px !important;
-    border-radius: 13px !important;
+    padding: 6px 10px !important;
+    border: 1px solid var(--cl-border) !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+  }
+
+  .boardPlayerCard.is-active {
+    border-color: var(--cl-cinnabar) !important;
+    background: linear-gradient(135deg, #ffffff, #fdf6f5) !important;
+    box-shadow: 0 0 0 1px rgba(156, 47, 34, 0.2) !important;
   }
 
   .boardPlayerCardTop {
     min-width: 0;
-    gap: 6px;
-    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .boardPlayerCard .avatar {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
   }
 
   .boardPlayerCardTop .userMeta strong {
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 750;
+    color: var(--cl-ink);
   }
 
   .boardPlayerCardTop .vipBadge {
-    display: none;
+    display: block;
+    font-size: 10px;
+    color: var(--cl-muted);
   }
 
   .boardPlayerClock {
-    margin: 0 !important;
-    font-size: 18px !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
     font-variant-numeric: tabular-nums;
+    color: var(--cl-ink);
+  }
+
+  .boardPlayerCard.is-active .boardPlayerClock {
+    color: var(--cl-cinnabar);
   }
 
   .turnBadge {
-    display: none;
+    display: none !important;
   }
 
   .boardStage {
@@ -993,35 +970,30 @@
     min-height: 0;
     flex: 1;
     flex-direction: column;
-    padding: 8px !important;
-    border-radius: 16px !important;
-  }
-
-  .gameMetaRow {
-    display: flex;
-    max-width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    gap: 5px;
-    padding-bottom: 4px;
-  }
-
-  .gameMetaRow .pill:nth-child(n+4) {
-    display: none;
+    padding: 6px !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    border: 1px solid var(--cl-border) !important;
+    box-shadow: var(--cl-shadow-sm);
   }
 
   .boardStage > .status {
-    min-height: 30px;
+    min-height: 24px;
     margin: 0;
-    padding: 6px 8px;
+    padding: 2px 6px;
     font-size: 12px;
+    color: var(--cl-muted);
+    font-weight: 600;
   }
 
   .boardHost {
     min-width: 0 !important;
     max-width: 100% !important;
     flex: 1;
-    padding: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2px !important;
     overflow: hidden !important;
     touch-action: none;
   }
@@ -1034,108 +1006,904 @@
 
   .woodActions {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px !important;
-    margin-top: 6px !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    margin-top: 4px !important;
   }
 
   .woodActions button {
     min-width: 0 !important;
-    min-height: 44px;
-    padding: 7px 4px !important;
-    font-family: inherit !important;
-    font-size: 12px !important;
+    min-height: 40px !important;
+    padding: 4px 2px !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+    border-radius: 8px !important;
   }
 
-  .boardSidebar {
-    order: 3;
-    min-height: 0;
-    max-height: 34dvh;
-    padding: 8px !important;
-    overflow: auto !important;
-  }
-
+  /* ==========================================================================
+     8. Record Sidebar (100% Responsive Tab Panel)
+     ========================================================================== */
   .mobile-pane-board .boardSidebar {
-    display: none;
+    display: none !important;
   }
 
   .mobile-pane-moves .boardRail,
   .mobile-pane-moves .boardStage {
+    display: none !important;
+  }
+
+  .mobile-pane-moves .boardSidebar,
+  .mobile-pane-moves .recordPane {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+    min-height: calc(100dvh - 120px) !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--cl-border) !important;
+    background: #ffffff !important;
+    box-shadow: var(--cl-shadow-sm) !important;
+    box-sizing: border-box !important;
+  }
+
+  .gameSidebarTabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
+    margin: -12px -12px 12px -12px !important;
+    padding: 4px !important;
+    background: var(--cl-paper-deep) !important;
+    border-bottom: 1px solid var(--cl-border) !important;
+    border-radius: 14px 14px 0 0 !important;
+  }
+
+  .gameSidebarTabs .tab-btn {
+    border: 0 !important;
+    background: transparent !important;
+    padding: 8px 2px !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+    color: var(--cl-muted) !important;
+    border-radius: 8px !important;
+    text-align: center !important;
+  }
+
+  .gameSidebarTabs .tab-btn.active {
+    background: #ffffff !important;
+    color: var(--cl-cinnabar) !important;
+    box-shadow: var(--cl-shadow-sm) !important;
+  }
+
+  .tabContainer {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+  }
+
+  .tabContent {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .statusContent {
+    display: grid !important;
+    gap: 6px !important;
+  }
+
+  .statusField {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    background: var(--cl-paper-deep) !important;
+    border: 1px solid var(--cl-border) !important;
+  }
+
+  .statusField .label {
+    color: var(--cl-muted) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+
+  .statusField .val {
+    color: var(--cl-ink) !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+  }
+
+  .movesContent .moves {
+    max-height: calc(100dvh - 200px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    display: grid !important;
+    gap: 4px !important;
+  }
+
+  .movesContent .moveRow,
+  .movesContent .move {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    background: var(--cl-paper-deep) !important;
+    border: 1px solid var(--cl-border) !important;
+    font-size: 13px !important;
+  }
+
+  .analysisContent .analysisBanner {
+    padding: 12px 14px !important;
+    border-radius: 10px !important;
+    background: rgba(185, 124, 56, 0.08) !important;
+    border: 1px solid rgba(185, 124, 56, 0.2) !important;
+    display: flex !important;
+    gap: 8px !important;
+    align-items: flex-start !important;
+  }
+
+  .analysisContent .analysisBanner p {
+    margin: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    color: var(--cl-ink) !important;
+    font-weight: 600 !important;
+  }
+
+  .settingsContent .settingRow {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    background: var(--cl-paper-deep) !important;
+    border: 1px solid var(--cl-border) !important;
+  }
+
+  .settingsContent .settingRow span {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--cl-ink) !important;
+  }
+
+  .settingsContent .settingRow button {
+    min-height: 34px !important;
+    padding: 4px 14px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    font-weight: 750 !important;
+  }
+
+  .settingsContent .settingRow button.ghost {
+    background: #ffffff !important;
+    color: var(--cl-ink) !important;
+    border: 1px solid var(--cl-border-bold) !important;
+  }
+
+  .settingsContent .settingRow button.btn-red {
+    background: var(--cl-cinnabar) !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  /* ==========================================================================
+     9. Learn, Watch, Community, Me Components
+     ========================================================================== */
+  .mobileContentHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+    padding: max(8px, env(safe-area-inset-top)) 14px 8px;
+    border-bottom: 1px solid var(--cl-border);
+    margin-bottom: 10px;
+    background: #ffffff;
+  }
+
+  .mobileContentHeader button {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid var(--cl-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--cl-ink);
+  }
+
+  .mobileContentHeader div {
+    text-align: center;
+  }
+
+  .mobileContentHeader span {
+    display: block;
+    font-size: 10px;
+    color: var(--cl-muted);
+  }
+
+  .mobileContentHeader h1 {
+    margin: 0;
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", serif;
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--cl-ink);
+  }
+
+  .mobileContentBody {
+    padding: 0 14px calc(72px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* ==========================================================================
+     9. Classical Minimalist Learn & Content Pages
+     ========================================================================== */
+  .mobileContentPage .hero,
+  .mobileContentPage .sectionIntro,
+  .mobileContentPage .pageHeader {
+    display: none !important;
+  }
+
+  .mobileContentPage .panel,
+  .mobileContentPage .card {
+    background: #ffffff !important;
+    border: 1px solid var(--cl-border) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+
+  .mobileContentPage .tabs,
+  .mobileContentPage .segmented,
+  .mobileContentPage .learnTabs,
+  .learnTabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 2px 0 10px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .learnTabs::-webkit-scrollbar {
     display: none;
   }
 
-  .mobile-pane-moves .boardSidebar {
-    display: block;
-    max-height: calc(100dvh - 74px);
+  .mobileContentPage .pill,
+  .learnTabs .pill {
+    flex-shrink: 0 !important;
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+    border: 1px solid var(--cl-border) !important;
+    background: #fff !important;
+    color: var(--cl-ink) !important;
+    text-decoration: none !important;
+    cursor: pointer;
   }
 
-  .boardMobileTabs {
+  .mobileContentPage .pill.is-active,
+  .learnTabs .pill.is-active {
+    background: var(--cl-cinnabar) !important;
+    color: #fff !important;
+    border-color: var(--cl-cinnabar) !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage .segmented button {
+    flex-shrink: 0 !important;
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+    border-radius: 6px !important;
+    border: 1px solid var(--cl-border) !important;
+    background: #fff !important;
+    color: var(--cl-ink) !important;
+  }
+
+  .mobileContentPage .segmented button.active {
+    background: var(--cl-cinnabar) !important;
+    color: #fff !important;
+    border-color: var(--cl-cinnabar) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Learn Card Mobile Responsive Overhaul */
+  .learnCard {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    border: 1px solid var(--cl-border) !important;
+    box-shadow: 0 1px 4px rgba(34, 30, 25, 0.03) !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .learnCardTop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .learnCardBadge {
+    display: grid !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    place-items: center !important;
+    border-radius: 6px !important;
+    font-family: "Songti SC", "KaiTi", serif !important;
+    font-size: 15px !important;
+    font-weight: 750 !important;
+    color: #fff !important;
+    flex-shrink: 0 !important;
+  }
+
+  .learnCardInfo {
+    min-width: 0 !important;
+    flex: 1 !important;
+    text-align: left !important;
+  }
+
+  .learnCardInfo h3 {
+    margin: 0 0 2px !important;
+    font-size: 14px !important;
+    font-weight: 750 !important;
+    color: var(--cl-ink) !important;
+    line-height: 1.3 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .learnCardInfo .pill--mini {
+    font-size: 10px !important;
+    padding: 1px 6px !important;
+    border-radius: 4px !important;
+    background: rgba(140, 46, 33, 0.08) !important;
+    color: var(--cl-cinnabar) !important;
+    border: 1px solid rgba(140, 46, 33, 0.2) !important;
+    font-weight: 600 !important;
+  }
+
+  .learnMeta {
+    font-size: 11px !important;
+    color: var(--cl-muted) !important;
+  }
+
+  .learnSummaryOneLine {
+    font-size: 12px !important;
+    color: var(--cl-muted-deep) !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    text-align: left !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .learnAction {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 4px !important;
+    padding-top: 8px !important;
+    border-top: 1px dashed var(--cl-border) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .learnActionLeft {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .learnActionRight {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin-left: auto !important;
+  }
+
+  .learnGhostBtn {
+    border: 1px solid var(--cl-border) !important;
+    background: transparent !important;
+    color: var(--cl-muted-deep) !important;
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+    min-height: 28px !important;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .learnGuestTag {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--cl-muted);
+    background: var(--cl-paper-deep);
+    border-radius: 4px;
+    border: 1px solid var(--cl-border);
+    white-space: nowrap;
+  }
+
+  .learnAction .pill.is-completed {
+    display: inline-block;
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+    color: var(--cl-pine) !important;
+    background: rgba(47, 95, 74, 0.08) !important;
+    border: 1px solid rgba(47, 95, 74, 0.2) !important;
+    border-radius: 4px !important;
+    font-weight: 700 !important;
+    white-space: nowrap;
+  }
+
+  .learnAction .btn-red {
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    min-height: 28px !important;
+    border-radius: 6px !important;
+    background: var(--cl-cinnabar) !important;
+    color: #fff !important;
+    border: none !important;
+    white-space: nowrap;
+  }
+
+  /* ==========================================================================
+     10. Refined Classical Bottom Navigation Bar
+     ========================================================================== */
+  .mobileBottomNav {
+    position: fixed;
+    z-index: 999;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    min-height: 56px;
+    padding-top: 5px;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(254, 252, 248, 0.96) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(60, 48, 36, 0.08) !important;
+    box-shadow: 0 -4px 16px rgba(34, 30, 25, 0.04);
+    box-sizing: border-box;
+  }
+
+  .mobileNavItem {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2px 0 !important;
+    color: var(--cl-muted, #7c7267) !important;
+    text-decoration: none !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
-    z-index: 2;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobileNavIconWrap {
+    position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    margin-bottom: 6px;
-    padding: 4px;
-    border-radius: 14px;
-    background: #e7ded1;
+    place-items: center;
+    width: 32px;
+    height: 24px;
+    border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .boardMobileTabs button {
-    min-height: 42px;
+  .mobileNavItem .mobileIcon {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.2s ease;
+  }
+
+  .mobileNavLabel {
+    font-size: 11px !important;
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    margin-top: 1px;
+    transition: all 0.2s ease;
+    line-height: 1.1;
+  }
+
+  .mobileNavItem.is-active {
+    color: var(--cl-cinnabar, #8c2e21) !important;
+  }
+
+  .mobileNavItem.is-active .mobileNavIconWrap {
+    background: rgba(140, 46, 33, 0.08);
+  }
+
+  .mobileNavItem.is-active .mobileIcon {
+    stroke: var(--cl-cinnabar, #8c2e21);
+    transform: translateY(-1px) scale(1.06);
+  }
+
+  .mobileNavItem.is-active .mobileNavLabel {
+    font-weight: 750 !important;
+    color: var(--cl-cinnabar, #8c2e21) !important;
+  }
+
+  /* ==========================================================================
+     11. Home Maxim Ribbon & Rhythm Adaptation
+     ========================================================================== */
+  .clMaximBar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(34, 30, 25, 0.03);
+    border: 1px dashed var(--cl-border);
+    margin-top: 2px;
+  }
+
+  .clMaximTag {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cl-cinnabar);
+    background: rgba(140, 46, 33, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(140, 46, 33, 0.2);
+    font-family: "Songti SC", "KaiTi", serif;
+  }
+
+  .clMaximText {
+    font-size: 12px;
+    font-family: "Songti SC", "KaiTi", serif;
+    color: var(--cl-muted-deep);
+    letter-spacing: 0.05em;
+  }
+
+  /* ==========================================================================
+     12. Classical Watch Page (No Card-Wall)
+     ========================================================================== */
+  .clWatchPage {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .clWatchFilterBar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 4px 0 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .clWatchFilterBar .clSelect {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 8px 6px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--cl-border) !important;
+    background: #ffffff !important;
+    font-size: 13px !important;
+    color: var(--cl-ink) !important;
+    outline: none !important;
+    font-family: inherit !important;
+  }
+
+  .clWatchFilterBar .clRefreshBtn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--cl-border) !important;
+    background: var(--cl-paper-deep, #f7f3eb) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--cl-ink) !important;
+    cursor: pointer;
+  }
+
+  .clWatchSection {
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
     border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 1px 4px rgba(34, 30, 25, 0.03);
+    box-sizing: border-box;
   }
 
-  .toastHost {
-    bottom: max(78px, calc(env(safe-area-inset-bottom) + 68px));
+  .clWatchList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
-  @keyframes mobileFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  .clWatchItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(60, 48, 36, 0.06);
+    box-sizing: border-box;
+    width: 100%;
   }
 
-  @keyframes mobileSheetIn {
-    from { transform: translateY(28px); opacity: .7; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-}
-
-@media (max-width: 370px) {
-  .mobileHero {
-    min-height: 440px;
+  .clWatchItem:last-child {
+    border-bottom: none;
   }
 
-  .mobileHeroCopy {
-    min-height: 440px;
-    padding-right: 20px;
-    padding-left: 20px;
+  .clWatchInfo {
+    min-width: 0;
+    flex: 1;
+    text-align: left;
   }
 
-  .mobileHero h1 {
-    font-size: 39px;
+  .clWatchHeading {
+    font-size: 14px;
+    color: var(--cl-ink);
+    line-height: 1.3;
+    margin-bottom: 3px;
   }
 
-  .mobileHeroWash {
-    right: -110px;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1180px) {
-  .deskHomeThreeCol,
-  .deskLobby {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, .7fr) !important;
+  .clWatchMeta {
+    font-size: 12px;
+    color: var(--cl-muted);
+    line-height: 1.2;
   }
 
-  .deskLobby .deskSidebar,
-  .deskHomeThreeCol .col-left {
-    grid-column: 1 / -1;
+  .clWatchAction {
+    flex-shrink: 0;
+    margin-left: auto;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .mobileSheetOverlay,
-  .mobileQuickStartSheet {
-    animation: none !important;
+  .clWatchAction .ghost,
+  .clWatchAction .btn {
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+    min-height: 28px !important;
+    border-radius: 6px !important;
+  }
+
+  /* ==========================================================================
+     13. Classical Me Profile Page (Unified Scholar Dossier & Continuous Menu)
+     ========================================================================== */
+  .clProfilePage {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .clProfileHeader {
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(34, 30, 25, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-sizing: border-box;
+  }
+
+  .clProfileUserRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .clAvatarLarge {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: var(--cl-cinnabar);
+    color: #ffffff;
+    font-size: 20px;
+    font-family: "Songti SC", "KaiTi", serif;
+    font-weight: 750;
+    box-shadow: 0 2px 8px rgba(140, 46, 33, 0.25);
+    flex-shrink: 0;
+  }
+
+  .clProfileMeta {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .clProfileMeta strong {
+    display: block;
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--cl-ink);
+    line-height: 1.2;
+    margin-bottom: 3px;
+  }
+
+  .clVipTag {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--cl-muted);
+    background: var(--cl-paper-deep);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--cl-border);
+  }
+
+  .clQuickPlayBtn {
+    flex-shrink: 0;
+    background: var(--cl-cinnabar);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(140, 46, 33, 0.2);
+  }
+
+  .clProfileStatsGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--cl-border);
+    padding-top: 10px;
+  }
+
+  .clStatBox {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+  }
+
+  .clStatBox:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 15%;
+    bottom: 15%;
+    width: 1px;
+    background: rgba(60, 48, 36, 0.08);
+  }
+
+  .clStatBox strong {
+    font-size: 16px;
+    font-family: "Songti SC", "Source Han Serif SC", serif;
+    font-weight: 750;
+    color: var(--cl-ink);
+    line-height: 1.1;
+  }
+
+  .clStatBox span {
+    font-size: 11px;
+    color: var(--cl-muted);
+    margin-top: 3px;
+  }
+
+  .clProfileMenuSection {
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(34, 30, 25, 0.03);
+    overflow: hidden;
+  }
+
+  .clProfileMenu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .clProfileMenuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border: none;
+    background: transparent;
+    border-bottom: 1px solid rgba(60, 48, 36, 0.06);
+    font-size: 14px;
+    color: var(--cl-ink);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .clProfileMenuItem:last-child {
+    border-bottom: none;
+  }
+
+  .clProfileMenuItem:active {
+    background: rgba(34, 30, 25, 0.03);
+  }
+
+  .clProfileSubPage {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .clSubNav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--cl-border);
+  }
+
+  .clSubNav strong {
+    font-size: 15px;
+    font-weight: 750;
+    color: var(--cl-ink);
+    font-family: "Songti SC", "Source Han Serif SC", "STSong", serif;
+  }
+
+  .clBackBtn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    height: auto !important;
+    white-space: nowrap !important;
+    background: #ffffff !important;
+    border: 1px solid var(--cl-border) !important;
+    border-radius: 6px !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var(--cl-muted-deep) !important;
+    cursor: pointer !important;
+  }
+
+  .clSubBody {
+    background: #ffffff;
+    border: 1px solid var(--cl-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 4px rgba(34, 30, 25, 0.03);
+    box-sizing: border-box;
   }
 }
