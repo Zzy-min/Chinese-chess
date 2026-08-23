@@ -741,7 +741,12 @@ function renderPage(route) {
 }
 
 function isMobileLayout() {
-  return mobileLayoutMedia.matches;
+  if (mobileLayoutMedia.matches) return true;
+  if (typeof window !== 'undefined') {
+    const isTouch = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isTouch && window.innerWidth <= 1200) return true;
+  }
+  return false;
 }
 
 function resolveLearnSubRoute(value) {

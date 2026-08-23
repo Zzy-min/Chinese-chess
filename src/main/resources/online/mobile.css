@@ -25,7 +25,7 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-width: 1200px) and (pointer: coarse), (max-width: 1200px) and (hover: none) {
   *,
   *::before,
   *::after {
@@ -50,6 +50,19 @@
   input,
   select {
     font: inherit;
+  }
+
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    outline: none;
+    box-sizing: border-box;
   }
 
   button,

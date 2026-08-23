@@ -144,10 +144,11 @@ private fun WebAppScreen(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                     )
                     setBackgroundColor(android.graphics.Color.rgb(245, 240, 230))
+                    WebView.setWebContentsDebuggingEnabled(true)
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
-                        useWideViewPort = true
+                        useWideViewPort = false
                         loadWithOverviewMode = false
                         allowFileAccess = false
                         allowContentAccess = false
