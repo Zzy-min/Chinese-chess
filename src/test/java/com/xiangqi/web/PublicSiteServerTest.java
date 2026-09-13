@@ -783,6 +783,151 @@ class PublicSiteServerTest {
         return getRequest(port, path, "");
     }
 
+    @Test
+    void readOnlyRoomSnapshotRequiresLoginAndRespectsVisibility() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            String suffix = String.valueOf(Instant.now().toEpochMilli());
+
+            HttpResponse<String> hostReg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"ro_host_" + suffix + "\",\"password\":\"Password123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> guestReg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"ro_guest_" + suffix + "\",\"password\":\"Password123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, hostReg.statusCode());
+            assertEquals(200, guestReg.statusCode());
+            String hostCookie = hostReg.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String guestCookie = guestReg.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            // 未登录读取任意房间 -> 401。
+            HttpResponse<String> anonRooms = client.send(getRequest(port, "/online/api/rooms/not-a-uuid", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, anonRooms.statusCode());
+
+            // 私房：创建者登录可读，外人登录 403，未登录 401。
+            HttpResponse<String> privateCreate = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":false}", hostCookie), HttpResponse.BodyHandlers.ofString());
+            String privateRoomId = extract(privateCreate.body(), "roomId");
+            assertTrue(!privateRoomId.isEmpty());
+
+            HttpResponse<String> anonRoom = client.send(getRequest(port, "/online/api/rooms/" + privateRoomId, ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, anonRoom.statusCode());
+            HttpResponse<String> outsiderRoom = client.send(getRequest(port, "/online/api/rooms/" + privateRoomId, guestCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(403, outsiderRoom.statusCode());
+            HttpResponse<String> ownerRoom = client.send(getRequest(port, "/online/api/rooms/" + privateRoomId, hostCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, ownerRoom.statusCode());
+            assertTrue(ownerRoom.body().contains("\"roomId\":\"" + privateRoomId + "\""));
+
+            // 公房：任意登录用户可读，未登录 401。
+            HttpResponse<String> publicCreate = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"GOMOKU\",\"initialTimeSeconds\":300,\"isPublic\":true}", hostCookie), HttpResponse.BodyHandlers.ofString());
+            String publicRoomId = extract(publicCreate.body(), "roomId");
+            assertTrue(!publicRoomId.isEmpty());
+            HttpResponse<String> anonPublic = client.send(getRequest(port, "/online/api/rooms/" + publicRoomId, ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, anonPublic.statusCode());
+            HttpResponse<String> loggedPublic = client.send(getRequest(port, "/online/api/rooms/" + publicRoomId, guestCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, loggedPublic.statusCode());
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    public void readOnlyGameByIdRequiresLoginAndParticipantScope() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            String suffix = String.valueOf(Instant.now().toEpochMilli());
+
+            HttpResponse<String> r1 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"g_host_" + suffix + "\",\"password\":\"Password123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r2 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"g_guest_" + suffix + "\",\"password\":\"Password123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r3 = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"g_out_" + suffix + "\",\"password\":\"Password123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, r3.statusCode());
+            String c1 = r1.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String c2 = r2.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String c3 = r3.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            // 未登录读取任意对局 -> 401。
+            HttpResponse<String> anon = client.send(getRequest(port, "/online/api/games/not-a-uuid", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, anon.statusCode());
+
+            // 私房对局：参与者可读，外人 403。
+            HttpResponse<String> created = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":false}", c1), HttpResponse.BodyHandlers.ofString());
+            String roomId = extract(created.body(), "roomId");
+            client.send(postRequest(port, "/online/api/rooms/" + roomId + "/join", "{}", c2), HttpResponse.BodyHandlers.ofString());
+            client.send(postRequest(port, "/online/api/rooms/" + roomId + "/ready", "{\"ready\":true}", c1), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> ready2 = client.send(postRequest(port, "/online/api/rooms/" + roomId + "/ready", "{\"ready\":true}", c2), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, ready2.statusCode());
+            String gameId = extract(ready2.body(), "gameId");
+            assertTrue(!gameId.isEmpty());
+
+            HttpResponse<String> anonGame = client.send(getRequest(port, "/online/api/games/" + gameId, ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, anonGame.statusCode());
+            HttpResponse<String> outsiderGame = client.send(getRequest(port, "/online/api/games/" + gameId, c3), HttpResponse.BodyHandlers.ofString());
+            assertEquals(403, outsiderGame.statusCode());
+            HttpResponse<String> participantGame = client.send(getRequest(port, "/online/api/games/" + gameId, c2), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, participantGame.statusCode());
+            assertTrue(participantGame.body().contains("\"gameId\":\"" + gameId + "\""));
+
+            // 不存在对局：登录后 404。
+            HttpResponse<String> missing = client.send(getRequest(port, "/online/api/games/never-a-game", c1), HttpResponse.BodyHandlers.ofString());
+            assertEquals(404, missing.statusCode());
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    public void reconnectedLobbyWebSocketReceivesHeartbeatPing() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        WebSocket socket = null;
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            BlockingQueue<String> messages = new LinkedBlockingQueue<String>();
+            socket = client.newWebSocketBuilder()
+                .buildAsync(URI.create("ws://127.0.0.1:" + port + "/online/ws"), new WebSocket.Listener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket) {
+                        webSocket.request(1);
+                    }
+
+                    @Override
+                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                        messages.offer(data.toString());
+                        webSocket.request(1);
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }).get(5, TimeUnit.SECONDS);
+            socket.sendText("{\"type\":\"subscribe_lobby\"}", true).join();
+
+            // 初次订阅即获得最新 lobby 快照。
+            String initial = messages.poll(5, TimeUnit.SECONDS);
+            assertNotNull(initial);
+            assertTrue(initial.contains("\"type\":\"lobby\""));
+
+            // 服务端周期心跳（type=ping），接到即代表连接与订阅活性被维持。
+            assertTrue(messages.poll(40, TimeUnit.SECONDS).contains("\"type\":\"ping\""));
+        } finally {
+            if (socket != null) {
+                socket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
+            }
+            server.stop();
+        }
+    }
+
+
     private HttpRequest headRequest(int port, String path) {
         return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
             .method("HEAD", HttpRequest.BodyPublishers.noBody())

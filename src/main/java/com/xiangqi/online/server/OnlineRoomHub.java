@@ -1,5 +1,8 @@
 package com.xiangqi.online.server;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.xiangqi.online.auth.AuthUser;
 import com.xiangqi.online.game.GameType;
 import com.xiangqi.online.game.GomokuMatch;
@@ -17,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,14 +33,22 @@ public final class OnlineRoomHub {
     private final ConcurrentHashMap<String, ActiveRoom> roomsByCode = new ConcurrentHashMap<String, ActiveRoom>();
     private final ConcurrentHashMap<String, ActiveGame> gamesById = new ConcurrentHashMap<String, ActiveGame>();
     private final OnlineStore store;
+    private final RoomPersistence persistence;
+    private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     public OnlineRoomHub(OnlineStore store) {
-        this(store, Clock.systemUTC());
+        this(store, Clock.systemUTC(), NoopRoomPersistence.instance());
     }
 
     public OnlineRoomHub(OnlineStore store, Clock clock) {
+        this(store, clock, NoopRoomPersistence.instance());
+    }
+
+    public OnlineRoomHub(OnlineStore store, Clock clock, RoomPersistence persistence) {
         this.store = store;
         this.clock = clock;
+        this.persistence = persistence == null ? NoopRoomPersistence.instance() : persistence;
+        restoreRoomState();
     }
 
     public Map<String, Object> createRoom(AuthUser host, CreateRoomRequest request) {
@@ -56,6 +68,7 @@ public final class OnlineRoomHub {
         room.updatedAt = now();
         roomsById.put(room.roomId, room);
         roomsByCode.put(room.roomCode, room);
+        persistAll();
         return roomSnapshot(room);
     }
 
@@ -78,6 +91,7 @@ public final class OnlineRoomHub {
                     startNextGame(room);
                 }
                 room.updatedAt = now();
+                persistAll();
                 return quickMatchResult(true, room, user);
             }
         }
@@ -91,6 +105,7 @@ public final class OnlineRoomHub {
         synchronized (room) {
             room.hostReady = true;
             room.updatedAt = now();
+            persistAll();
             return quickMatchResult(false, room, user);
         }
     }
@@ -119,6 +134,7 @@ public final class OnlineRoomHub {
             room.guest = user;
             room.status = RoomStatus.FULL.name();
             room.updatedAt = now();
+            persistAll();
             return roomSnapshot(room);
         }
     }
@@ -141,6 +157,7 @@ public final class OnlineRoomHub {
                 startNextGame(room);
             }
             room.updatedAt = now();
+            persistAll();
             return roomSnapshot(room);
         }
     }
@@ -189,6 +206,7 @@ public final class OnlineRoomHub {
                 throw new IllegalArgumentException("unsupported rematch action");
             }
             room.updatedAt = now();
+            persistAll();
             return roomSnapshot(room);
         }
     }
@@ -225,6 +243,7 @@ public final class OnlineRoomHub {
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         result.put("closed", true);
         result.put("roomId", room.roomId);
+        persistAll();
         return result;
     }
 
@@ -287,6 +306,7 @@ public final class OnlineRoomHub {
             if (game.engine.finished()) {
                 finishRoomEpisode(game);
             }
+            persistAll();
             return snapshot;
         }
     }
@@ -332,6 +352,7 @@ public final class OnlineRoomHub {
             }
             String resultText = actor.username() + " resigned";
             finalizeGame(game, winnerForResignation(game, actor.id()), resultText, "RESIGN");
+            persistAll();
             return gameSnapshot(game, actor);
         }
     }
@@ -350,6 +371,7 @@ public final class OnlineRoomHub {
             game.drawOfferUsername = actor.username();
             game.drawOfferSide = playerSideForUser(game, actor.id());
             game.updatedAt = now();
+            persistAll();
             return gameSnapshot(game, actor);
         }
     }
@@ -370,6 +392,7 @@ public final class OnlineRoomHub {
                 clearDrawOffer(game);
                 game.updatedAt = now();
             }
+            persistAll();
             return gameSnapshot(game, actor);
         }
     }
@@ -829,6 +852,255 @@ public final class OnlineRoomHub {
 
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    /* ------------ 持久化辅助 ------------ */
+
+    private int asInt(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value == null || String.valueOf(value).trim().isEmpty()) {
+            return 0;
+        }
+        return Integer.parseInt(String.valueOf(value));
+    }
+
+    private boolean asBoolean(Object value) {
+        return Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        if (value instanceof Map) {
+            return (Map<String, Object>) value;
+        }
+        return new LinkedHashMap<String, Object>();
+    }
+
+    private GameType parseGameType(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException("missing gameType");
+        }
+        return GameType.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private AuthUser toUser(Object value) {
+        Map<String, Object> data = asMap(value);
+        String id = asString(data.get("id"));
+        return id.isEmpty() ? null : new AuthUser(id, asString(data.get("username")));
+    }
+
+    private Instant toInstant(String raw) {
+        return (raw == null || raw.trim().isEmpty()) ? null : Instant.parse(raw);
+    }
+
+    private String persistenceName() {
+        return persistence.getClass().getSimpleName();
+    }
+
+    private OnlineMatchEngine createMatchFor(ActiveGame game) {
+        if (game.gameType == GameType.GOMOKU) {
+            return new GomokuMatch(
+                new MatchPlayer(game.first.id(), game.first.username(), PlayerSide.BLACK),
+                new MatchPlayer(game.second.id(), game.second.username(), PlayerSide.WHITE)
+            );
+        }
+        return new XiangqiMatch(
+            new MatchPlayer(game.first.id(), game.first.username(), PlayerSide.RED),
+            new MatchPlayer(game.second.id(), game.second.username(), PlayerSide.BLACK),
+            null,
+            game.initialTimeSeconds,
+            clock
+        );
+    }
+
+    /* ---------------- 运行态持久化：导出 -> 落盘 -> 重启恢复 ---------------- */
+
+    /**
+     * 导出当前所有未关闭房间（含各自最新对局元数据），交给 RoomPersistence 落盘。
+     * 引擎盘面不着重存冗余：对局着法已落在 DB games/game_moves，重建时据此回放。
+     */
+    private void persistAll() {
+        try {
+            List<Map<String, Object>> records = new ArrayList<Map<String, Object>>();
+            for (ActiveRoom room : roomsById.values()) {
+                Map<String, Object> record = new LinkedHashMap<String, Object>();
+                record.put("roomId", room.roomId);
+                record.put("roomCode", room.roomCode);
+                record.put("gameType", room.gameType == null ? "" : room.gameType.name());
+                record.put("initialTimeSeconds", room.initialTimeSeconds);
+                record.put("publicRoom", room.publicRoom);
+                record.put("host", exportPlayer(room.host));
+                record.put("guest", exportPlayer(room.guest));
+                record.put("hostReady", room.hostReady);
+                record.put("guestReady", room.guestReady);
+                record.put("roundIndex", room.roundIndex);
+                record.put("hostScore", room.hostScore);
+                record.put("guestScore", room.guestScore);
+                record.put("hostFirstSeat", room.hostFirstSeat);
+                record.put("swapColorsNext", room.swapColorsNext);
+                record.put("lastGameId", room.lastGameId == null ? "" : room.lastGameId);
+                record.put("rematchOfferedByUserId", room.rematchOfferedByUserId == null ? "" : room.rematchOfferedByUserId);
+                record.put("rematchOfferedByUsername", room.rematchOfferedByUsername == null ? "" : room.rematchOfferedByUsername);
+                record.put("rematchExpiresAt", room.rematchExpiresAt == null ? "" : room.rematchExpiresAt.toString());
+                record.put("status", room.status);
+                record.put("gameId", room.gameId == null ? "" : room.gameId);
+                record.put("updatedAt", room.updatedAt == null ? "" : room.updatedAt.toString());
+                record.put("closed", room.closed);
+                if (room.gameId != null && !room.gameId.isEmpty()) {
+                    ActiveGame game = gamesById.get(room.gameId);
+                    if (game != null) {
+                        record.put("game", exportGame(game));
+                    }
+                }
+                records.add(record);
+            }
+            persistence.save(records);
+            System.out.println("[persistence] saved " + records.size() + " room(s) to " + persistenceName());
+        } catch (Exception ex) {
+            System.out.println("[persistence] save failed: " + ex);
+        }
+    }
+
+    private static Map<String, Object> exportPlayer(AuthUser user) {
+        Map<String, Object> player = new LinkedHashMap<String, Object>();
+        if (user != null) {
+            player.put("id", user.id());
+            player.put("username", user.username());
+        }
+        return player;
+    }
+
+    private Map<String, Object> exportGame(ActiveGame game) {
+        Map<String, Object> item = new LinkedHashMap<String, Object>();
+        item.put("gameId", game.gameId);
+        item.put("roomId", game.roomId);
+        item.put("gameType", game.gameType == null ? "" : game.gameType.name());
+        item.put("first", exportPlayer(game.first));
+        item.put("second", exportPlayer(game.second));
+        item.put("status", game.status);
+        item.put("currentTurn", game.currentTurn);
+        item.put("winnerSide", game.winnerSide == null ? "" : game.winnerSide);
+        item.put("resultText", game.resultText == null ? "" : game.resultText);
+        item.put("initialTimeSeconds", game.initialTimeSeconds);
+        item.put("firstRemainingSeconds", game.firstRemainingSeconds);
+        item.put("secondRemainingSeconds", game.secondRemainingSeconds);
+        item.put("clockState", game.clockState == null ? "" : game.clockState);
+        item.put("lastTickAt", game.lastTickAt == null ? "" : game.lastTickAt.toString());
+        item.put("terminationReason", game.terminationReason == null ? "" : game.terminationReason);
+        item.put("drawOfferUserId", game.drawOfferUserId == null ? "" : game.drawOfferUserId);
+        item.put("drawOfferUsername", game.drawOfferUsername == null ? "" : game.drawOfferUsername);
+        item.put("drawOfferSide", game.drawOfferSide == null ? "" : game.drawOfferSide);
+        item.put("updatedAt", game.updatedAt == null ? "" : game.updatedAt.toString());
+        item.put("roomFinalized", game.roomFinalized);
+        return item;
+    }
+
+    private void restoreRoomState() {
+        List<Map<String, Object>> records = persistence.load();
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        for (Map<String, Object> record : records) {
+            try {
+                restoreRoom(record);
+            } catch (Exception ex) {
+                System.out.println("[persistence] skip invalid room record: " + ex);
+            }
+        }
+        System.out.println("[persistence] restored " + records.size() + " room record(s)");
+    }
+
+    private void restoreRoom(Map<String, Object> record) {
+        ActiveRoom room = new ActiveRoom();
+        room.roomId = asString(record.get("roomId"));
+        room.roomCode = asString(record.get("roomCode"));
+        room.gameType = parseGameType(asString(record.get("gameType")));
+        room.initialTimeSeconds = asInt(record.get("initialTimeSeconds"));
+        room.publicRoom = asBoolean(record.get("publicRoom"));
+        room.host = toUser(record.get("host"));
+        room.guest = toUser(record.get("guest"));
+        room.hostReady = asBoolean(record.get("hostReady"));
+        room.guestReady = asBoolean(record.get("guestReady"));
+        room.roundIndex = asInt(record.get("roundIndex"));
+        room.hostScore = asInt(record.get("hostScore"));
+        room.guestScore = asInt(record.get("guestScore"));
+        room.hostFirstSeat = asBoolean(record.get("hostFirstSeat"));
+        room.swapColorsNext = asBoolean(record.get("swapColorsNext"));
+        room.lastGameId = asString(record.get("lastGameId"));
+        room.rematchOfferedByUserId = asString(record.get("rematchOfferedByUserId"));
+        room.rematchOfferedByUsername = asString(record.get("rematchOfferedByUsername"));
+        room.rematchExpiresAt = toInstant(asString(record.get("rematchExpiresAt")));
+        room.status = asString(record.get("status"));
+        room.gameId = asString(record.get("gameId"));
+        room.updatedAt = toInstant(asString(record.get("updatedAt")));
+        room.closed = asBoolean(record.get("closed"));
+        if (room.roomId == null || room.roomId.isEmpty()) {
+            return;
+        }
+        roomsById.put(room.roomId, room);
+        if (room.roomCode != null && !room.roomCode.isEmpty()) {
+            roomsByCode.put(room.roomCode, room);
+        }
+        if (room.gameId != null && !room.gameId.isEmpty()) {
+            Map<String, Object> gameData = asMap(record.get("game"));
+            if (!gameData.isEmpty()) {
+                ActiveGame restored = restoreGame(room, gameData);
+                gamesById.put(restored.gameId, restored);
+            }
+        }
+    }
+
+    private ActiveGame restoreGame(ActiveRoom room, Map<String, Object> data) {
+        ActiveGame game = new ActiveGame();
+        game.gameId = asString(data.get("gameId"));
+        game.roomId = asString(data.get("roomId"));
+        game.gameType = room.gameType;
+        game.first = toUser(data.get("first"));
+        game.second = toUser(data.get("second"));
+        game.status = asString(data.get("status"));
+        game.currentTurn = asString(data.get("currentTurn"));
+        game.winnerSide = asString(data.get("winnerSide"));
+        game.resultText = asString(data.get("resultText"));
+        game.initialTimeSeconds = asInt(data.get("initialTimeSeconds"));
+        game.firstRemainingSeconds = asInt(data.get("firstRemainingSeconds"));
+        game.secondRemainingSeconds = asInt(data.get("secondRemainingSeconds"));
+        game.clockState = asString(data.get("clockState"));
+        game.lastTickAt = toInstant(asString(data.get("lastTickAt")));
+        game.terminationReason = asString(data.get("terminationReason"));
+        game.drawOfferUserId = asString(data.get("drawOfferUserId"));
+        game.drawOfferUsername = asString(data.get("drawOfferUsername"));
+        game.drawOfferSide = asString(data.get("drawOfferSide"));
+        game.updatedAt = toInstant(asString(data.get("updatedAt")));
+        game.roomFinalized = asBoolean(data.get("roomFinalized"));
+        game.engine = restoreEngine(game);
+        return game;
+    }
+
+    /**
+     * 依据 DB 中已持久化的着法记录，重建一个与重启前一致的 OnlineMatchEngine。
+     * (createGameRecord/appendMove 已把每步 payload 写入 game_moves；这里按序回放。)
+     */
+    private OnlineMatchEngine restoreEngine(ActiveGame game) {
+        OnlineMatchEngine engine = createMatchFor(game);
+        Map<String, Object> analysis = store.loadGameAnalysis(game.gameId);
+        Object rawMoves = analysis.get("moves");
+        if (!(rawMoves instanceof List)) {
+            return engine;
+        }
+        List<?> moves = (List<?>) rawMoves;
+        for (Object raw : moves) {
+            try {
+                Map<String, Object> move = asMap(raw);
+                String actorId = asString(move.get("actorUserId"));
+                Object payload = move.get("payload");
+                engine.applyMove(actorId.isEmpty() ? game.first.id() : actorId, asMap(payload));
+            } catch (Exception ignored) {
+                // 单跳异常不阻止整体重建；保留已回放的合法着法。
+            }
+        }
+        return engine;
     }
 
     private static final class ActiveRoom {

@@ -90,7 +90,11 @@ const state = {
   actionBusyLabel: '',
   mobileQuickStartOpen: false,
   mobileQuickStartGameType: 'XIANGQI',
-  nativeGameStateKey: ''
+  nativeGameStateKey: '',
+  routeLoading: {},
+  routeLoadError: {},
+  interactionError: '',
+  interactionErrorExpireAt: 0
 };
 
 const API_BASE = '/online/api';
@@ -394,6 +398,79 @@ function patchToastHost() {
   `).join('');
 }
 
+function getRouteError(type, id) {
+  const key = `${type}:${id || ''}`;
+  return (state.routeLoadError && state.routeLoadError[key]) || null;
+}
+
+function clearRouteError(type, id) {
+  if (!state.routeLoadError) return;
+  if (type && id) {
+    delete state.routeLoadError[`${type}:${id}`];
+    if (state.routeLoading) delete state.routeLoading[`${type}:${id}`];
+  } else {
+    state.routeLoadError = {};
+    state.routeLoading = {};
+  }
+}
+
+function renderRouteErrorPanel({ badge, title, message, backNav, backText, actionNav, actionText, retryType, retryId }) {
+  return `
+    <section class="panel routeErrorPanel">
+      <div class="routeErrorCard">
+        <div class="routeErrorIcon">♟️</div>
+        <div class="routeErrorBadge">${escapeHtml(badge || '404 错误')}</div>
+        <h2 class="sectionTitle">${escapeHtml(title || '页面不存在')}</h2>
+        <p class="muted">${escapeHtml(message || '请求的资源未找到或已失效。')}</p>
+        <div class="roomRow routeErrorActions">
+          <button class="btn" data-nav="${escapeHtml(backNav || 'play')}">${escapeHtml(backText || '返回对局大厅')}</button>
+          ${actionNav ? `<button class="ghost" data-nav="${escapeHtml(actionNav)}">${escapeHtml(actionText || '前往')}</button>` : ''}
+          ${retryType && retryId ? `<button class="ghost" data-action="retry-route" data-retry-type="${escapeHtml(retryType)}" data-retry-id="${escapeHtml(retryId)}">重新加载</button>` : ''}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function translateInteractionError(raw) {
+  if (!raw) return '';
+  const text = String(raw).trim();
+  const lower = text.toLowerCase();
+  if (lower.includes('illegal move') || lower === 'illegal move') {
+    return '非法走子：该步走法不符合规则（请注意别马腿、象不过河或将帅照面）';
+  }
+  if (lower.includes('not your turn') || lower === 'not your turn') {
+    return '尚未轮到你走子，请等待对手行动';
+  }
+  if (lower.includes('game already finished') || lower === 'game already finished') {
+    return '当前对局已结束';
+  }
+  if (lower.includes('room is full') || lower === 'room is full') {
+    return '房间已满员，无法加入';
+  }
+  if (lower.includes('invalid credentials')) {
+    return '用户名或密码不正确';
+  }
+  return text;
+}
+
+function setBoardInteractionError(message, durationMs = 2600) {
+  const text = translateInteractionError(message);
+  if (!text) return;
+  const safeDuration = Math.max(2000, durationMs);
+  state.interactionError = text;
+  state.interactionErrorExpireAt = Date.now() + safeDuration;
+  state.status = text;
+  showToast(text, 'warning', safeDuration);
+  refreshLiveStatusLine();
+  window.setTimeout(() => {
+    if (Date.now() >= state.interactionErrorExpireAt) {
+      state.interactionError = '';
+      refreshLiveStatusLine();
+    }
+  }, safeDuration + 50);
+}
+
 function isActionBusy(key) {
   return !!state.actionBusy && (!key || state.actionBusy === key);
 }
@@ -684,7 +761,41 @@ function measureBoardHostSpace(host) {
     paneRect ? paneRect.right : 0,
     shellRect ? shellRect.right : 0
   ], viewportWidth);
-  const viewportLimitedHeight = Math.max(0, visibleBottom - Math.max(0, fallbackRect.top) - 2);
+
+  let belowHostSpace = 0;
+  if (isMobileLayout()) {
+    if (pane) {
+      const siblingsBelow = Array.from(pane.children).filter((child) => {
+        return child !== host && (child.getBoundingClientRect().top >= fallbackRect.top);
+      });
+      belowHostSpace += siblingsBelow.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0);
+    }
+    const desk = host.closest('.boardDesk');
+    if (desk) {
+      const deskSiblings = Array.from(desk.children).filter((child) => child !== pane);
+      belowHostSpace += deskSiblings.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0);
+      const deskStyle = getComputedStyle(desk);
+      belowHostSpace += parseFloat(deskStyle.rowGap || deskStyle.gap) || 0;
+    }
+    const boardPage = host.closest('.boardPage');
+    if (boardPage) {
+      const pageStyle = getComputedStyle(boardPage);
+      belowHostSpace += parseFloat(pageStyle.paddingBottom) || 8;
+    } else {
+      belowHostSpace += 12;
+    }
+    // Safety buffer on mobile to guarantee players and actions remain 100% visible
+    belowHostSpace = Math.max(belowHostSpace, 110);
+  } else {
+    if (pane) {
+      const siblingsBelow = Array.from(pane.children).filter((child) => {
+        return child !== host && (child.getBoundingClientRect().top >= fallbackRect.top);
+      });
+      belowHostSpace += siblingsBelow.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0);
+    }
+  }
+
+  const viewportLimitedHeight = Math.max(0, visibleBottom - Math.max(0, fallbackRect.top) - belowHostSpace - 2);
   const viewportLimitedWidth = Math.max(0, visibleRight - Math.max(0, fallbackRect.left) - 2);
 
   let paneRowHeight = 0;
@@ -750,9 +861,9 @@ function renderGameEndModal() {
   const modal = state.endGameModal;
   const game = modal.game || {};
   const isPractice = !!game.isTraining;
-  const winner = game.winnerSide ? sideLabel(game.gameType, game.winnerSide) : '无';
+  const winner = game.winnerSide ? sideLabel(game.gameType, game.winnerSide) : (game.terminationReason === 'DRAW' ? '双方战和' : '无');
   const resultText = escapeHtml(game.resultText || '-');
-  const reason = escapeHtml(game.terminationReason || '-');
+  const reason = escapeHtml(liveTerminationLabel(game.terminationReason) || '-');
   const analysisHref = `analysis/${escapeHtml(game.gameId || '')}`;
   const roomHref = `room/${escapeHtml(game.roomId || '')}`;
   return `
@@ -1697,10 +1808,27 @@ function renderPlay(route) {
 }
 
 function renderRoom(roomId) {
+  const err = getRouteError('room', roomId);
+  if (err) {
+    return renderRouteErrorPanel({
+      badge: '房间异常',
+      title: '该房间不存在或已关闭',
+      message: err.message || '房间可能已被房主解散、超时关闭，或房间链接不正确。',
+      backNav: 'play',
+      backText: '返回对局大厅',
+      actionNav: 'play/xiangqi',
+      actionText: '创建新房间',
+      retryType: 'room',
+      retryId: roomId
+    });
+  }
   const room = state.room;
   if (!room || room.roomId !== roomId) {
-    loadRoom(roomId);
-    return '<section class="panel"><h2 class="sectionTitle">房间加载中</h2></section>';
+    const key = `room:${roomId}`;
+    if (!state.routeLoading[key]) {
+      loadRoom(roomId);
+    }
+    return '<section class="panel"><h2 class="sectionTitle">房间加载中…</h2><p class="muted">正在获取房间信息，请稍候</p></section>';
   }
   const score = room.seriesScore || { host: 0, guest: 0 };
   const betweenGames = room.status === 'BETWEEN_GAMES' || room.status === 'FINISHED';
@@ -1742,10 +1870,27 @@ function renderRoom(roomId) {
 }
 
 function renderGame(gameId) {
+  const err = getRouteError('game', gameId);
+  if (err) {
+    return renderRouteErrorPanel({
+      badge: '对局异常',
+      title: '该对局不存在或已结束',
+      message: err.message || '对局可能已彻底结束并归档，或对局链接无效。',
+      backNav: 'play',
+      backText: '返回对局大厅',
+      actionNav: 'play/xiangqi',
+      actionText: '创建新对局',
+      retryType: 'game',
+      retryId: gameId
+    });
+  }
   const game = state.game;
   if (!game || game.gameId !== gameId) {
-    loadGame(gameId);
-    return '<section class="panel"><h2 class="sectionTitle">对局加载中</h2></section>';
+    const key = `game:${gameId}`;
+    if (!state.routeLoading[key]) {
+      loadGame(gameId);
+    }
+    return '<section class="panel"><h2 class="sectionTitle">对局加载中…</h2><p class="muted">正在连接棋局，请稍候</p></section>';
   }
   if (game.isTraining) {
     return renderPracticeView(game);
@@ -1754,10 +1899,27 @@ function renderGame(gameId) {
 }
 
 function renderPractice(gameId) {
+  const err = getRouteError('practice', gameId);
+  if (err) {
+    return renderRouteErrorPanel({
+      badge: '练习异常',
+      title: '该练习局不存在或已失效',
+      message: err.message || '练习局可能已结束或配置已失效。',
+      backNav: 'learn/puzzles/ALL',
+      backText: '返回学习题库',
+      actionNav: 'play',
+      actionText: '对局大厅',
+      retryType: 'practice',
+      retryId: gameId
+    });
+  }
   const game = state.game;
   if (!game || game.gameId !== gameId) {
-    loadPractice(gameId);
-    return '<section class="panel"><h2 class="sectionTitle">练习局加载中</h2></section>';
+    const key = `practice:${gameId}`;
+    if (!state.routeLoading[key]) {
+      loadPractice(gameId);
+    }
+    return '<section class="panel"><h2 class="sectionTitle">练习局加载中…</h2><p class="muted">正在准备 AI 对局，请稍候</p></section>';
   }
   return renderPracticeView(game);
 }
@@ -1963,7 +2125,7 @@ function renderOnlineGameView(game) {
             <span class="pill" data-live-game-status>${liveGameStatusLabel(game.status)}</span>
             <span class="pill" data-live-game-termination>${liveTerminationLabel(game.terminationReason)}</span>
           </div>
-          <div class="status ${onlineCheckNotice(game) ? 'status--check' : ''}" data-live-status>${onlineGameStatusText(game)}</div>
+          <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           <div class="roomRow woodActions" data-live-game-actions>
@@ -2020,30 +2182,32 @@ function renderPracticeView(game) {
             <span class="pill">${game.gameType === 'XIANGQI' ? '象棋' : '五子棋'}</span>
           </div>
 
-          <!-- 上方对手卡片 (AI) -->
-          <div class="boardPlayerCard ${aiActive ? 'is-active' : ''}">
-            <div class="boardPlayerCardTop">
-              <img class="avatar" src="${getAvatar(practiceOpponent(game), aiColor)}" />
-              <div class="userMeta">
-                <strong>${escapeHtml(practiceOpponent(game))}</strong>
-                <span class="vipBadge">${escapeHtml(ai.engineText || ai.engineId || '内置 AI')} · ${escapeHtml(ai.difficulty || '普通')}</span>
+          <div class="clockGrid practiceGrid">
+            <!-- 上方对手卡片 (AI) -->
+            <div class="boardPlayerCard ${aiActive ? 'is-active' : ''}">
+              <div class="boardPlayerCardTop">
+                <img class="avatar" src="${getAvatar(practiceOpponent(game), aiColor)}" />
+                <div class="userMeta">
+                  <strong>${escapeHtml(practiceOpponent(game))}</strong>
+                  <span class="vipBadge">${escapeHtml(ai.engineText || ai.engineId || '内置 AI')} · ${escapeHtml(ai.difficulty || '普通')}</span>
+                </div>
               </div>
+              ${aiActive ? '<div class="boardPlayerClock">AI思考中</div>' : '<div class="boardPlayerClock">等待中</div>'}
+              ${aiActive ? '<div class="turnBadge active">AI回合</div>' : '<div class="turnBadge">等待中</div>'}
             </div>
-            ${aiActive ? '<div class="boardPlayerClock">AI思考中</div>' : '<div class="boardPlayerClock">等待中</div>'}
-            ${aiActive ? '<div class="turnBadge active">AI回合</div>' : '<div class="turnBadge">等待中</div>'}
-          </div>
 
-          <!-- 下方玩家自己卡片 -->
-          <div class="boardPlayerCard ${playerActive ? 'is-active' : ''}">
-            <div class="boardPlayerCardTop">
-              <img class="avatar" src="${getAvatar(state.me ? state.me.username : '我', playerColor)}" />
-              <div class="userMeta">
-                <strong>${escapeHtml(state.me ? state.me.username : '当前用户')}</strong>
-                <span class="vipBadge">${viewerSide === 'RED' ? '红方' : '黑方'} · 挑战者</span>
+            <!-- 下方玩家自己卡片 -->
+            <div class="boardPlayerCard ${playerActive ? 'is-active' : ''}">
+              <div class="boardPlayerCardTop">
+                <img class="avatar" src="${getAvatar(state.me ? state.me.username : '我', playerColor)}" />
+                <div class="userMeta">
+                  <strong>${escapeHtml(state.me ? state.me.username : '当前用户')}</strong>
+                  <span class="vipBadge">${viewerSide === 'RED' ? '红方' : '黑方'} · 挑战者</span>
+                </div>
               </div>
+              <div class="boardPlayerClock">无限制</div>
+              ${playerActive ? '<div class="turnBadge active">我的回合</div>' : '<div class="turnBadge">等待中</div>'}
             </div>
-            <div class="boardPlayerClock">无限制</div>
-            ${playerActive ? '<div class="turnBadge active">我的回合</div>' : '<div class="turnBadge">等待中</div>'}
           </div>
 
           <div class="boardRailNote">
@@ -2055,7 +2219,7 @@ function renderPracticeView(game) {
 
         <!-- 中栏 (自适应棋盘区) -->
         <section class="boardWrap boardPane boardPane--practice boardStage">
-          <div class="status ${onlineCheckNotice(game) ? 'status--check' : ''}" data-live-status>${practiceStatusText(game)}</div>
+          <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : practiceStatusText(game)}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           
           <!-- 底部控制按钮组 (悔棋、认输、再来一局、离开) -->
@@ -2122,10 +2286,27 @@ function renderDrawOfferBanner(drawOffer, canRespondDraw) {
 }
 
 function renderAnalysis(gameId) {
+  const err = getRouteError('analysis', gameId);
+  if (err) {
+    return renderRouteErrorPanel({
+      badge: '复盘异常',
+      title: '该对局分析不存在或已被清理',
+      message: err.message || '对局记录可能未落盘或已被系统清理。',
+      backNav: 'play',
+      backText: '返回对局大厅',
+      actionNav: 'watch',
+      actionText: '观战大厅',
+      retryType: 'analysis',
+      retryId: gameId
+    });
+  }
   const analysis = state.analysis;
   if (!analysis || analysis.gameId !== gameId) {
-    loadAnalysis(gameId);
-    return '<section class="panel"><h2 class="sectionTitle">分析加载中</h2></section>';
+    const key = `analysis:${gameId}`;
+    if (!state.routeLoading[key]) {
+      loadAnalysis(gameId);
+    }
+    return '<section class="panel"><h2 class="sectionTitle">分析加载中…</h2><p class="muted">正在解析棋谱步数，请稍候</p></section>';
   }
   const boards = analysis.historyBoards || [analysis.board || []];
   const step = Math.max(0, Math.min(state.analysisStep, boards.length - 1));
@@ -2863,6 +3044,20 @@ function isViewerOwnXiangqiPiece(piece, viewerSide) {
 
 function bindCommon(route) {
   bindNavClicks();
+  document.querySelectorAll('[data-action="retry-route"]').forEach(el => {
+    if (el.dataset.boundRetry === '1') return;
+    el.dataset.boundRetry = '1';
+    el.addEventListener('click', () => {
+      const type = el.getAttribute('data-retry-type');
+      const id = el.getAttribute('data-retry-id');
+      clearRouteError(type, id);
+      if (type === 'room') loadRoom(id);
+      else if (type === 'game') loadGame(id);
+      else if (type === 'practice') loadPractice(id);
+      else if (type === 'analysis') loadAnalysis(id);
+      else render();
+    });
+  });
   if (!window.__onlineGlobalKeysBound) {
     window.__onlineGlobalKeysBound = true;
     document.addEventListener('keydown', (event) => {
@@ -3704,10 +3899,7 @@ async function undoPracticeMove() {
   const game = state.game;
   const reason = practiceUndoDisabledReason(game);
   if (reason) {
-    state.status = reason;
-    if (!refreshLiveStatusLine(currentRoute())) {
-      render();
-    }
+    setBoardInteractionError(reason);
     return;
   }
   await sendGameAction(`${API_BASE}/learn/practice-games/${game.gameId}/undo`, {});
@@ -3736,7 +3928,7 @@ async function sendGameAction(url, body) {
     render();
     refreshBootstrapAndProfile().catch(() => null);
   } catch (error) {
-    state.status = error.message;
+    setBoardInteractionError(error.message);
     render();
   }
 }
@@ -3747,25 +3939,109 @@ async function loadLobby() {
 }
 
 async function loadRoom(roomId) {
-  state.room = await fetchJson(`${API_BASE}/rooms/${roomId}`).catch(() => null);
-  render();
+  const key = `room:${roomId}`;
+  if (state.routeLoading[key]) return;
+  state.routeLoading[key] = true;
+  delete state.routeLoadError[key];
+  try {
+    const data = await fetchJson(`${API_BASE}/rooms/${roomId}`);
+    if (!data || !data.roomId) {
+      throw new Error('room not found');
+    }
+    state.room = data;
+    delete state.routeLoading[key];
+    delete state.routeLoadError[key];
+    render();
+  } catch (error) {
+    state.room = null;
+    delete state.routeLoading[key];
+    state.routeLoadError[key] = {
+      type: 'room',
+      id: roomId,
+      message: error.message === 'room not found' ? '该房间不存在或已解散' : (error.message || '房间加载失败')
+    };
+    render();
+  }
 }
 
 async function loadGame(gameId) {
+  const key = `game:${gameId}`;
+  if (state.routeLoading[key]) return;
+  state.routeLoading[key] = true;
+  delete state.routeLoadError[key];
   stopPracticePolling();
-  state.game = applyServerGameSnapshot(await fetchJson(`${API_BASE}/games/${gameId}`).catch(() => null));
-  render();
+  try {
+    const raw = await fetchJson(`${API_BASE}/games/${gameId}`);
+    if (!raw || !raw.gameId) {
+      throw new Error('game not found');
+    }
+    state.game = applyServerGameSnapshot(raw);
+    delete state.routeLoading[key];
+    delete state.routeLoadError[key];
+    render();
+  } catch (error) {
+    state.game = null;
+    delete state.routeLoading[key];
+    state.routeLoadError[key] = {
+      type: 'game',
+      id: gameId,
+      message: error.message === 'game not found' ? '该对局不存在或已归档' : (error.message || '对局加载失败')
+    };
+    render();
+  }
 }
 
 async function loadPractice(gameId) {
-  state.game = applyServerGameSnapshot(await fetchJson(`${API_BASE}/learn/practice-games/${gameId}`).catch(() => null));
-  render();
+  const key = `practice:${gameId}`;
+  if (state.routeLoading[key]) return;
+  state.routeLoading[key] = true;
+  delete state.routeLoadError[key];
+  try {
+    const raw = await fetchJson(`${API_BASE}/learn/practice-games/${gameId}`);
+    if (!raw || !raw.gameId) {
+      throw new Error('practice game not found');
+    }
+    state.game = applyServerGameSnapshot(raw);
+    delete state.routeLoading[key];
+    delete state.routeLoadError[key];
+    render();
+  } catch (error) {
+    state.game = null;
+    delete state.routeLoading[key];
+    state.routeLoadError[key] = {
+      type: 'practice',
+      id: gameId,
+      message: error.message || '练习局不存在或已失效'
+    };
+    render();
+  }
 }
 
 async function loadAnalysis(gameId) {
-  state.analysis = await fetchJson(`${API_BASE}/games/${gameId}/analysis`).catch(() => null);
-  state.analysisStep = Math.max(0, ((state.analysis && state.analysis.historyBoards) || []).length - 1);
-  render();
+  const key = `analysis:${gameId}`;
+  if (state.routeLoading[key]) return;
+  state.routeLoading[key] = true;
+  delete state.routeLoadError[key];
+  try {
+    const raw = await fetchJson(`${API_BASE}/games/${gameId}/analysis`);
+    if (!raw || !raw.gameId) {
+      throw new Error('analysis not found');
+    }
+    state.analysis = raw;
+    state.analysisStep = Math.max(0, ((state.analysis && state.analysis.historyBoards) || []).length - 1);
+    delete state.routeLoading[key];
+    delete state.routeLoadError[key];
+    render();
+  } catch (error) {
+    state.analysis = null;
+    delete state.routeLoading[key];
+    state.routeLoadError[key] = {
+      type: 'analysis',
+      id: gameId,
+      message: error.message || '对局分析不存在'
+    };
+    render();
+  }
 }
 
 async function loadProfile() {
@@ -3881,6 +4157,13 @@ function refreshLiveStatusLine(route = currentRoute()) {
   if (!statusEl) {
     return false;
   }
+  if (state.interactionError && Date.now() < state.interactionErrorExpireAt) {
+    statusEl.textContent = state.interactionError;
+    statusEl.classList.add('status--error');
+    statusEl.classList.remove('status--check');
+    return true;
+  }
+  statusEl.classList.remove('status--error');
   if (route.page === 'game' && !state.game.isTraining) {
     statusEl.textContent = onlineGameStatusText(state.game);
     statusEl.classList.toggle('status--check', !!onlineCheckNotice(state.game));
@@ -3964,10 +4247,7 @@ function onXiangqiCellClick(event) {
   if (!canInteractWithBoard(state.game)) return;
   markBoardTap(event.currentTarget);
   if (!state.game || state.game.gameType !== 'XIANGQI') {
-    state.status = '当前对局并非中国象棋，无法使用象棋落子。';
-    if (!refreshLiveStatusLine()) {
-      render();
-    }
+    setBoardInteractionError('当前对局并非中国象棋，无法使用象棋落子。');
     return;
   }
   const row = Number(event.currentTarget.dataset.row);
@@ -3979,12 +4259,11 @@ function onXiangqiCellClick(event) {
       return;
     }
     if (!isViewerOwnXiangqiPiece(clickedCell, state.game.viewerSide)) {
-      state.status = '请先选择己方棋子。';
-      if (!refreshLiveStatusLine()) {
-        render();
-      }
+      setBoardInteractionError('请先选择己方棋子。');
       return;
     }
+    state.interactionError = '';
+    state.interactionErrorExpireAt = 0;
     state.status = '';
     state.selectedFrom = { row, col };
     if (!refreshGameInteractionUi()) {
@@ -3993,6 +4272,8 @@ function onXiangqiCellClick(event) {
     return;
   }
   if (state.selectedFrom.row === row && state.selectedFrom.col === col) {
+    state.interactionError = '';
+    state.interactionErrorExpireAt = 0;
     state.status = '';
     state.selectedFrom = null;
     if (!refreshGameInteractionUi()) {
@@ -4001,6 +4282,8 @@ function onXiangqiCellClick(event) {
     return;
   }
   if (clickedCell && isViewerOwnXiangqiPiece(clickedCell, state.game.viewerSide)) {
+    state.interactionError = '';
+    state.interactionErrorExpireAt = 0;
     state.status = '';
     state.selectedFrom = { row, col };
     if (!refreshGameInteractionUi()) {
@@ -4009,6 +4292,8 @@ function onXiangqiCellClick(event) {
     return;
   }
   const move = { fromRow: state.selectedFrom.row, fromCol: state.selectedFrom.col, toRow: row, toCol: col };
+  state.interactionError = '';
+  state.interactionErrorExpireAt = 0;
   state.status = '';
   state.selectedFrom = null;
   sendMove(move);
@@ -4018,12 +4303,11 @@ function onGomokuCellClick(event) {
   if (!canInteractWithBoard(state.game)) return;
   markBoardTap(event.currentTarget);
   if (!state.game || state.game.gameType !== 'GOMOKU') {
-    state.status = '当前对局并非五子棋，无法使用五子棋落子。';
-    if (!refreshLiveStatusLine()) {
-      render();
-    }
+    setBoardInteractionError('当前对局并非五子棋，无法使用五子棋落子。');
     return;
   }
+  state.interactionError = '';
+  state.interactionErrorExpireAt = 0;
   state.status = '';
   sendMove({ row: Number(event.currentTarget.dataset.row), col: Number(event.currentTarget.dataset.col) });
 }
@@ -4033,23 +4317,19 @@ async function sendMove(payload) {
   const routeBeforeMove = currentRoute();
   const optimisticGame = applyOptimisticPracticeMove(gameBeforeMove, payload);
   if (state.moveInFlight) {
-    state.status = '正在提交走子，请稍候...';
-    if (!refreshLiveStatusLine(routeBeforeMove)) {
-      render();
-    }
+    showToast('正在提交走子，请稍候...', 'info', 1600);
     return;
   }
   const moveUrl = `${gameActionBase(gameBeforeMove)}/move`;
   const payloadError = validateMovePayload(gameBeforeMove, payload);
   if (payloadError) {
-    state.status = payloadError;
-    if (!refreshLiveStatusLine(routeBeforeMove)) {
-      render();
-    }
+    setBoardInteractionError(payloadError);
     return;
   }
   const requestToken = ++state.moveRequestToken;
   state.moveInFlight = true;
+  state.interactionError = '';
+  state.interactionErrorExpireAt = 0;
   state.status = '';
   state.pendingMoveGameId = gameBeforeMove && gameBeforeMove.gameId ? gameBeforeMove.gameId : '';
   state.pendingMoveMarker = createPendingMoveMarker(gameBeforeMove, payload);
@@ -4082,7 +4362,7 @@ async function sendMove(payload) {
     if (optimisticGame) {
       state.game = gameBeforeMove;
     }
-    state.status = error.message;
+    setBoardInteractionError(error.message);
     state.moveInFlight = false;
     clearPendingMoveMarker();
     if (!refreshGameInteractionUi(currentRoute())) {
@@ -4098,6 +4378,14 @@ async function sendMove(payload) {
 }
 
 async function syncRealtime(route) {
+  if (route.page === 'room' && getRouteError('room', route.id)) {
+    closeSocket();
+    return;
+  }
+  if (route.page === 'game' && getRouteError('game', route.id)) {
+    closeSocket();
+    return;
+  }
   const lobbyRoute = route.page === 'play' || route.page === 'home';
   const desiredRoom = route.page === 'room'
     ? route.id
@@ -4113,11 +4401,37 @@ async function syncRealtime(route) {
   const socket = new WebSocket(`${protocol}//${location.host}${WS_BASE}`);
   state.ws = socket;
   state.wsRoomId = desiredSubscription;
-  socket.onopen = () => socket.send(JSON.stringify(
-    lobbyRoute ? { type: 'subscribe_lobby' } : { type: 'subscribe', roomId: desiredRoom }
-  ));
+  socket.onopen = async () => {
+    try {
+      socket.send(JSON.stringify(
+        lobbyRoute ? { type: 'subscribe_lobby' } : { type: 'subscribe', roomId: desiredRoom }
+      ));
+    } catch (_) {}
+    const rNow = currentRoute();
+    if (rNow.page === 'game' && rNow.id && (!state.game || !state.game.isTraining)) {
+      try {
+        const freshGame = await fetchJson(`${API_BASE}/games/${rNow.id}`);
+        if (freshGame && freshGame.gameId) {
+          state.game = applyServerGameSnapshot(freshGame);
+          if (state.game.status === 'FINISHED') {
+            maybeOpenEndGameModal(state.game);
+          }
+          render();
+        }
+      } catch (_) {}
+    }
+  };
+  socket.onerror = () => {
+    try { socket.close(); } catch (_) {}
+  };
   socket.onmessage = async event => {
     const data = JSON.parse(event.data);
+    if (data.type === 'ping' || data.type === 'heartbeat') {
+      try {
+        socket.send(JSON.stringify({ type: 'pong' }));
+      } catch (_) {}
+      return;
+    }
     if (data.type === 'lobby' && data.lobby) {
       state.lobby = data.lobby;
       render();
@@ -4158,12 +4472,17 @@ async function syncRealtime(route) {
       } else {
         state.game = applyServerGameSnapshot(incomingGame);
       }
+      if (state.game && state.game.status === 'FINISHED') {
+        maybeOpenEndGameModal(state.game);
+      }
       const routeNow = currentRoute();
       if (previousGame
         && state.game
         && previousGame.gameId === state.game.gameId
         && routeNow.page === 'game'
         && !state.game.isTraining
+        && state.game.status !== 'FINISHED'
+        && !state.endGameModal
         && patchOnlineGameRealtimeView()) {
         return;
       }

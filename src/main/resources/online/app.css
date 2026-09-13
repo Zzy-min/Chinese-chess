@@ -3237,6 +3237,7 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 }
 .toast--success{background:rgba(35,92,62,.95);border-color:rgba(170,230,190,.25)}
 .toast--error{background:rgba(155,45,40,.95);border-color:rgba(255,190,180,.22)}
+.toast--warning{background:rgba(145,75,20,.95);border-color:rgba(255,200,120,.35);color:#fff7eb}
 .toast--info{background:rgba(30,26,22,.92)}
 .toast--move{
   background:linear-gradient(135deg,rgba(155,48,35,.98),rgba(112,38,30,.98));
@@ -3331,7 +3332,54 @@ select:focus-visible,
   box-shadow:0 0 0 3px rgba(177,63,47,.15)!important;
   animation:shakeX .35s ease;
 }
-.status--error{color:var(--danger);font-weight:600}
+.status--error{
+  color: #c93b2b !important;
+  font-weight: 700;
+  background: rgba(201, 59, 43, 0.08);
+  border: 1px solid rgba(201, 59, 43, 0.3);
+  border-radius: 8px;
+  padding: 4px 10px;
+  animation: shakeX .35s ease;
+}
+.routeErrorPanel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 420px;
+  padding: 40px 20px;
+}
+.routeErrorCard {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  padding: 36px 28px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(34,30,25,.06);
+}
+.routeErrorIcon {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 14px;
+}
+.routeErrorBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(156, 47, 34, 0.08);
+  border: 1px solid rgba(156, 47, 34, 0.2);
+  margin-bottom: 12px;
+}
+.routeErrorActions {
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
 @keyframes authFade{from{opacity:0}to{opacity:1}}
 @keyframes authPop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes shakeX{

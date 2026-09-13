@@ -14,6 +14,9 @@ import com.xiangqi.online.room.CreateRoomRequest;
 import com.xiangqi.online.server.OnlineRoomHub;
 import com.xiangqi.online.server.OnlineStore;
 import com.xiangqi.online.server.RateLimiter;
+import com.xiangqi.online.server.FileRoomPersistence;
+import com.xiangqi.online.server.NoopRoomPersistence;
+import com.xiangqi.online.server.RoomPersistence;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
@@ -47,6 +50,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public final class PublicSiteServer {
     private static final String AUTH_COOKIE = "XQ_AUTH";
@@ -63,13 +69,17 @@ public final class PublicSiteServer {
     private Undertow server;
 
     public PublicSiteServer() throws Exception {
-        this(OnlineStore.createDefault());
+        this(OnlineStore.createDefault(), new FileRoomPersistence());
     }
 
     public PublicSiteServer(OnlineStore store) {
+        this(store, NoopRoomPersistence.instance());
+    }
+
+    public PublicSiteServer(OnlineStore store, RoomPersistence persistence) {
         this.store = initializeStore(store);
         this.authService = new AuthService(store.users(), store.sessions(), PasswordHasher.bcrypt(), Clock.systemUTC());
-        this.roomHub = new OnlineRoomHub(store);
+        this.roomHub = new OnlineRoomHub(store, Clock.systemUTC(), persistence);
         this.practiceHub = new PracticeGameHub(store);
         this.legacyHomeHub = new LegacyHomeSessionHub(practiceHub);
     }
@@ -354,19 +364,102 @@ public final class PublicSiteServer {
     }
 
     private void handleRoomById(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        Map<String, Object> room;
         try {
-            sendJson(exchange, roomHub.roomSnapshotById(pathParam(exchange, "roomId")));
+            room = roomHub.roomSnapshotById(pathParam(exchange, "roomId"));
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.NOT_FOUND, ex.getMessage());
+            return;
+        }
+        if (!canReadRoom(user.get().id(), room)) {
+            sendError(exchange, StatusCodes.FORBIDDEN, "room is not accessible");
+            return;
+        }
+        sendJson(exchange, room);
+    }
+
+    private void handleGameById(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        String gameId = pathParam(exchange, "gameId");
+        // 活动对局：与 WS 订阅同源鉴权（公开房间登录可见，私房仅参与者）。
+        Optional<String> roomId = roomHub.roomIdForGame(gameId);
+        if (roomId.isPresent()) {
+            Map<String, Object> room;
+            try {
+                room = roomHub.roomSnapshotById(roomId.get());
+            } catch (Exception ex) {
+                sendError(exchange, StatusCodes.NOT_FOUND, ex.getMessage());
+                return;
+            }
+            if (!canReadRoom(user.get().id(), room)) {
+                sendError(exchange, StatusCodes.FORBIDDEN, "game not accessible");
+                return;
+            }
+        } else if (!practiceHub.hasActiveGame(gameId)) {
+            // 非活动房间的归档对局：检查是否对局参与者，防止任意 UUID 窥私房盘面。
+            Map<String, Object> archived = store.loadGameAnalysis(gameId);
+            if (archived.isEmpty()) {
+                sendError(exchange, StatusCodes.NOT_FOUND, "game not found");
+                return;
+            }
+            if (!isArchivedGameParticipant(user.get().id(), archived)) {
+                sendError(exchange, StatusCodes.FORBIDDEN, "game not accessible");
+                return;
+            }
+        }
+        try {
+            sendJson(exchange, practiceOrRoomGame(gameId, user.get()));
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.NOT_FOUND, ex.getMessage());
         }
     }
 
-    private void handleGameById(HttpServerExchange exchange) {
-        try {
-            sendJson(exchange, practiceOrRoomGame(pathParam(exchange, "gameId"), currentUser(exchange).orElse(null)));
-        } catch (Exception ex) {
-            sendError(exchange, StatusCodes.NOT_FOUND, ex.getMessage());
+    private boolean isArchivedGameParticipant(String userId, Map<String, Object> archived) {
+        if (asBoolean(archived.get("isPublic"))) {
+            return true;
         }
+        Map<String, Object> players = asMapNested(archived.get("players"));
+        Map<String, Object> first = asMapNested(players.get("first"));
+        Map<String, Object> second = asMapNested(players.get("second"));
+        return userId.equals(asString(first.get("id"))) || userId.equals(asString(second.get("id")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMapNested(Object value) {
+        if (value instanceof Map) {
+            return (Map<String, Object>) value;
+        }
+        return new LinkedHashMap<String, Object>();
+    }
+
+    private boolean canReadRoom(String userId, Map<String, Object> room) {
+        if (userId == null || userId.trim().isEmpty() || room == null) {
+            return false;
+        }
+        if (asBoolean(room.get("isPublic"))) {
+            return true;
+        }
+        String hostId = nestedUserId(room.get("host"));
+        String guestId = nestedUserId(room.get("guest"));
+        return userId.equals(hostId) || userId.equals(guestId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String nestedUserId(Object value) {
+        if (!(value instanceof Map)) {
+            return "";
+        }
+        Object id = ((Map<String, Object>) value).get("id");
+        return id == null ? "" : String.valueOf(id);
     }
 
     private void handleGameAnalysis(HttpServerExchange exchange) {
@@ -1337,34 +1430,101 @@ public final class PublicSiteServer {
     }
 
     private final class WsHub {
+        private static final long HEARTBEAT_INTERVAL_MS = 25_000L;
+        private static final long PRUNE_AFTER_MS = 2 * HEARTBEAT_INTERVAL_MS; // 连续 2 个周期无响应视为死链
+
         private final ConcurrentHashMap<String, Set<WebSocketChannel>> byRoom = new ConcurrentHashMap<String, Set<WebSocketChannel>>();
         private final ConcurrentHashMap<WebSocketChannel, String> channelRooms = new ConcurrentHashMap<WebSocketChannel, String>();
         private final Set<WebSocketChannel> lobbyChannels = ConcurrentHashMap.newKeySet();
+        private final ConcurrentHashMap<WebSocketChannel, Long> lastSeen = new ConcurrentHashMap<WebSocketChannel, Long>();
+        private final ScheduledExecutorService heartbeat = new ScheduledThreadPoolExecutor(1, runnable -> {
+            Thread thread = new Thread(runnable, "ws-heartbeat");
+            thread.setDaemon(true);
+            return thread;
+        });
+        private boolean heartbeatStarted;
 
         private void onConnect(final WebSocketChannel channel) {
+            track(channel);
+            scheduleHeartbeat();
             channel.getReceiveSetter().set(new AbstractReceiveListener() {
                 @Override
                 protected void onFullTextMessage(WebSocketChannel webSocketChannel, BufferedTextMessage message) throws IOException {
+                    track(webSocketChannel);
                     Map<String, Object> payload = mapper.readValue(message.getData(), new TypeReference<Map<String, Object>>() { });
-                    if ("subscribe".equals(asString(payload.get("type")))) {
+                    String type = asString(payload.get("type"));
+                    if ("subscribe".equals(type)) {
                         subscribe(webSocketChannel, asString(payload.get("roomId")));
-                    } else if ("subscribe_lobby".equals(asString(payload.get("type")))) {
+                    } else if ("subscribe_lobby".equals(type)) {
                         subscribeLobby(webSocketChannel);
                     }
+                    // 其余消息（含客户端回的心跳 pong）仅用于维持连接活性，无需处理。
                 }
 
                 @Override
                 protected void onClose(WebSocketChannel webSocketChannel, io.undertow.websockets.core.StreamSourceFrameChannel channelFrame) throws IOException {
+                    drop(channel);
                     unsubscribe(webSocketChannel);
                     super.onClose(webSocketChannel, channelFrame);
                 }
 
                 @Override
                 protected void onError(WebSocketChannel webSocketChannel, Throwable error) {
+                    drop(channel);
                     unsubscribe(webSocketChannel);
                 }
             });
             channel.resumeReceives();
+        }
+
+        private void track(WebSocketChannel channel) {
+            lastSeen.put(channel, System.currentTimeMillis());
+        }
+
+        private void drop(WebSocketChannel channel) {
+            lastSeen.remove(channel);
+        }
+
+        private void scheduleHeartbeat() {
+            if (heartbeatStarted) {
+                return;
+            }
+            heartbeatStarted = true;
+            heartbeat.scheduleAtFixedRate(this::heartbeatTick, HEARTBEAT_INTERVAL_MS, HEARTBEAT_INTERVAL_MS, TimeUnit.MILLISECONDS);
+        }
+
+        private void heartbeatTick() {
+            long now = System.currentTimeMillis();
+            if (lobbyChannels.isEmpty() && byRoom.isEmpty() && channelRooms.isEmpty()) {
+                return;
+            }
+            for (WebSocketChannel channel : lastSeen.keySet()) {
+                if (!channel.isOpen()) {
+                    drop(channel);
+                    unsubscribe(channel);
+                    continue;
+                }
+                Long seen = lastSeen.get(channel);
+                if (seen == null || now - seen > PRUNE_AFTER_MS) {
+                    // 心跳超时：清理死连接。
+                    try {
+                        WebSockets.sendClose(1001, "heartbeat timeout", channel, null);
+                    } catch (Exception ignored) {
+                    }
+                    drop(channel);
+                    unsubscribe(channel);
+                    continue;
+                }
+                sendPing(channel);
+            }
+        }
+
+        private void sendPing(WebSocketChannel channel) {
+            try {
+                byte[] payload = mapper.writeValueAsBytes(Collections.singletonMap("type", "ping"));
+                WebSockets.sendText(new String(payload, StandardCharsets.UTF_8), channel, null);
+            } catch (Exception ignored) {
+            }
         }
 
         private void subscribe(WebSocketChannel channel, String roomId) {
