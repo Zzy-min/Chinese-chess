@@ -1,205 +1,262 @@
 #!/usr/bin/env python3
-"""
-Deploy the public site to the fixed production VPS origin.
+"""Detached, verifiable production deployment for 轻棋局.
 
-Defaults:
-- host: 47.80.60.26
-- user: root
-- project dir: /opt/chinese-chess
-- branch: main
-
-Password is never stored in the repository.
-Provide it with XQ_DEPLOY_PASSWORD or enter it interactively.
+The script uses the configured ``xiangqi-vps`` OpenSSH alias.  The build runs
+under ``nohup`` on the server, so closing this client cannot cancel BuildKit.
+No password, private key, cookie, or database credential is printed or stored.
 """
 
 from __future__ import annotations
 
 import argparse
-import getpass
-import os
+import base64
+import hashlib
+import json
+import re
 import shlex
-import sys
+import subprocess
 import time
-import urllib.error
 import urllib.request
-
-try:
-    import paramiko
-except ImportError as exc:  # pragma: no cover - runtime-only dependency check
-    raise SystemExit(
-        "Missing dependency: paramiko\n"
-        "Install it with: python -m pip install paramiko"
-    ) from exc
+from pathlib import Path
 
 
-DEFAULT_HOST = "47.80.60.26"
-DEFAULT_USER = "root"
+DEFAULT_SSH_ALIAS = "xiangqi-vps"
 DEFAULT_PROJECT_DIR = "/opt/chinese-chess"
 DEFAULT_BRANCH = "main"
-DEFAULT_PUBLIC_URL = "https://www.xiangqiarena.com/"
-DEFAULT_LOCAL_HEALTH_URL = "http://127.0.0.1:18388/"
-DEFAULT_PUBLIC_CHECK_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+DEFAULT_PUBLIC_URL = "https://www.xiangqiarena.com/online"
+DEFAULT_SOURCE_URL = "http://127.0.0.1:18388/online"
+PUBLIC_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/json,*/*;q=0.8",
     "Cache-Control": "no-cache",
 }
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Deploy the production VPS origin for xiangqiarena.com."
-    )
-    parser.add_argument("--host", default=DEFAULT_HOST, help="Production VPS host")
-    parser.add_argument("--user", default=DEFAULT_USER, help="SSH username")
-    parser.add_argument(
-        "--project-dir",
-        default=DEFAULT_PROJECT_DIR,
-        help="Project directory on the server",
-    )
-    parser.add_argument("--branch", default=DEFAULT_BRANCH, help="Git branch to deploy")
-    parser.add_argument(
-        "--public-url",
-        default=DEFAULT_PUBLIC_URL,
-        help="Public URL to verify after deploy",
-    )
-    parser.add_argument(
-        "--local-health-url",
-        default=DEFAULT_LOCAL_HEALTH_URL,
-        help="Server-local health URL checked through SSH",
-    )
-    parser.add_argument(
-        "--skip-public-check",
-        action="store_true",
-        help="Skip public URL verification",
-    )
-    parser.add_argument(
-        "--password-env",
-        default="XQ_DEPLOY_PASSWORD",
-        help="Environment variable holding the SSH password",
-    )
+    parser = argparse.ArgumentParser(description="Deploy 轻棋局 through a detached VPS job")
+    parser.add_argument("--ssh-alias", default=DEFAULT_SSH_ALIAS)
+    parser.add_argument("--project-dir", default=DEFAULT_PROJECT_DIR)
+    parser.add_argument("--branch", default=DEFAULT_BRANCH)
+    parser.add_argument("--commit", help="Exact commit to deploy; defaults to local HEAD")
+    parser.add_argument("--public-url", default=DEFAULT_PUBLIC_URL)
+    parser.add_argument("--source-url", default=DEFAULT_SOURCE_URL)
+    parser.add_argument("--release-id", help="Safe identifier used for remote log/status files")
+    parser.add_argument("--poll-timeout", type=int, default=1_800)
+    parser.add_argument("--status-only", action="store_true")
     return parser.parse_args()
 
 
-def read_password(env_name: str, host: str, user: str) -> str:
-    password = os.getenv(env_name)
-    if password:
-        return password
-    prompt = f"SSH password for {user}@{host}: "
-    password = getpass.getpass(prompt)
-    if not password:
-        raise SystemExit("Empty password; aborting deploy.")
-    return password
+def local_git(*args: str) -> str:
+    return subprocess.run(
+        ["git", *args], check=True, text=True, capture_output=True
+    ).stdout.strip()
 
 
-def open_ssh(host: str, user: str, password: str) -> paramiko.SSHClient:
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=user, password=password, timeout=20)
-    return client
+def run_ssh(alias: str, command: str, timeout: int = 30) -> str:
+    completed = subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=12", alias, command],
+        check=True,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+    return completed.stdout.strip()
 
 
-def run_remote(client: paramiko.SSHClient, command: str, timeout: int = 1800) -> str:
-    stdin, stdout, stderr = client.exec_command(command, get_pty=True, timeout=timeout)
-    output = []
-    while True:
-        if stdout.channel.recv_ready():
-            chunk = stdout.channel.recv(4096).decode("utf-8", "replace")
-            output.append(chunk)
-            sys.stdout.write(chunk)
-            sys.stdout.flush()
-        if stdout.channel.exit_status_ready() and not stdout.channel.recv_ready():
-            break
-        time.sleep(0.1)
-
-    err = stderr.read().decode("utf-8", "replace")
-    if err:
-        output.append(err)
-        sys.stdout.write(err)
-        sys.stdout.flush()
-
-    status = stdout.channel.recv_exit_status()
-    joined = "".join(output)
-    if status != 0:
-        raise RuntimeError(f"Remote command failed with exit code {status}\n{joined}")
-    return joined
+def safe_release_id(raw: str) -> str:
+    value = re.sub(r"[^a-zA-Z0-9_.-]", "-", raw or "")
+    if not value or len(value) > 80:
+        raise ValueError("release id must be 1-80 safe characters")
+    return value
 
 
-def deploy_command(project_dir: str, branch: str, local_health_url: str) -> str:
-    quoted_dir = shlex.quote(project_dir)
-    quoted_branch = shlex.quote(branch)
-    quoted_local_health = shlex.quote(local_health_url)
-    return f"""
-set -e
-cd {quoted_dir}
-echo "BEFORE_HEAD=$(git rev-parse --short HEAD)"
-git fetch origin {quoted_branch}
-git reset --hard origin/{quoted_branch}
-echo "AFTER_HEAD=$(git rev-parse --short HEAD)"
+def remote_paths(release_id: str) -> tuple[str, str, str]:
+    prefix = f"/tmp/xiangqi-deploy-{safe_release_id(release_id)}"
+    return f"{prefix}.sh", f"{prefix}.log", f"{prefix}.status"
+
+
+def remote_deploy_script(
+    project_dir: str,
+    branch: str,
+    commit: str,
+    source_url: str,
+    public_url: str,
+    status_path: str,
+) -> str:
+    qdir = shlex.quote(project_dir)
+    qbranch = shlex.quote(branch)
+    qcommit = shlex.quote(commit)
+    qsource = shlex.quote(source_url)
+    qpublic = shlex.quote(public_url)
+    qstatus = shlex.quote(status_path)
+    return f"""#!/bin/bash
+set -eu
+STATUS={qstatus}
+STAGE=starting
+PREVIOUS_IMAGE=
+SOURCE_URL={qsource}
+PUBLIC_URL={qpublic}
+write_status() {{
+  tmp="$STATUS.tmp"
+  printf 'state=%s\\nstage=%s\\nhead=%s\\nmessage=%s\\n' "$1" "$STAGE" "${{2:-}}" "${{3:-}}" > "$tmp"
+  mv "$tmp" "$STATUS"
+}}
+rollback() {{
+  code=$?
+  set +e
+  if [ -n "$PREVIOUS_IMAGE" ] && [ "$STAGE" != "fetch" ] && [ "$STAGE" != "build" ]; then
+    docker image tag "$PREVIOUS_IMAGE" xiangqi-stack-app:latest
+    docker compose up -d --no-deps --force-recreate app
+  fi
+  write_status failed "$(git rev-parse --short HEAD 2>/dev/null)" "stage-$STAGE-exit-$code"
+  exit "$code"
+}}
+trap rollback INT TERM HUP ERR
+exec 9>/tmp/xiangqi-deploy.lock
+if ! flock -n 9; then
+  write_status failed '' deployment-already-running
+  exit 75
+fi
+cd {qdir}
+write_status running '' starting
+STAGE=fetch
+git fetch origin {qbranch}
+git cat-file -e {qcommit}^{{commit}}
+git reset --hard {qcommit}
+[ "$(git rev-parse HEAD)" = {qcommit} ]
+PREVIOUS_IMAGE="$(docker inspect --format '{{{{.Image}}}}' xiangqi-stack-app-1 2>/dev/null || true)"
+STAGE=build
+write_status running "$(git rev-parse --short HEAD)" building
 docker compose build app
-docker compose up -d app
-sleep 8
-echo "APP_STATUS"
-docker compose ps app
-echo "LOCAL_CHECK"
-curl -fsS {quoted_local_health} >/dev/null
-curl -s {quoted_local_health} | head -c 400
-echo
+STAGE=start
+write_status running "$(git rev-parse --short HEAD)" starting-app
+docker compose up -d --no-deps app
+STAGE=health
+attempt=0
+while [ "$attempt" -lt 24 ]; do
+  health="$(docker inspect --format '{{{{if .State.Health}}}}{{{{.State.Health.Status}}}}{{{{else}}}}{{{{.State.Status}}}}{{{{end}}}}' xiangqi-stack-app-1 2>/dev/null || true)"
+  [ "$health" = healthy ] && break
+  attempt=$((attempt + 1))
+  sleep 5
+done
+[ "$health" = healthy ]
+STAGE=source
+source_html="$(curl -fsS "$SOURCE_URL")"
+curl -fsS "$SOURCE_URL/api/site/bootstrap" | grep -q '^{{'
+version="$(printf '%s' "$source_html" | sed -n 's/.*app\.js?v=\([A-Za-z0-9_.-]*\).*/\\1/p' | head -n 1)"
+[ -n "$version" ]
+STAGE=public
+public_html="$(curl -fsS -H 'Cache-Control: no-cache' "$PUBLIC_URL?_deploy_check=$(date +%s)")"
+printf '%s' "$public_html" | grep -Fq "app.js?v=$version"
+source_sha="$(curl -fsS "$SOURCE_URL/assets/site/app.js?v=$version" | sha256sum | cut -d' ' -f1)"
+public_sha="$(curl -fsS -H 'Cache-Control: no-cache' "$PUBLIC_URL/assets/site/app.js?v=$version&_deploy_check=$(date +%s)" | sha256sum | cut -d' ' -f1)"
+[ "$source_sha" = "$public_sha" ]
+STAGE=complete
+write_status succeeded "$(git rev-parse --short HEAD)" verified
 """
 
 
-def public_check(url: str, retries: int = 10, sleep_sec: int = 6) -> str:
-    last_error = None
-    for attempt in range(1, retries + 1):
-        try:
-            request = urllib.request.Request(url, headers=DEFAULT_PUBLIC_CHECK_HEADERS)
-            with urllib.request.urlopen(request, timeout=20) as response:
-                html = response.read().decode("utf-8", "replace")
-                status = getattr(response, "status", "unknown")
-                final_url = response.geturl()
-            print(f"PUBLIC_CHECK attempt={attempt} ok status={status} url={final_url}")
-            return html
-        except (urllib.error.URLError, TimeoutError) as exc:
-            last_error = exc
-            print(f"PUBLIC_CHECK attempt={attempt} failed: {exc}")
-            time.sleep(sleep_sec)
-    raise RuntimeError(f"Public URL check failed after {retries} attempts: {last_error}")
+def start_remote_job(alias: str, script: str, release_id: str) -> None:
+    script_path, log_path, status_path = remote_paths(release_id)
+    encoded = base64.b64encode(script.encode("utf-8")).decode("ascii")
+    command = (
+        f"printf %s {shlex.quote(encoded)} | base64 -d > {shlex.quote(script_path)} && "
+        f"chmod 700 {shlex.quote(script_path)} && "
+        f"rm -f {shlex.quote(status_path)} && "
+        f"(nohup {shlex.quote(script_path)} > {shlex.quote(log_path)} 2>&1 </dev/null & echo $!)"
+    )
+    pid = run_ssh(alias, command)
+    print(f"REMOTE_JOB release={release_id} pid={pid} log={log_path}")
 
 
-def summarize_public_html(html: str) -> None:
-    markers = [
-        "现在开始下棋",
-        "进入 AI 棋桌",
-        "进入在线大厅",
-        "首页承接 AI 对局与在线对局两条入口",
-    ]
-    for marker in markers:
-        print(f"PUBLIC_MARKER {marker} -> {marker in html}")
+def read_status(alias: str, release_id: str) -> dict[str, str]:
+    _, _, status_path = remote_paths(release_id)
+    raw = run_ssh(alias, f"test -f {shlex.quote(status_path)} && cat {shlex.quote(status_path)} || true")
+    result: dict[str, str] = {}
+    for line in raw.splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            result[key] = value
+    return result
+
+
+def wait_for_remote_job(alias: str, release_id: str, timeout_seconds: int) -> dict[str, str]:
+    deadline = time.monotonic() + timeout_seconds
+    last_stage = ""
+    while time.monotonic() < deadline:
+        status = read_status(alias, release_id)
+        stage = status.get("stage", "waiting")
+        if stage != last_stage:
+            print(f"REMOTE_STATUS state={status.get('state', 'pending')} stage={stage}")
+            last_stage = stage
+        if status.get("state") == "succeeded":
+            return status
+        if status.get("state") == "failed":
+            _, log_path, _ = remote_paths(release_id)
+            tail = run_ssh(alias, f"tail -n 80 {shlex.quote(log_path)} || true")
+            raise RuntimeError(f"remote deployment failed: {status}\n{tail}")
+        time.sleep(5)
+    raise TimeoutError(f"remote deployment still running after {timeout_seconds}s; release={release_id}")
+
+
+def fetch_bytes(url: str) -> bytes:
+    separator = "&" if "?" in url else "?"
+    request = urllib.request.Request(f"{url}{separator}_deploy_check={time.time_ns()}", headers=PUBLIC_HEADERS)
+    with urllib.request.urlopen(request, timeout=20) as response:
+        if response.status != 200:
+            raise RuntimeError(f"unexpected HTTP {response.status}: {url}")
+        return response.read()
+
+
+def verify_release(alias: str, project_dir: str, expected_commit: str, public_url: str, source_url: str) -> None:
+    remote_head = run_ssh(alias, f"cd {shlex.quote(project_dir)} && git rev-parse HEAD")
+    if remote_head != expected_commit:
+        raise RuntimeError(f"remote HEAD mismatch: expected {expected_commit}, got {remote_head}")
+    source_html = run_ssh(alias, f"curl -fsS {shlex.quote(source_url)}")
+    public_html = fetch_bytes(public_url).decode("utf-8", "replace")
+    match = re.search(r"app\.js\?v=([a-zA-Z0-9_.-]+)", source_html)
+    if not match:
+        raise RuntimeError("source HTML has no versioned app.js")
+    version = match.group(1)
+    if f"app.js?v={version}" not in public_html:
+        raise RuntimeError(f"public HTML does not expose source asset version {version}")
+    source_asset_url = f"{source_url}/assets/site/app.js?v={version}"
+    public_asset_url = f"{public_url}/assets/site/app.js?v={version}"
+    source_sha = run_ssh(
+        alias, f"curl -fsS {shlex.quote(source_asset_url)} | sha256sum | cut -d' ' -f1"
+    )
+    public_sha = hashlib.sha256(fetch_bytes(public_asset_url)).hexdigest()
+    if source_sha != public_sha:
+        raise RuntimeError(f"asset hash mismatch: source={source_sha} public={public_sha}")
+    bootstrap = run_ssh(alias, f"curl -fsS {shlex.quote(source_url + '/api/site/bootstrap')}")
+    if not isinstance(json.loads(bootstrap), dict):
+        raise RuntimeError("bootstrap response is not a JSON object")
+    print(f"VERIFY_OK head={remote_head[:7]} version={version} app_sha256={public_sha}")
 
 
 def main() -> int:
     args = parse_args()
-    password = read_password(args.password_env, args.host, args.user)
-
-    print(f"Deploying {args.branch} to {args.user}@{args.host}:{args.project_dir}")
-    client = open_ssh(args.host, args.user, password)
-    try:
-        run_remote(
-            client,
-            deploy_command(args.project_dir, args.branch, args.local_health_url),
-        )
-    finally:
-        client.close()
-
-    if not args.skip_public_check:
-        html = public_check(args.public_url)
-        summarize_public_html(html)
-
-    print("Deploy completed.")
+    if args.status_only and not args.release_id:
+        raise SystemExit("--status-only requires --release-id")
+    commit = args.commit or local_git("rev-parse", "HEAD")
+    release_id = safe_release_id(args.release_id or f"{commit[:7]}-{int(time.time())}")
+    if args.status_only:
+        print(json.dumps(read_status(args.ssh_alias, release_id), ensure_ascii=False, indent=2))
+        return 0
+    local_git("merge-base", "--is-ancestor", commit, f"origin/{args.branch}")
+    _, _, status_path = remote_paths(release_id)
+    script = remote_deploy_script(
+        args.project_dir,
+        args.branch,
+        commit,
+        args.source_url,
+        args.public_url,
+        status_path,
+    )
+    start_remote_job(args.ssh_alias, script, release_id)
+    wait_for_remote_job(args.ssh_alias, release_id, args.poll_timeout)
+    verify_release(args.ssh_alias, args.project_dir, commit, args.public_url, args.source_url)
+    print(f"DEPLOY_OK release={release_id}")
     return 0
 
 
