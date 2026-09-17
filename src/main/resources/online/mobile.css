@@ -970,6 +970,18 @@
     display: none;
   }
 
+  .boardPlayerClockBlock {
+    margin: 0 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .clockTypeLabel,
+  .clockTimingStatus {
+    display: none !important;
+  }
+
   .boardPlayerClock {
     margin: 0 !important;
     font-size: 15px !important;

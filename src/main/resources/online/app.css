@@ -1537,18 +1537,19 @@ button.move{width:100%;text-align:left;cursor:pointer}
 
 .boardPage--desk .boardDesk{
   display:grid;
-  grid-template-columns:260px minmax(0,1fr) 360px;
-  gap:18px;
+  grid-template-columns: minmax(230px, 260px) minmax(360px, 1fr) minmax(180px, 280px);
+  gap: clamp(12px, 1.5vw, 18px);
   min-height:0
 }
 .boardRail,
 .boardSidebar{
-  padding:18px
+  padding:14px 12px;
+  min-width:0;
 }
 .boardRail{
   display:grid;
   align-content:start;
-  gap:14px
+  gap:12px
 }
 .boardRailHeader{
   display:flex;
@@ -1557,10 +1558,11 @@ button.move{width:100%;text-align:left;cursor:pointer}
   gap:12px
 }
 .boardPlayerCard{
-  padding:18px;
+  padding:14px 12px;
   border:1px solid rgba(182,156,122,.24);
-  border-radius:18px;
-  background:#fffdfa
+  border-radius:16px;
+  background:#fffdfa;
+  min-width:0;
 }
 .boardPlayerCard.is-active{
   border-color:rgba(140,46,33,.5);
@@ -1572,8 +1574,8 @@ button.move{width:100%;text-align:left;cursor:pointer}
   color:var(--muted)
 }
 .boardPlayerClock{
-  margin-top:10px;
-  font-size:42px;
+  margin-top:6px;
+  font-size:32px;
   font-family:"Georgia","Times New Roman",serif
 }
 .boardRailNote{
@@ -1599,8 +1601,7 @@ button.move{width:100%;text-align:left;cursor:pointer}
 
 @media (max-width: 1180px){
   .deskFeatureGrid,
-  .deskLobby,
-  .boardPage--desk .boardDesk{
+  .deskLobby{
     grid-template-columns:1fr
   }
   .deskSidebar,
@@ -2045,8 +2046,8 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 /* 3. Board Room & Practice Redesign */
 .boardDesk {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px !important;
-  gap: 20px;
+  grid-template-columns: minmax(230px, 260px) minmax(360px, 1fr) minmax(180px, 280px) !important;
+  gap: clamp(12px, 1.5vw, 18px);
   min-height: 0 !important;
   position: relative;
   z-index: 1;
@@ -2475,8 +2476,8 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 /* 3. Board Room & Practice Redesign */
 .boardDesk {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px !important;
-  gap: 20px;
+  grid-template-columns: minmax(230px, 260px) minmax(360px, 1fr) minmax(180px, 280px) !important;
+  gap: clamp(12px, 1.5vw, 18px);
   min-height: 0 !important;
   position: relative;
   z-index: 1;
@@ -2564,13 +2565,59 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   margin-bottom: 8px;
 }
 
+.boardPlayerClockBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 6px;
+}
+
+.clockTypeLabel {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
 .boardPlayerClock {
-  font-size: 32px;
-  font-family: monospace;
+  font-size: clamp(20px, 2vw, 28px);
+  font-family: "SF Mono", Monaco, Menlo, Consolas, monospace;
   font-weight: bold;
+  color: var(--ink);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.boardPlayerClock.is-ticking {
   color: var(--brand-red);
-  letter-spacing: 0.05em;
-  text-shadow: 0 2px 4px rgba(140, 46, 33, 0.04);
+  text-shadow: 0 1px 3px rgba(140, 46, 33, 0.15);
+}
+
+.clockTimingStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.clockTimingStatus.is-active {
+  color: var(--brand-red);
+  font-weight: 600;
+}
+
+.clockTimingStatus .tickingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-red);
+  display: inline-block;
+  animation: clockDotPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes clockDotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 
 .boardPlayerHint {
@@ -2647,10 +2694,10 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
   align-content: flex-start;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px 8px;
 }
 
 .recordPane .moveRow {
@@ -2674,24 +2721,36 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   align-items: center;
   justify-content: center;
   background: transparent;
-  padding: 12px;
+  padding: 4px 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.site.is-board-route .boardHost,
+.boardPane .boardHost {
+  padding: 4px 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 /* 对局桌玩家卡片顶部 Flex 布局 */
 .boardPlayerCardTop {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-width: 0;
 }
 
 /* 圆形头像 */
 .boardPlayerCardTop .avatar {
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 2px solid var(--line);
   box-shadow: 0 3px 8px rgba(42,39,32,0.08);
+  flex-shrink: 0;
 }
 
 /* 用户名和徽章的垂直排布 */
@@ -2699,18 +2758,24 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .boardPlayerCardTop .userMeta strong {
-  font-size: 15px;
+  font-size: 13px;
   margin: 0 !important;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .boardPlayerCardTop .userMeta .vipBadge {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   font-weight: bold;
+  white-space: nowrap;
 }
 
 /* 回合指示小徽章 */
@@ -2732,6 +2797,12 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   color: #fff;
   box-shadow: 0 2px 6px rgba(140, 46, 33, 0.25);
   animation: pulse-badge 1.8s infinite ease-in-out;
+}
+
+.turnBadge.is-waiting-turn {
+  background: rgba(140, 46, 33, 0.06);
+  color: var(--muted);
+  border: 1px solid rgba(140, 46, 33, 0.15);
 }
 
 @keyframes pulse-badge {
@@ -2777,6 +2848,19 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   transform: translateY(-1px);
 }
 
+.woodActions button.ghost.danger {
+  border: 1px solid rgba(140, 46, 33, 0.35) !important;
+  background: #FCFAF6 !important;
+  color: var(--brand-red) !important;
+}
+
+.woodActions button.ghost.danger:hover:not(:disabled) {
+  border-color: var(--brand-red) !important;
+  background: rgba(140, 46, 33, 0.08) !important;
+  color: var(--brand-red) !important;
+  transform: translateY(-1px);
+}
+
 .woodActions button.danger {
   border: 1px solid var(--brand-red);
   background: var(--brand-red);
@@ -2797,8 +2881,20 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
 
 /* 木纹棋盘侧边和水墨图浮动适配微调 */
 .boardPage--desk {
-  padding: 24px 30px !important;
+  padding: 16px clamp(12px, 2vw, 24px) 20px !important;
   min-height: 0;
+}
+
+.pill--turn {
+  background: rgba(140, 46, 33, 0.1) !important;
+  color: var(--brand-red) !important;
+  font-weight: 600 !important;
+}
+
+.pill--name {
+  background: rgba(42, 39, 32, 0.08) !important;
+  color: var(--ink) !important;
+  font-weight: bold !important;
 }
 
 /* ==========================================
@@ -3033,14 +3129,14 @@ h1, h2, h3, .brandText strong, .stampTitle, .deskSidebarItem, .tabItem, .boardPl
   grid-template-columns: repeat(4, 1fr);
   border-bottom: 1px solid var(--line);
   background: #fbf9f4;
-  border-radius: 14px 14px 0 0;
-  margin: -22px -22px 20px -22px;
+  border-radius: 12px 12px 0 0;
+  margin: -14px -12px 14px -12px;
 }
 .gameSidebarTabs .tab-btn {
   border: none;
   background: transparent;
-  padding: 12px 6px;
-  font-size: 14px;
+  padding: 10px 4px;
+  font-size: 13px;
   font-weight: bold;
   color: var(--muted);
   cursor: pointer;

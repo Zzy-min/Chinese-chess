@@ -1091,6 +1091,15 @@ function onlineGameStatusText(game) {
   return (game && game.resultText) || '在线对局进行中';
 }
 
+function activeDeductingSideText(game) {
+  if (!game || game.status !== 'PLAYING' || game.clockState !== 'RUNNING') {
+    return '未扣时';
+  }
+  const turn = game.currentTurn;
+  const label = turn === 'RED' ? '红方' : (turn === 'BLACK' ? '黑方' : (turn === 'WHITE' ? '白方' : '当前方'));
+  return `${label}（局时扣减中）`;
+}
+
 function onlineCheckNotice(game) {
   if (!game || game.gameType !== 'XIANGQI' || game.status !== 'PLAYING' || !game.inCheckSide) {
     return '';
@@ -2048,7 +2057,7 @@ function renderRightSidebar(game, isAnalysis = false) {
             ${(game.moves || []).length ? game.moves.map(moveItem => `
               <button class="move ${step === moveItem.index ? 'is-current' : ''}" data-analysis-step="${moveItem.index}">
                 <div><strong>#${moveItem.index}</strong><div class="muted">${moveItem.side}</div></div>
-                <div>${moveItem.notation}</div>
+                <div>${escapeHtml(formatMoveNotation(moveItem, game.gameType))}</div>
               </button>`).join('') : '<div class="banner">当前没有可回放着法。</div>'}
           </div>
         </div>
@@ -2087,6 +2096,8 @@ function renderOnlineGameView(game) {
   const themeClass = (game.gameType === 'XIANGQI' ? 'xiangqiTheme' : 'gomokuTheme') + ' ' + (state.boardTheme === 'ink' ? 'theme-ink' : 'theme-wood');
 
   const isViewerFirst = viewerSide ? (viewerSide === firstPlayer.side) : true;
+  const opponentSlot = isViewerFirst ? 'second' : 'first';
+  const selfSlot = isViewerFirst ? 'first' : 'second';
 
   return `
     <div class="boardPage boardPage--desk ${themeClass}">
@@ -2103,27 +2114,25 @@ function renderOnlineGameView(game) {
           </div>
 
           <div class="clockGrid" data-live-clock-grid>
-            ${renderClockCard(game, 'second')}
-            ${renderClockCard(game, 'first')}
+            ${renderClockCard(game, opponentSlot)}
+            ${renderClockCard(game, selfSlot)}
           </div>
 
-          <div class="boardRailNote">
-            <div>局时: <strong>15:00</strong></div>
-            <div>步时: <strong>01:30</strong></div>
+          <div class="boardRailNote" data-live-rail-note>
+            <div>局时规则: <strong>${formatClock(game.initialTimeSeconds || 900)}（包干）</strong></div>
+            <div>步时规则: <strong>不限（无单步限时）</strong></div>
+            <div>当前扣时: <strong>${activeDeductingSideText(game)}</strong></div>
             <div>视角: <strong>${viewerSide ? sideLabel(game.gameType, viewerSide) : '观战'}</strong></div>
-            <div>当前状态: <strong>${liveGameStatusLabel(game.status)}</strong></div>
           </div>
         </aside>
 
         <!-- 中栏 (自适应棋盘区) -->
         <section class="boardWrap boardPane boardPane--game boardStage">
           <div class="gameMetaRow">
-            <span class="pill">${gameTypeDisplayLabel(game.gameType)}</span>
-            <span class="pill" data-live-side-self>${liveViewerSideLabel(game, viewerSide)}</span>
-            <span class="pill" data-live-side-opponent>${liveOpponentSideLabel(game, viewerSide, opponentSide)}</span>
-            <span class="pill" data-live-turn>轮到 ${turnTextForViewer(game, viewerSide)}</span>
-            <span class="pill" data-live-game-status>${liveGameStatusLabel(game.status)}</span>
-            <span class="pill" data-live-game-termination>${liveTerminationLabel(game.terminationReason)}</span>
+            <span class="pill pill--name">${gameTypeDisplayLabel(game.gameType)}</span>
+            <span class="pill pill--turn" data-live-turn style="${game.status === 'PLAYING' ? '' : 'display:none'}">轮到 ${turnTextForViewer(game, viewerSide)}</span>
+            <span class="pill" data-live-game-status style="${game.status === 'PLAYING' ? 'display:none' : ''}">${liveGameStatusLabel(game.status)}</span>
+            <span class="pill" data-live-game-termination style="${game.terminationReason ? '' : 'display:none'}">${liveTerminationLabel(game.terminationReason)}</span>
           </div>
           <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
@@ -2144,7 +2153,7 @@ function renderOnlineGameActions(game, canOfferDraw) {
   return `
     <button class="ghost" disabled title="在线真人对局不支持单方悔棋">悔棋</button>
     ${canOfferDraw ? '<button class="ghost" data-action="offer-draw">求和</button>' : '<button class="ghost" disabled>求和</button>'}
-    ${game.status === 'PLAYING' ? '<button class="danger" data-action="resign">认输</button>' : '<button class="danger" disabled>认输</button>'}
+    ${game.status === 'PLAYING' ? '<button class="ghost danger" data-action="resign">认输</button>' : '<button class="ghost danger" disabled>认输</button>'}
     <button class="ghost" data-nav="room/${game.roomId || ''}">离开</button>
   `;
 }
@@ -2192,8 +2201,12 @@ function renderPracticeView(game) {
                   <span class="vipBadge">${escapeHtml(ai.engineText || ai.engineId || '内置 AI')} · ${escapeHtml(ai.difficulty || '普通')}</span>
                 </div>
               </div>
-              ${aiActive ? '<div class="boardPlayerClock">AI思考中</div>' : '<div class="boardPlayerClock">等待中</div>'}
-              ${aiActive ? '<div class="turnBadge active">AI回合</div>' : '<div class="turnBadge">等待中</div>'}
+              <div class="boardPlayerClockBlock">
+                <div class="clockTypeLabel">对局状态</div>
+                <div class="boardPlayerClock ${aiActive ? 'is-ticking' : ''}">${aiActive ? 'AI思考中' : '等待玩家'}</div>
+                <div class="clockTimingStatus ${aiActive ? 'is-active' : 'is-idle'}">${aiActive ? '<span class="tickingDot"></span>AI用时中' : '等待走棋'}</div>
+              </div>
+              ${aiActive ? '<div class="turnBadge active">AI回合</div>' : '<div class="turnBadge is-waiting-turn">等待玩家走棋</div>'}
             </div>
 
             <!-- 下方玩家自己卡片 -->
@@ -2205,8 +2218,12 @@ function renderPracticeView(game) {
                   <span class="vipBadge">${viewerSide === 'RED' ? '红方' : '黑方'} · 挑战者</span>
                 </div>
               </div>
-              <div class="boardPlayerClock">无限制</div>
-              ${playerActive ? '<div class="turnBadge active">我的回合</div>' : '<div class="turnBadge">等待中</div>'}
+              <div class="boardPlayerClockBlock">
+                <div class="clockTypeLabel">剩余局时</div>
+                <div class="boardPlayerClock">无限制</div>
+                <div class="clockTimingStatus ${playerActive ? 'is-active' : 'is-idle'}">${playerActive ? '<span class="tickingDot"></span>玩家思考中' : '等待AI'}</div>
+              </div>
+              ${playerActive ? '<div class="turnBadge active">我的回合</div>' : '<div class="turnBadge is-waiting-turn">等待AI走棋</div>'}
             </div>
           </div>
 
@@ -2226,7 +2243,7 @@ function renderPracticeView(game) {
           <div class="roomRow woodActions">
             ${game.status === 'PLAYING'
               ? `<button class="ghost" data-action="undo-practice" ${undoDisabled ? 'disabled' : ''} title="${escapeHtml(undoDisabledReason || '回合悔棋')}">悔棋</button>
-                 <button class="danger" data-action="resign">认输</button>`
+                 <button class="ghost danger" data-action="resign">认输</button>`
               : '<button class="btn" data-action="practice-rematch">再开一局</button>'}
             <button class="ghost" data-nav="learn/practice">离开</button>
           </div>
@@ -2257,6 +2274,23 @@ function renderClockCard(game, slot) {
   const label = side === 'RED' ? '红方' : (side === 'BLACK' ? '黑方' : (side === 'WHITE' ? '白方' : '棋手'));
   const level = side === 'RED' ? '业余6段' : '业余5段';
 
+  let turnBadgeHtml = '';
+  if (game.status === 'PLAYING') {
+    if (active) {
+      turnBadgeHtml = `<div class="turnBadge active">${label}回合</div>`;
+    } else {
+      turnBadgeHtml = `<div class="turnBadge is-waiting-turn">等待对方走棋</div>`;
+    }
+  } else if (game.status === 'WAITING') {
+    turnBadgeHtml = `<div class="turnBadge">等待中</div>`;
+  } else if (game.status === 'FINISHED') {
+    turnBadgeHtml = `<div class="turnBadge">已结束</div>`;
+  } else if (game.status === 'BETWEEN_GAMES') {
+    turnBadgeHtml = `<div class="turnBadge">局间等待</div>`;
+  } else {
+    turnBadgeHtml = `<div class="turnBadge">${escapeHtml(game.status || '-')}</div>`;
+  }
+
   return `
     <div class="boardPlayerCard ${active ? 'is-active' : ''}" data-clock-card="${side}">
       <div class="boardPlayerCardTop">
@@ -2266,8 +2300,14 @@ function renderClockCard(game, slot) {
           <span class="vipBadge">${label} · ${level}</span>
         </div>
       </div>
-      <div class="boardPlayerClock" data-clock-value="${side}" data-remaining-base="${baseRemaining}">${formatClock(remaining)}</div>
-      ${active ? `<div class="turnBadge active">${label}回合</div>` : `<div class="turnBadge">等待中</div>`}
+      <div class="boardPlayerClockBlock">
+        <div class="clockTypeLabel">剩余局时</div>
+        <div class="boardPlayerClock ${active ? 'is-ticking' : ''}" data-clock-value="${side}" data-remaining-base="${baseRemaining}">${formatClock(remaining)}</div>
+        <div class="clockTimingStatus ${active ? 'is-active' : 'is-idle'}">
+          ${active ? '<span class="tickingDot"></span>正在扣时' : '时钟暂停'}
+        </div>
+      </div>
+      ${turnBadgeHtml}
     </div>
   `;
 }
@@ -2337,7 +2377,7 @@ function renderAnalysis(gameId) {
           </div>
           <div class="boardRailNote">
             <div>当前步数 <strong>${step}/${Math.max(0, boards.length - 1)}</strong></div>
-            <div>${move ? `${escapeHtml(move.side)} · ${escapeHtml(move.notation)}` : '开局局面'}</div>
+            <div>${move ? `${escapeHtml(move.side)} · ${escapeHtml(formatMoveNotation(move, analysis.gameType))}` : '开局局面'}</div>
           </div>
         </aside>
         <section class="boardWrap boardPane boardPane--analysis boardStage">
@@ -2347,7 +2387,7 @@ function renderAnalysis(gameId) {
             <span class="pill">${analysis.status}</span>
             <span class="pill">步数 ${step}/${Math.max(0, boards.length - 1)}</span>
           </div>
-          <div class="status">${summaryText}${move ? ` · ${move.side} ${move.notation}` : step === 0 ? ' · 开局局面' : ''}</div>
+          <div class="status">${summaryText}${move ? ` · ${move.side} ${formatMoveNotation(move, analysis.gameType)}` : step === 0 ? ' · 开局局面' : ''}</div>
           <div class="boardHost" data-analysis-board-host>${renderAnalysisBoardByGameType(analysis.gameType, board, marker)}</div>
           
           <!-- 底部播放跳转控制的 DOM 重绘 -->
@@ -2585,11 +2625,68 @@ function renderRecentGameCard(game) {
   `;
 }
 
+function formatMoveNotation(move, gameType = 'XIANGQI') {
+  if (!move) return '';
+  const raw = String(move.notation || '').trim();
+  if (!raw) return '';
+  const side = String(move.side || '').toUpperCase();
+  if (gameType === 'XIANGQI' || (!gameType && (side === 'RED' || side === 'BLACK'))) {
+    const firstChar = raw.charAt(0);
+    const rest = raw.slice(1);
+    if (side === 'RED') {
+      const redPieceMap = {
+        '卒': '兵',
+        '兵': '兵',
+        '馬': '马',
+        '马': '马',
+        '車': '车',
+        '车': '车',
+        '砲': '炮',
+        '炮': '炮',
+        '帥': '帅',
+        '帅': '帅',
+        '將': '帅',
+        '将': '帅',
+        '仕': '仕',
+        '士': '仕',
+        '相': '相',
+        '象': '相'
+      };
+      if (redPieceMap[firstChar]) {
+        return redPieceMap[firstChar] + rest;
+      }
+    } else if (side === 'BLACK') {
+      const blackPieceMap = {
+        '兵': '卒',
+        '卒': '卒',
+        '馬': '马',
+        '马': '马',
+        '車': '车',
+        '车': '车',
+        '砲': '炮',
+        '炮': '炮',
+        '帥': '将',
+        '帅': '将',
+        '將': '将',
+        '将': '将',
+        '仕': '士',
+        '士': '士',
+        '相': '象',
+        '象': '象'
+      };
+      if (blackPieceMap[firstChar]) {
+        return blackPieceMap[firstChar] + rest;
+      }
+    }
+  }
+  return raw;
+}
+
 function renderMoveRow(move) {
   return `
     <div class="move">
       <div><strong>#${move.index}</strong><div class="muted">${move.side}</div></div>
-      <div>${move.notation}</div>
+      <div>${escapeHtml(formatMoveNotation(move, 'XIANGQI'))}</div>
     </div>
   `;
 }
@@ -2899,7 +2996,7 @@ function applyOptimisticPracticeMove(game, payload) {
     optimistic.moves.push({
       index: nextIndex,
       side: viewerSide || optimistic.currentTurn || '',
-      notation: optimisticMoveNotation(game.gameType, payload),
+      notation: optimisticMoveNotation(game.gameType, payload, game),
       payload: Object.assign({}, payload, viewerSide ? { side: viewerSide } : {}),
       actorUserId: state.me && state.me.id ? state.me.id : '',
       createdAt: optimistic.updatedAt
@@ -2929,9 +3026,17 @@ function playOptimisticPracticeMoveSound(game) {
   playOnlineSound(onlineMoveAudio);
 }
 
-function optimisticMoveNotation(gameType, payload) {
+function optimisticMoveNotation(gameType, payload, game = null) {
   if (gameType === 'XIANGQI' && isXiangqiMovePayload(payload)) {
-    return `${payload.fromRow},${payload.fromCol} -> ${payload.toRow},${payload.toCol}`;
+    let pieceName = '';
+    if (game && Array.isArray(game.board)) {
+      const cell = game.board[payload.fromRow] && game.board[payload.fromRow][payload.fromCol];
+      if (cell) {
+        pieceName = normalizeXiangqiPiece(cell);
+      }
+    }
+    const prefix = pieceName ? `${pieceName} ` : '';
+    return `${prefix}${payload.fromRow},${payload.fromCol} -> ${payload.toRow},${payload.toCol}`;
   }
   if (gameType === 'GOMOKU' && isGomokuMovePayload(payload)) {
     return `${payload.row},${payload.col}`;
@@ -4191,9 +4296,19 @@ function refreshOnlineGameMetaPills() {
   const termination = document.querySelector('[data-live-game-termination]');
   if (sideSelf) sideSelf.textContent = liveViewerSideLabel(state.game, viewerSide);
   if (sideOpponent) sideOpponent.textContent = liveOpponentSideLabel(state.game, viewerSide, opponentSide);
-  if (turn) turn.textContent = `轮到 ${turnTextForViewer(state.game, viewerSide)}`;
-  if (status) status.textContent = liveGameStatusLabel(state.game.status);
-  if (termination) termination.textContent = liveTerminationLabel(state.game.terminationReason);
+  if (turn) {
+    turn.textContent = `轮到 ${turnTextForViewer(state.game, viewerSide)}`;
+    turn.style.display = state.game.status === 'PLAYING' ? '' : 'none';
+  }
+  if (status) {
+    status.textContent = liveGameStatusLabel(state.game.status);
+    status.style.display = state.game.status === 'PLAYING' ? 'none' : '';
+  }
+  if (termination) {
+    const term = state.game.terminationReason ? liveTerminationLabel(state.game.terminationReason) : '';
+    termination.textContent = term;
+    termination.style.display = term ? '' : 'none';
+  }
   return !!(sideSelf || sideOpponent || turn || status || termination);
 }
 
@@ -4210,9 +4325,24 @@ function patchOnlineGameRealtimeView() {
     return false;
   }
   let patched = refreshGameInteractionUi(route);
+  const viewerSide = state.game.viewerSide || inferViewerSide(state.game);
   const clockHost = document.querySelector('[data-live-clock-grid]');
   if (clockHost) {
-    clockHost.innerHTML = `${renderClockCard(state.game, 'first')}${renderClockCard(state.game, 'second')}`;
+    const firstPlayer = (state.game.players && state.game.players.first) || {};
+    const isViewerFirst = viewerSide ? (viewerSide === firstPlayer.side) : true;
+    const opponentSlot = isViewerFirst ? 'second' : 'first';
+    const selfSlot = isViewerFirst ? 'first' : 'second';
+    clockHost.innerHTML = `${renderClockCard(state.game, opponentSlot)}${renderClockCard(state.game, selfSlot)}`;
+    patched = true;
+  }
+  const railNoteHost = document.querySelector('[data-live-rail-note]');
+  if (railNoteHost) {
+    railNoteHost.innerHTML = `
+      <div>局时规则: <strong>${formatClock(state.game.initialTimeSeconds || 900)}（包干）</strong></div>
+      <div>步时规则: <strong>不限（无单步限时）</strong></div>
+      <div>当前扣时: <strong>${activeDeductingSideText(state.game)}</strong></div>
+      <div>视角: <strong>${viewerSide ? sideLabel(state.game.gameType, viewerSide) : '观战'}</strong></div>
+    `;
     patched = true;
   }
   const movesHost = document.querySelector('[data-live-moves]');
@@ -4222,7 +4352,6 @@ function patchOnlineGameRealtimeView() {
       : '<div class="banner">等待第一步落子。</div>';
     patched = true;
   }
-  const viewerSide = state.game.viewerSide || inferViewerSide(state.game);
   const drawOffer = state.game.drawOffer;
   const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
   const drawHost = document.querySelector('[data-live-draw-offer]');
