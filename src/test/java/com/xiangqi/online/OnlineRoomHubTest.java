@@ -81,7 +81,7 @@ class OnlineRoomHubTest {
         assertNull(rejected.get("drawOffer"));
         assertEquals("u-host", asMap(reoffered.get("drawOffer")).get("userId"));
         assertEquals("FINISHED", accepted.get("status"));
-        assertEquals("draw agreed", accepted.get("resultText"));
+        assertEquals("双方同意和棋", accepted.get("resultText"));
         assertEquals("BETWEEN_GAMES", hub.roomSnapshotById(asString(room.get("roomId"))).get("status"));
     }
 
@@ -105,7 +105,7 @@ class OnlineRoomHubTest {
         assertEquals(asString(room.get("roomId")), asMap(activity.get("room")).get("roomId"));
         assertEquals("FINISHED", game.get("status"));
         assertEquals("WHITE", game.get("winnerSide"));
-        assertEquals("host resigned", game.get("resultText"));
+        assertEquals("host 认输", game.get("resultText"));
         assertNotNull(store.loadGameAnalysis(gameId).get("terminationReason"));
     }
 

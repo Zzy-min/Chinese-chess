@@ -64,6 +64,9 @@ const state = {
   wsRoomId: '',
   endGameModal: null,
   endGameModalShownKey: '',
+  confirmModal: null,
+  connectionStatus: 'connected',
+  reconnectedNoticeTimer: 0,
   soundEnabled: readOnlineSoundEnabled(),
   audioUnlocked: false,
   lastMoveSoundGameId: '',
@@ -119,12 +122,31 @@ const onlineMoveAudio = createOnlineAudio(`/assets/audio/move.wav?v=${ONLINE_AUD
 const onlineMateAudio = createOnlineAudio(`/assets/audio/mate.wav?v=${ONLINE_AUDIO_ASSET_VERSION}`);
 
 const app = document.getElementById('app');
-const routes = ['welcome', 'home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me'];
+const routes = ['welcome', 'home', 'play', 'room', 'game', 'practice', 'analysis', 'learn', 'watch', 'community', 'me', 'not-found'];
 const mobileLayoutMedia = window.matchMedia('(max-width: 768px)');
 
 window.addEventListener('hashchange', render);
 window.addEventListener('load', boot);
 window.addEventListener('resize', () => fitBoardToViewport(currentRoute(), true));
+window.addEventListener('offline', () => {
+  const currentR = currentRoute();
+  const isLobby = currentR.page === 'play' || currentR.page === 'home';
+  const hasDesiredRoom = (currentR.page === 'room' && currentR.id) ||
+    (currentR.page === 'game' && state.game && !state.game.isTraining);
+  if (isLobby || hasDesiredRoom) {
+    setConnectionStatus('offline');
+  }
+});
+window.addEventListener('online', () => {
+  const currentR = currentRoute();
+  const isLobby = currentR.page === 'play' || currentR.page === 'home';
+  const hasDesiredRoom = (currentR.page === 'room' && currentR.id) ||
+    (currentR.page === 'game' && state.game && !state.game.isTraining);
+  if (isLobby || hasDesiredRoom) {
+    setConnectionStatus('reconnecting');
+    syncRealtime(currentR);
+  }
+});
 mobileLayoutMedia.addEventListener('change', render);
 window.setInterval(() => {
   const route = currentRoute();
@@ -335,12 +357,14 @@ function currentRoute() {
       leaf: '',
       learnTab: '',
       meTab: '',
-      puzzleTheme: resolvePuzzleTheme(state.learnPuzzleTheme)
+      puzzleTheme: resolvePuzzleTheme(state.learnPuzzleTheme),
+      raw: ''
     };
   }
   const parts = raw.split('/');
-  const page = routes.includes(parts[0]) ? parts[0] : 'home';
-  let id = parts[1] || '';
+  const isKnown = routes.includes(parts[0]);
+  const page = isKnown ? parts[0] : 'not-found';
+  let id = isKnown ? (parts[1] || '') : raw;
   if (page === 'learn' && !id) {
     id = 'puzzles';
   }
@@ -358,7 +382,8 @@ function currentRoute() {
     leaf: parts[2] || '',
     learnTab: learnTab,
     meTab: meTab,
-    puzzleTheme: puzzleTheme
+    puzzleTheme: puzzleTheme,
+    raw: raw
   };
 }
 
@@ -375,12 +400,17 @@ function showToast(message, type = 'info', durationMs = 2800) {
   const text = String(message || '').trim();
   if (!text) return;
   const id = ++state.toastSeq;
-  state.toasts = [...(state.toasts || []).slice(-4), { id, text, type: type || 'info' }];
+  let list = state.toasts || [];
+  if (type === 'move') {
+    list = list.filter(item => item.type !== 'move');
+  }
+  state.toasts = [...list.slice(-4), { id, text, type: type || 'info' }];
   patchToastHost();
+  const duration = type === 'move' ? Math.min(durationMs || 2400, 2400) : Math.max(1200, durationMs || 2800);
   window.setTimeout(() => {
     state.toasts = (state.toasts || []).filter(item => item.id !== id);
     patchToastHost();
-  }, Math.max(1200, durationMs || 2800));
+  }, duration);
 }
 
 function patchToastHost() {
@@ -393,9 +423,85 @@ function patchToastHost() {
     host.setAttribute('aria-relevant', 'additions text');
     document.body.appendChild(host);
   }
+  if (!host.dataset.boundToastClick) {
+    host.dataset.boundToastClick = '1';
+    host.addEventListener('click', (e) => {
+      const toastEl = e.target.closest('.toast');
+      if (toastEl && toastEl.dataset.toastId) {
+        const id = Number(toastEl.dataset.toastId);
+        state.toasts = (state.toasts || []).filter(item => item.id !== id);
+        patchToastHost();
+      }
+    });
+  }
   host.innerHTML = (state.toasts || []).map(item => `
-    <div class="toast toast--${escapeHtml(item.type || 'info')}" role="status">${escapeHtml(item.text)}</div>
+    <div class="toast toast--${escapeHtml(item.type || 'info')}" role="status" data-toast-id="${item.id}" title="点击关闭">${escapeHtml(item.text)}</div>
   `).join('');
+}
+
+function setConnectionStatus(status) {
+  if (state.connectionStatus === status) return;
+  state.connectionStatus = status;
+  patchConnectionBanner();
+}
+
+function renderConnectionBannerHtml() {
+  const s = state.connectionStatus;
+  if (s === 'reconnecting') {
+    return `<div class="connBanner connBanner--reconnecting" role="alert"><span class="connDot"></span><span>连接中断，正在重连…</span></div>`;
+  }
+  if (s === 'offline') {
+    return `<div class="connBanner connBanner--offline" role="alert"><span class="connDot"></span><span>网络已离线，等待网络恢复…</span></div>`;
+  }
+  if (s === 'reconnected') {
+    return `<div class="connBanner connBanner--reconnected" role="status"><span class="connDot"></span><span>已恢复连接</span></div>`;
+  }
+  return '';
+}
+
+function patchConnectionBanner() {
+  let host = document.getElementById('connBannerHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'connBannerHost';
+    host.className = 'connBannerHost';
+    document.body.appendChild(host);
+  }
+  host.innerHTML = renderConnectionBannerHtml();
+}
+
+function showConfirmModal({ title = '操作确认', message = '', confirmText = '确定', cancelText = '取消', danger = false }) {
+  return new Promise(resolve => {
+    state.confirmModal = {
+      title,
+      message,
+      confirmText,
+      cancelText,
+      danger,
+      resolve
+    };
+    render();
+  });
+}
+
+function renderConfirmModal() {
+  if (!state.confirmModal) return '';
+  const modal = state.confirmModal;
+  return `
+    <div class="confirmOverlay endGameOverlay" data-action="cancel-confirm">
+      <div class="confirmCard endGameCard" role="dialog" aria-modal="true" aria-label="${escapeHtml(modal.title)}" data-confirm-card>
+        <div class="confirmHeader">
+          <span class="confirmIcon">${modal.danger ? '⚠️' : '♟️'}</span>
+          <h3>${escapeHtml(modal.title)}</h3>
+        </div>
+        <p class="confirmMessage">${escapeHtml(modal.message)}</p>
+        <div class="roomRow confirmActions">
+          <button type="button" class="ghost" data-action="cancel-confirm">${escapeHtml(modal.cancelText)}</button>
+          <button type="button" class="btn ${modal.danger ? 'danger' : ''}" data-action="ok-confirm">${escapeHtml(modal.confirmText)}</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function getRouteError(type, id) {
@@ -555,6 +661,8 @@ function render() {
   const isMobileBoardRoute = isBoardRoute && isMobileLayout();
   document.body.classList.toggle('mobile-board-route', isMobileBoardRoute);
   document.documentElement.classList.toggle('mobile-board-route', isMobileBoardRoute);
+  document.body.classList.toggle('board-route', isBoardRoute);
+  document.documentElement.classList.toggle('board-route', isBoardRoute);
   if (!isBoardRoute && state.boardPaneTab !== 'board') {
     state.boardPaneTab = 'board';
   }
@@ -579,6 +687,7 @@ function render() {
       </main>
       ${renderBottomNav(route.page)}
       ${renderGameEndModal()}
+      ${renderConfirmModal()}
       ${shouldShowAuthOverlay(route) ? renderAuthOverlay() : ''}
     </div>
   `;
@@ -588,6 +697,7 @@ function render() {
   syncPracticePolling(route);
   fitBoardToViewport(route, false);
   patchToastHost();
+  patchConnectionBanner();
   patchBusyButtons();
   if (shouldShowAuthOverlay(route)) {
     window.requestAnimationFrame(() => {
@@ -861,23 +971,26 @@ function renderGameEndModal() {
   const modal = state.endGameModal;
   const game = modal.game || {};
   const isPractice = !!game.isTraining;
-  const winner = game.winnerSide ? sideLabel(game.gameType, game.winnerSide) : (game.terminationReason === 'DRAW' ? '双方战和' : '无');
-  const resultText = escapeHtml(game.resultText || '-');
+  const winner = game.winnerSide ? `${sideLabel(game.gameType, game.winnerSide)}胜` : (game.terminationReason === 'DRAW' || game.terminationReason === 'AGREED_DRAW' ? '双方战和' : '无');
+  const resultText = escapeHtml(formatGameResultText(game));
   const reason = escapeHtml(liveTerminationLabel(game.terminationReason) || '-');
   const analysisHref = `analysis/${escapeHtml(game.gameId || '')}`;
-  const roomHref = `room/${escapeHtml(game.roomId || '')}`;
   return `
     <div class="endGameOverlay" data-action="close-end-modal">
       <div class="endGameCard" role="dialog" aria-modal="true" aria-label="对局结束" data-end-game-card>
         <h3>对局结束</h3>
         <p class="muted">胜方：${escapeHtml(winner)}</p>
-        <p>${resultText}</p>
+        <p><strong>${resultText}</strong></p>
         <p class="muted">结束原因：${reason}</p>
-        <div class="roomRow endGameActions">
-          ${isPractice ? '<button class="btn" data-action="practice-rematch">再开一局</button>' : renderOnlineRematchActions(game)}
-          <button class="ghost" data-nav="${analysisHref}">进入分析</button>
-          ${isPractice ? '<button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : `<button class="ghost danger" data-action="leave-room">离开房间</button>`}
-          <button class="ghost" data-action="close-end-modal">关闭</button>
+        <div class="endGameActions">
+          <div class="endGamePrimaryAction">
+            ${isPractice ? '<button class="btn" data-action="practice-rematch">再开一局</button>' : renderOnlineRematchActions(game)}
+          </div>
+          <div class="endGameSecondaryActions">
+            <button class="ghost" data-nav="${analysisHref}">进入分析</button>
+            ${isPractice ? '<button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : `<button class="ghost" data-action="leave-room">离开房间</button>`}
+            <button class="ghost" data-action="close-end-modal">关闭</button>
+          </div>
         </div>
       </div>
     </div>
@@ -902,7 +1015,16 @@ const pageRegistry = {
   learn: route => renderLearnPage(route),
   watch: renderWatchPage,
   community: renderCommunityPage,
-  me: renderProfilePage
+  me: renderProfilePage,
+  'not-found': route => renderRouteErrorPanel({
+    badge: '404 路由不存在',
+    title: '未找到该页面',
+    message: `请求的路径「#/${escapeHtml(route.id || route.raw || '')}」不存在或已被移动。`,
+    backNav: 'home',
+    backText: '返回首页',
+    actionNav: 'play',
+    actionText: '对局大厅'
+  })
 };
 
 function renderPage(route) {
@@ -1046,14 +1168,63 @@ function liveGameStatusLabel(status) {
 
 function liveTerminationLabel(reason) {
   if (!reason) return '实时';
+  const r = String(reason).trim().toUpperCase();
   const labels = {
     CHECKMATE: '将死',
     STALEMATE: '困毙',
     RESIGN: '认输',
+    RESIGNED: '认输',
+    RESIGNATION: '认输',
+    TIMEOUT: '超时',
     DRAW: '和棋',
-    TIMEOUT: '超时'
+    AGREED_DRAW: '协议和棋',
+    REPETITION: '循环走子和棋',
+    ABANDON: '弃权',
+    DISCONNECT: '断线超时',
+    RULE_ABUSE: '判负',
+    GAME_OVER: '对局结束'
   };
-  return labels[reason] || reason;
+  return labels[r] || labels[r.replace(/_/g, '')] || reason;
+}
+
+function formatGameResultText(game) {
+  if (!game) return '-';
+  const raw = String(game.resultText || '').trim();
+  const reason = String(game.terminationReason || '').trim().toUpperCase();
+  const winner = game.winnerSide ? sideLabel(game.gameType, game.winnerSide) : '';
+
+  if (!raw || raw === '-') {
+    if (winner) return `${winner}获胜`;
+    if (reason === 'DRAW' || reason === 'AGREED_DRAW') return '双方握手言和';
+    if (game.status === 'PLAYING') return '';
+    return '已完赛';
+  }
+
+  const lower = raw.toLowerCase();
+  if (lower.endsWith(' resigned')) {
+    const user = raw.slice(0, -9).trim();
+    if (user && user.toLowerCase() !== 'red' && user.toLowerCase() !== 'black') {
+      return `${user} 认输`;
+    }
+    if (lower.includes('red')) return '红方认输';
+    if (lower.includes('black')) return '黑方认输';
+    return '认输';
+  }
+  if (lower === 'resigned' || lower === 'resignation') {
+    return winner ? `${winner}因对手认输获胜` : '认输';
+  }
+  if (lower.includes('timeout')) {
+    if (lower.includes('red')) return '红方超时';
+    if (lower.includes('black')) return '黑方超时';
+    return '超时';
+  }
+  if (lower === 'draw') return '双方战和';
+  if (lower === 'checkmate') return winner ? `${winner}将死获胜` : '将死';
+  if (lower === 'stalemate') return winner ? `${winner}困毙获胜` : '困毙';
+  if (raw === 'RED_WIN') return '红方获胜';
+  if (raw === 'BLACK_WIN') return '黑方获胜';
+
+  return raw;
 }
 
 function resolveOpponentSide(game, viewerSide) {
@@ -1749,7 +1920,7 @@ function renderWatchReplays(items) {
     const first = item.players && item.players.first ? item.players.first.username : '棋友';
     const second = item.players && item.players.second ? item.players.second.username : '棋友';
     const label = item.gameType === 'GOMOKU' ? '五子棋' : '中国象棋';
-    const result = item.resultText || (item.winnerSide ? `${sideLabel(item.gameType, item.winnerSide)}获胜` : '对局已结束');
+    const result = formatGameResultText(item);
     const finished = formatWatchDate(item.finishedAt || item.updatedAt);
     return `
       <article class="watchReplayCard">
@@ -1795,13 +1966,21 @@ function renderCommunityItems(items, isWinBoard) {
 }
 
 function renderActivityBanner(room, game) {
+  const isFinished = game && (game.status === 'FINISHED' || game.status === 'ARCHIVED');
+  const gameType = (game && game.gameType) || (room && room.gameType) || 'XIANGQI';
+  const gameTypeLabel = gameTypeDisplayLabel(gameType);
+  const statusLabel = isFinished ? '已完赛' : (game ? liveGameStatusLabel(game.status) : (room ? liveGameStatusLabel(room.status) : '活动中'));
+  const title = isFinished ? '查看已结束对局' : (game ? '继续当前对局' : '返回活动房间');
+  const btnText = isFinished ? '对局复盘' : (game ? '回到对局' : '回到房间');
+  const navTarget = isFinished ? `analysis/${game.gameId}` : (game ? `game/${game.gameId}` : `room/${room.roomId}`);
+
   return `
     <div class="activityBanner">
       <div>
-        <strong>${game ? '继续当前对局' : '返回活动房间'}</strong>
-        <div class="muted">${game ? `${game.gameType} · ${game.status}` : `${room.gameType} · ${room.status}`}</div>
+        <strong>${title}</strong>
+        <div class="muted">${gameTypeLabel} · ${statusLabel}</div>
       </div>
-      <button class="btn" data-nav="${game ? `game/${game.gameId}` : `room/${room.roomId}`}">${game ? '回到对局' : '回到房间'}</button>
+      <button class="btn" data-nav="${navTarget}">${btnText}</button>
     </div>
   `;
 }
@@ -1847,26 +2026,26 @@ function renderRoom(roomId) {
     <section class="panel">
       <div class="roomRow">
         <span class="pill">房间码 ${room.roomCode}</span>
-        <span class="pill">${room.gameType}</span>
+        <span class="pill">${gameTypeDisplayLabel(room.gameType)}</span>
         <span class="pill">${escapeHtml(roundText)}</span>
       </div>
       <h2 class="sectionTitle">${betweenGames ? '这一局已落定，再约一盘' : '邀请对手加入并准备'}</h2>
-      <p class="muted">${betweenGames ? '房间码与局分会继续保留；再战默认交换先后手。' : `分享当前链接或房间码。双方都点击准备后会自动进入在线对局。时长 ${room.initialTimeSeconds || 600} 秒。`}</p>
+      <p class="muted">${betweenGames ? '房间码与局分会继续保留；再战默认交换先后手。' : `分享当前链接或房间码。双方都点击准备后会自动进入在线对局。时长 ${Math.round((room.initialTimeSeconds || 600) / 60)} 分钟（包干）。`}</p>
       <div class="split compactSplit">
         <div class="card">
-          <div class="meta">Host</div>
+          <div class="meta">房主</div>
           <h3>${room.host.username}</h3>
           <p>${room.hostReady ? '已准备' : '等待准备'}</p>
         </div>
         <div class="card">
-          <div class="meta">Guest</div>
+          <div class="meta">对手</div>
           <h3>${room.guest ? room.guest.username : '等待加入'}</h3>
           <p>${room.guest ? (room.guestReady ? '已准备' : '等待准备') : '打开链接即可加入'}</p>
         </div>
       </div>
       ${betweenGames ? `<div class="rematchBar"><span>${rematch ? `${escapeHtml(rematch.offeredByUsername || '对手')} 已发起再战请求` : '双方可发起再战，也可继续手动准备'}</span><div>${renderOnlineRematchActions({ roomId: room.roomId })}</div></div>` : ''}
       <div class="roomRow" style="margin-top:18px">
-        ${room.guest ? '' : '<button class="ghost" data-action="join-room">加入当前房间</button>'}
+        ${room.guest || isRoomHost(room) ? '' : '<button class="ghost" data-action="join-room">加入当前房间</button>'}
         <button class="ghost" data-action="share-room" data-room-code="${escapeHtml(room.roomCode || '')}">分享房间</button>
         <button class="btn" data-action="toggle-ready">${isViewerReady(room) ? '取消准备' : '我已准备'}</button>
         ${room.status === 'PLAYING' && room.gameId ? `<button class="btn" data-nav="game/${room.gameId}">进入对局</button>` : ''}
@@ -2601,14 +2780,15 @@ function renderProfile() {
 }
 
 function renderProfileGameCard(game) {
+  const side = sideLabel(game.gameType, game.side);
   return `
     <div class="move">
       <div>
-        <strong>${gameLabel(game)}</strong>
-        <div class="muted">${game.side} vs ${game.opponentUsername || '-'}</div>
-        <div class="muted">${game.resultText || game.terminationReason || '-'}</div>
+        <strong>${escapeHtml(gameLabel(game))}</strong>
+        <div class="muted">执${escapeHtml(side)} vs ${escapeHtml(game.opponentUsername || '-')}</div>
+        <div class="muted">${escapeHtml(formatGameResultText(game))}</div>
       </div>
-      <button class="ghost" data-nav="analysis/${game.gameId}">分析</button>
+      <button class="ghost" data-nav="analysis/${escapeHtml(game.gameId || '')}">分析</button>
     </div>
   `;
 }
@@ -2625,61 +2805,246 @@ function renderRecentGameCard(game) {
   `;
 }
 
+const XIANGQI_CHINESE_DIGITS = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+const XIANGQI_ARABIC_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+function normalizeXiangqiPieceName(name, side) {
+  const c = String(name || '').trim().charAt(0);
+  if (side === 'RED') {
+    const map = { '卒':'兵', '兵':'兵', '馬':'马', '马':'马', '傌':'马', '車':'车', '车':'车', '俥':'车', '砲':'炮', '炮':'炮', '帥':'帅', '帅':'帅', '將':'帅', '将':'帅', '仕':'仕', '士':'仕', '相':'相', '象':'相' };
+    return map[c] || c || '兵';
+  }
+  if (side === 'BLACK') {
+    const map = { '兵':'卒', '卒':'卒', '馬':'马', '马':'马', '傌':'马', '車':'车', '车':'车', '俥':'车', '砲':'炮', '炮':'炮', '帥':'将', '帅':'将', '将':'将', '將':'将', '仕':'士', '士':'士', '相':'象', '象':'象' };
+    return map[c] || c || '卒';
+  }
+  return c || '';
+}
+
 function formatMoveNotation(move, gameType = 'XIANGQI') {
   if (!move) return '';
   const raw = String(move.notation || '').trim();
-  if (!raw) return '';
-  const side = String(move.side || '').toUpperCase();
-  if (gameType === 'XIANGQI' || (!gameType && (side === 'RED' || side === 'BLACK'))) {
-    const firstChar = raw.charAt(0);
-    const rest = raw.slice(1);
-    if (side === 'RED') {
-      const redPieceMap = {
-        '卒': '兵',
-        '兵': '兵',
-        '馬': '马',
-        '马': '马',
-        '車': '车',
-        '车': '车',
-        '砲': '炮',
-        '炮': '炮',
-        '帥': '帅',
-        '帅': '帅',
-        '將': '帅',
-        '将': '帅',
-        '仕': '仕',
-        '士': '仕',
-        '相': '相',
-        '象': '相'
-      };
-      if (redPieceMap[firstChar]) {
-        return redPieceMap[firstChar] + rest;
-      }
-    } else if (side === 'BLACK') {
-      const blackPieceMap = {
-        '兵': '卒',
-        '卒': '卒',
-        '馬': '马',
-        '马': '马',
-        '車': '车',
-        '车': '车',
-        '砲': '炮',
-        '炮': '炮',
-        '帥': '将',
-        '帅': '将',
-        '將': '将',
-        '将': '将',
-        '仕': '士',
-        '士': '士',
-        '相': '象',
-        '象': '象'
-      };
-      if (blackPieceMap[firstChar]) {
-        return blackPieceMap[firstChar] + rest;
-      }
+  if (gameType === 'GOMOKU') return raw;
+  const side = String(move.side || (move.payload && move.payload.side) || '').toUpperCase();
+
+  // If already standard 4-character notation (e.g. 炮二平五)
+  if (/^[兵卒马車车炮砲将帅士仕相象][一二三四五六七八九1-9][进退平][一二三四五六七八九1-9]$/.test(raw)) {
+    return normalizeXiangqiPieceName(raw.charAt(0), side) + raw.slice(1);
+  }
+
+  // Extract coordinate move
+  let pieceName = move.piece || move.pieceName || (move.payload && (move.payload.piece || move.payload.pieceName)) || '';
+  let fromRow = move.fromRow != null ? Number(move.fromRow) : (move.payload && move.payload.fromRow != null ? Number(move.payload.fromRow) : null);
+  let fromCol = move.fromCol != null ? Number(move.fromCol) : (move.payload && move.payload.fromCol != null ? Number(move.payload.fromCol) : null);
+  let toRow = move.toRow != null ? Number(move.toRow) : (move.payload && move.payload.toRow != null ? Number(move.payload.toRow) : null);
+  let toCol = move.toCol != null ? Number(move.toCol) : (move.payload && move.payload.toCol != null ? Number(move.payload.toCol) : null);
+
+  if ((fromRow == null || fromCol == null) && raw) {
+    const match = raw.match(/^([^\s\d,]+)?\s*(\d+)\s*,\s*(\d+)\s*(?:->|→)\s*(\d+)\s*,\s*(\d+)$/);
+    if (match) {
+      pieceName = match[1] || '';
+      fromRow = Number(match[2]);
+      fromCol = Number(match[3]);
+      toRow = Number(match[4]);
+      toCol = Number(match[5]);
     }
   }
-  return raw;
+
+  if (fromRow != null && fromCol != null && toRow != null && toCol != null &&
+      Number.isFinite(fromRow) && Number.isFinite(fromCol) && Number.isFinite(toRow) && Number.isFinite(toCol)) {
+    if (!pieceName && raw) {
+      const matchName = raw.match(/^([^\s\d,]+)/);
+      if (matchName) pieceName = matchName[1];
+    }
+    const isRed = side === 'BLACK' ? false : (side === 'RED' ? true : (fromRow != null && fromRow < 5 ? false : true));
+    const piece = normalizeXiangqiPieceName(pieceName, isRed ? 'RED' : 'BLACK');
+
+    const fromIdx = isRed ? (8 - fromCol) : fromCol;
+    const fromFile = isRed ? (XIANGQI_CHINESE_DIGITS[fromIdx] || '一') : (XIANGQI_ARABIC_DIGITS[fromIdx] || '1');
+
+    let action = '平';
+    if (isRed) {
+      if (toRow < fromRow) action = '进';
+      else if (toRow > fromRow) action = '退';
+    } else {
+      if (toRow > fromRow) action = '进';
+      else if (toRow < fromRow) action = '退';
+    }
+
+    const isDiagonal = ['马', '相', '象', '仕', '士'].includes(piece);
+    let target = '';
+    if (action === '平' || isDiagonal) {
+      const toIdx = isRed ? (8 - toCol) : toCol;
+      target = isRed ? (XIANGQI_CHINESE_DIGITS[toIdx] || '一') : (XIANGQI_ARABIC_DIGITS[toIdx] || '1');
+    } else {
+      const steps = Math.min(9, Math.max(1, Math.abs(toRow - fromRow)));
+      target = isRed ? (XIANGQI_CHINESE_DIGITS[steps - 1] || '一') : (XIANGQI_ARABIC_DIGITS[steps - 1] || '1');
+    }
+
+    return piece + fromFile + action + target;
+  }
+
+  return normalizeXiangqiPieceName(raw, side);
+}
+
+function normalizePieceType(piece) {
+  const c = String(piece || '').trim();
+  const map = {
+    '帥':'帅', '帅':'帅', '將':'将', '将':'将',
+    '仕':'士', '士':'士',
+    '相':'相', '象':'相',
+    '馬':'马', '马':'马', '傌':'马',
+    '車':'车', '车':'车', '俥':'车',
+    '砲':'炮', '炮':'炮',
+    '卒':'兵', '兵':'兵'
+  };
+  return map[c] || '';
+}
+
+function getLegalXiangqiTargets(board, fromRow, fromCol, viewerSide) {
+  const targets = [];
+  if (!board || fromRow < 0 || fromRow >= 10 || fromCol < 0 || fromCol >= 9) return targets;
+  const pieceRaw = board[fromRow] && board[fromRow][fromCol];
+  if (!pieceRaw) return targets;
+  const isRed = isRedPiece(pieceRaw);
+  if (viewerSide && ((viewerSide === 'RED' && !isRed) || (viewerSide === 'BLACK' && isRed))) {
+    return targets;
+  }
+  const type = normalizePieceType(pieceRaw);
+
+  function isFriendly(r, c) {
+    const p = board[r] && board[r][c];
+    if (!p) return false;
+    return isRed ? isRedPiece(p) : !isRedPiece(p);
+  }
+
+  function inBounds(r, c) {
+    return r >= 0 && r < 10 && c >= 0 && c < 9;
+  }
+
+  function addIfValid(r, c) {
+    if (inBounds(r, c) && !isFriendly(r, c)) {
+      targets.push({ row: r, col: c });
+      return true;
+    }
+    return false;
+  }
+
+  if (type === '帅' || type === '将') {
+    const minR = isRed ? 7 : 0;
+    const maxR = isRed ? 9 : 2;
+    const deltas = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr, dc] of deltas) {
+      const nr = fromRow + dr, nc = fromCol + dc;
+      if (nr >= minR && nr <= maxR && nc >= 3 && nc <= 5) {
+        addIfValid(nr, nc);
+      }
+    }
+    const step = isRed ? -1 : 1;
+    let r = fromRow + step;
+    while (r >= 0 && r < 10) {
+      const p = board[r] && board[r][fromCol];
+      if (p) {
+        const oppType = normalizePieceType(p);
+        if ((oppType === '帅' || oppType === '将') && isRed !== isRedPiece(p)) {
+          targets.push({ row: r, col: fromCol });
+        }
+        break;
+      }
+      r += step;
+    }
+  } else if (type === '士') {
+    const minR = isRed ? 7 : 0;
+    const maxR = isRed ? 9 : 2;
+    const deltas = [[-1,-1],[-1,1],[1,-1],[1,1]];
+    for (const [dr, dc] of deltas) {
+      const nr = fromRow + dr, nc = fromCol + dc;
+      if (nr >= minR && nr <= maxR && nc >= 3 && nc <= 5) {
+        addIfValid(nr, nc);
+      }
+    }
+  } else if (type === '相') {
+    const minR = isRed ? 5 : 0;
+    const maxR = isRed ? 9 : 4;
+    const deltas = [[-2,-2],[-2,2],[2,-2],[2,2]];
+    for (const [dr, dc] of deltas) {
+      const nr = fromRow + dr, nc = fromCol + dc;
+      const eyeR = fromRow + dr / 2, eyeC = fromCol + dc / 2;
+      if (nr >= minR && nr <= maxR && nc >= 0 && nc < 9) {
+        if (!board[eyeR] || !board[eyeR][eyeC]) {
+          addIfValid(nr, nc);
+        }
+      }
+    }
+  } else if (type === '马') {
+    const moves = [
+      [-2, -1, -1, 0], [-2, 1, -1, 0],
+      [2, -1, 1, 0], [2, 1, 1, 0],
+      [-1, -2, 0, -1], [1, -2, 0, -1],
+      [-1, 2, 0, 1], [1, 2, 0, 1]
+    ];
+    for (const [dr, dc, lr, lc] of moves) {
+      const nr = fromRow + dr, nc = fromCol + dc;
+      const legR = fromRow + lr, legC = fromCol + lc;
+      if (inBounds(nr, nc)) {
+        if (!board[legR] || !board[legR][legC]) {
+          addIfValid(nr, nc);
+        }
+      }
+    }
+  } else if (type === '车') {
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr, dc] of dirs) {
+      let nr = fromRow + dr, nc = fromCol + dc;
+      while (inBounds(nr, nc)) {
+        const cell = board[nr] && board[nr][nc];
+        if (!cell) {
+          targets.push({ row: nr, col: nc });
+        } else {
+          if (!isFriendly(nr, nc)) {
+            targets.push({ row: nr, col: nc });
+          }
+          break;
+        }
+        nr += dr;
+        nc += dc;
+      }
+    }
+  } else if (type === '炮') {
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr, dc] of dirs) {
+      let nr = fromRow + dr, nc = fromCol + dc;
+      while (inBounds(nr, nc) && (!board[nr] || !board[nr][nc])) {
+        targets.push({ row: nr, col: nc });
+        nr += dr;
+        nc += dc;
+      }
+      if (inBounds(nr, nc) && board[nr] && board[nr][nc]) {
+        nr += dr;
+        nc += dc;
+        while (inBounds(nr, nc)) {
+          if (board[nr] && board[nr][nc]) {
+            if (!isFriendly(nr, nc)) {
+              targets.push({ row: nr, col: nc });
+            }
+            break;
+          }
+          nr += dr;
+          nc += dc;
+        }
+      }
+    }
+  } else if (type === '兵') {
+    const forward = isRed ? -1 : 1;
+    const crossedRiver = isRed ? fromRow < 5 : fromRow > 4;
+    addIfValid(fromRow + forward, fromCol);
+    if (crossedRiver) {
+      addIfValid(fromRow, fromCol - 1);
+      addIfValid(fromRow, fromCol + 1);
+    }
+  }
+
+  return targets;
 }
 
 function renderMoveRow(move) {
@@ -2737,6 +3102,9 @@ function renderXiangqiBoard(game, options = {}) {
   const marker = currentMoveMarker(game);
   const flipped = !!options.flipped;
   const riverText = options.riverText || (flipped ? '汉界　楚河' : '楚河　汉界');
+  const legalTargets = (state.selectedFrom && canInteractWithBoard(game))
+    ? new Set(getLegalXiangqiTargets(rows, state.selectedFrom.row, state.selectedFrom.col, game.viewerSide).map(t => `${t.row},${t.col}`))
+    : new Set();
   const cells = [];
   for (let displayRow = 0; displayRow < XIANGQI_ROWS; displayRow += 1) {
     for (let displayCol = 0; displayCol < XIANGQI_COLS; displayCol += 1) {
@@ -2753,6 +3121,7 @@ function renderXiangqiBoard(game, options = {}) {
       if (game.inCheckSide === 'RED' && piece === '帅') cls.push('is-in-check');
       if (game.inCheckSide === 'BLACK' && piece === '将') cls.push('is-in-check');
       if (state.selectedFrom && state.selectedFrom.row === r && state.selectedFrom.col === c) cls.push('is-selected');
+      if (legalTargets.has(`${r},${c}`)) cls.push('is-hint-target');
       cells.push(`<button class="${cls.join(' ')}" data-board="xiangqi" data-row="${r}" data-col="${c}" data-display-row="${displayRow}" data-display-col="${displayCol}" ${disabled ? 'disabled' : ''}>${renderXiangqiCellLines(displayRow, displayCol)}${renderXiangqiMarkerGlyph(displayRow, displayCol)}${renderXiangqiLastMoveMarker(marker, r, c)}${piece ? `<span class="piece">${escapeHtml(piece)}</span>` : ''}</button>`);
     }
   }
@@ -3334,6 +3703,29 @@ function bindCommon(route) {
     el.addEventListener('click', closeEndGameModal);
   });
   document.querySelectorAll('[data-end-game-card]').forEach(el => el.addEventListener('click', event => event.stopPropagation()));
+  document.querySelectorAll('[data-action="cancel-confirm"]').forEach(el => {
+    if (el.dataset.boundConfirmCancel === '1') return;
+    el.dataset.boundConfirmCancel = '1';
+    el.addEventListener('click', () => {
+      if (state.confirmModal && typeof state.confirmModal.resolve === 'function') {
+        state.confirmModal.resolve(false);
+      }
+      state.confirmModal = null;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-action="ok-confirm"]').forEach(el => {
+    if (el.dataset.boundConfirmOk === '1') return;
+    el.dataset.boundConfirmOk = '1';
+    el.addEventListener('click', () => {
+      if (state.confirmModal && typeof state.confirmModal.resolve === 'function') {
+        state.confirmModal.resolve(true);
+      }
+      state.confirmModal = null;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-confirm-card]').forEach(el => el.addEventListener('click', event => event.stopPropagation()));
   document.querySelectorAll('[data-analysis-step]').forEach(el => el.addEventListener('click', () => {
     state.analysisStep = Number(el.getAttribute('data-analysis-step'));
     render();
@@ -3966,7 +4358,14 @@ async function toggleReady() {
 async function closeCurrentRoom() {
   const room = state.room;
   if (!room || !isRoomHost(room)) return;
-  if (!window.confirm('关闭后所有成员将退出此房间，确定关闭吗？')) return;
+  const ok = await showConfirmModal({
+    title: '关闭房间',
+    message: '关闭后所有成员将退出此房间，确定关闭吗？',
+    confirmText: '确定关闭',
+    cancelText: '取消',
+    danger: true
+  });
+  if (!ok) return;
   try {
     await fetchJson(`${API_BASE}/rooms/${room.roomId}`, { method: 'DELETE' });
     state.room = null;
@@ -4015,7 +4414,14 @@ async function resignGame() {
     return;
   }
   const prompt = state.game.isTraining ? '确定要在当前 AI 练习局认输吗？' : '确定要在当前在线对局认输吗？';
-  if (!window.confirm(prompt)) {
+  const ok = await showConfirmModal({
+    title: '认输确认',
+    message: prompt,
+    confirmText: '确认认输',
+    cancelText: '继续对弈',
+    danger: true
+  });
+  if (!ok) {
     return;
   }
   await sendGameAction(`${gameActionBase(state.game)}/resign`, {});
@@ -4531,6 +4937,18 @@ async function syncRealtime(route) {
   state.ws = socket;
   state.wsRoomId = desiredSubscription;
   socket.onopen = async () => {
+    const wasDisconnected = state.connectionStatus === 'reconnecting' || state.connectionStatus === 'offline';
+    if (wasDisconnected) {
+      setConnectionStatus('reconnected');
+      if (state.reconnectedNoticeTimer) clearTimeout(state.reconnectedNoticeTimer);
+      state.reconnectedNoticeTimer = window.setTimeout(() => {
+        if (state.connectionStatus === 'reconnected') {
+          setConnectionStatus('connected');
+        }
+      }, 2500);
+    } else {
+      setConnectionStatus('connected');
+    }
     try {
       socket.send(JSON.stringify(
         lobbyRoute ? { type: 'subscribe_lobby' } : { type: 'subscribe', roomId: desiredRoom }
@@ -4638,6 +5056,13 @@ async function syncRealtime(route) {
     if (state.ws !== socket) return;
     state.ws = null;
     state.wsRoomId = '';
+    const currentR = currentRoute();
+    const isLobby = currentR.page === 'play' || currentR.page === 'home';
+    const hasDesiredRoom = (currentR.page === 'room' && currentR.id) ||
+      (currentR.page === 'game' && state.game && !state.game.isTraining);
+    if (isLobby || hasDesiredRoom) {
+      setConnectionStatus(navigator.onLine ? 'reconnecting' : 'offline');
+    }
     window.setTimeout(() => syncRealtime(currentRoute()), 1000);
   };
 }
@@ -4646,6 +5071,7 @@ function closeSocket() {
   if (state.ws) state.ws.close();
   state.ws = null;
   state.wsRoomId = '';
+  setConnectionStatus('connected');
 }
 
 function syncGameTransitionFeedback(previousGame, nextGame) {
@@ -4668,7 +5094,14 @@ function syncGameTransitionFeedback(previousGame, nextGame) {
 async function leaveCurrentRoom() {
   const room = state.room;
   if (!room) return;
-  if (!window.confirm('离开后本次连战房间将结束，确定离开吗？')) return;
+  const ok = await showConfirmModal({
+    title: '离开房间',
+    message: '离开后本次连战房间将结束，确定离开吗？',
+    confirmText: '确定离开',
+    cancelText: '取消',
+    danger: true
+  });
+  if (!ok) return;
   try {
     await fetchJson(`${API_BASE}/rooms/${room.roomId}/leave`, { method: 'POST' });
     state.room = null;
@@ -4775,7 +5208,7 @@ function maybeNotifyOpponentMove(previousGame, nextGame) {
   state.lastOpponentMoveNoticeGameId = nextGame.gameId;
   state.lastOpponentMoveNoticeIndex = latestIndex;
   const isViewerTurn = nextGame.status === 'PLAYING' && nextGame.currentTurn === viewerSide;
-  showToast(isViewerTurn ? '对手已落子，轮到你了' : '对手已落子', 'move', 3600);
+  showToast(isViewerTurn ? '对手已落子，轮到你了' : '对手已落子', 'move', 2400);
   notifyOpponentMoveHaptic();
 }
 
@@ -5375,7 +5808,8 @@ function escapeHtml(value) {
 }
 
 function gameLabel(game) {
-  return game.isTraining ? `${game.gameType} · AI 练习` : game.gameType;
+  const typeLabel = gameTypeDisplayLabel(game && game.gameType);
+  return game && game.isTraining ? `${typeLabel} · AI 练习` : typeLabel;
 }
 
 function practiceAiMeta(game) {
@@ -5691,7 +6125,7 @@ function renderMobileHomePage() {
           ${recent.length ? recent.map(game => `
             <button data-nav="analysis/${escapeHtml(game.gameId || '')}">
               <span class="mobileGameSeal ${game.gameType === 'GOMOKU' ? 'is-green' : ''}">${game.gameType === 'GOMOKU' ? '五' : '象'}</span>
-              <span><strong>${game.gameType === 'GOMOKU' ? '五子棋' : '中国象棋'} · ${escapeHtml(game.resultText || '已归档')}</strong><small>${escapeHtml(game.firstUsername || '-')} 对 ${escapeHtml(game.secondUsername || '-')}</small></span>
+              <span><strong>${game.gameType === 'GOMOKU' ? '五子棋' : '中国象棋'} · ${escapeHtml(formatGameResultText(game) || '已归档')}</strong><small>${escapeHtml(game.firstUsername || '-')} 对 ${escapeHtml(game.secondUsername || '-')}</small></span>
               ${mobileIcon('chevron')}
             </button>
           `).join('') : '<div class="mobileEmptyState"><strong>还没有棋局记录</strong><span>从上面的快速开始，落下第一子。</span></div>'}
@@ -5823,7 +6257,7 @@ function renderPlayLobbyDesk() {
               <div class="meta">五子棋</div>
               <h3>五子棋</h3>
               <p>五子连珠，乐趣其中</p>
-              <button class="btn" data-nav="play/gomoku">进入模式页</button>
+              <button class="btn" data-nav="play/gomoku">开始五子棋</button>
             </div>
             <div class="deskModePanelBg bg-detail_gomoku"></div>
           </div>
@@ -5865,7 +6299,7 @@ function renderPlayLobbyDesk() {
                 <div class="recentRow" data-nav="analysis/${game.gameId}">
                   <span class="gameBadge ${game.gameType === 'XIANGQI' ? 'red' : 'green'}">${game.gameType === 'XIANGQI' ? '帅' : '五'}</span>
                   <div class="gameDetails">
-                    <strong>${game.gameType === 'XIANGQI' ? '中国象棋' : '五子棋'} · ${escapeHtml(game.resultText || '已归档')}</strong>
+                    <strong>${game.gameType === 'XIANGQI' ? '中国象棋' : '五子棋'} · ${escapeHtml(formatGameResultText(game) || '已归档')}</strong>
                     <span class="muted">${escapeHtml(game.firstUsername || '-')} vs ${escapeHtml(game.secondUsername || '-')}</span>
                   </div>
                   <span class="gameTime">已完赛</span>

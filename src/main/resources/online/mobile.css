@@ -1463,12 +1463,49 @@
   .endGameActions {
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
   }
 
   .rematchBar button,
-  .endGameActions button {
+  .endGamePrimaryAction button {
     width: 100%;
     min-height: 44px;
+  }
+
+  .endGameSecondaryActions {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .endGameSecondaryActions button {
+    width: 100% !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
+    padding: 0 4px !important;
+  }
+
+  .confirmCard {
+    width: min(340px, calc(100vw - 32px)) !important;
+    padding: 20px 18px 18px !important;
+  }
+
+  .confirmActions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .confirmActions button {
+    width: 100% !important;
+    min-height: 40px !important;
+  }
+
+  .connBanner {
+    font-size: 12px !important;
+    padding: 6px 14px !important;
+    max-width: calc(100vw - 24px) !important;
   }
 
   .profileSidebar {

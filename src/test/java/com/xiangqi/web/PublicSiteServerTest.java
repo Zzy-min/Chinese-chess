@@ -784,6 +784,180 @@ class PublicSiteServerTest {
     }
 
     @Test
+    void meEndpointReturns401AuthRequiredForAnonAndUserInfoForLoggedIn() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            // BE-01：未登录 /me 不再 200+null，改为 401 + code=AUTH_REQUIRED。
+            HttpResponse<String> anonOnline = client.send(getRequest(port, "/online/api/auth/me", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> anonLegacy = client.send(getRequest(port, "/api/auth/me", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, anonOnline.statusCode());
+            assertEquals(401, anonLegacy.statusCode());
+            assertTrue(anonOnline.body().contains("\"code\":\"AUTH_REQUIRED\""));
+            assertTrue(!anonOnline.body().contains("null"));
+
+            String uname = "me_" + Instant.now().toEpochMilli();
+            HttpResponse<String> reg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + uname + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, reg.statusCode());
+            String cookie = reg.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            HttpResponse<String> me = client.send(getRequest(port, "/online/api/auth/me", cookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, me.statusCode());
+            assertTrue(me.body().contains(uname));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void roomAndGameMissingReturn404WithCodeNotFoundAndPrivateOverage403() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            String suffix = String.valueOf(Instant.now().toEpochMilli());
+
+            HttpResponse<String> hostReg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"bi_host_" + suffix + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> guestReg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"bi_guest_" + suffix + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, hostReg.statusCode());
+            assertEquals(200, guestReg.statusCode());
+            String hostCookie = hostReg.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            String guestCookie = guestReg.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+
+            // 不存在 room -> 404 + NOT_FOUND。
+            HttpResponse<String> missingRoom = client.send(getRequest(port, "/online/api/rooms/never-a-room-" + suffix, hostCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(404, missingRoom.statusCode());
+            assertTrue(missingRoom.body().contains("\"code\":\"NOT_FOUND\""));
+
+            // 私房非成员 -> 403 + FORBIDDEN。
+            HttpResponse<String> created = client.send(postRequest(port, "/online/api/rooms",
+                "{\"gameType\":\"XIANGQI\",\"initialTimeSeconds\":600,\"isPublic\":false}", hostCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, created.statusCode());
+            String roomId = extract(created.body(), "roomId");
+            HttpResponse<String> outsider = client.send(getRequest(port, "/online/api/rooms/" + roomId, guestCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(403, outsider.statusCode());
+            assertTrue(outsider.body().contains("\"code\":\"FORBIDDEN\""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void loginFailureMapsToChineseAndSecurityHeadersPresent() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            // BE-01：登录失败不吐内部英文 invalid credentials。
+            HttpResponse<String> badLogin = client.send(postRequest(port, "/online/api/auth/login",
+                "{\"username\":\"nobody\",\"password\":\"WrongPass99\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, badLogin.statusCode());
+            assertTrue(badLogin.body().contains("\"code\":\"INVALID_CREDENTIALS\""));
+            assertTrue(badLogin.body().contains("用户名或密码不正确"));
+            assertTrue(!badLogin.body().contains("invalid credentials"));
+
+            // BE-02：安全响应头基线在页面可见。
+            HttpResponse<String> page = client.send(request(port, "/online/"), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, page.statusCode());
+            assertEquals("nosniff", page.headers().firstValue("X-Content-Type-Options").orElse(""));
+            assertEquals("SAMEORIGIN", page.headers().firstValue("X-Frame-Options").orElse(""));
+            assertEquals("strict-origin-when-cross-origin", page.headers().firstValue("Referrer-Policy").orElse(""));
+            assertEquals("text/html; charset=UTF-8", page.headers().firstValue("Content-Type").orElse(""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void onlineTrailingSlashServesIndexAndRegisterSetsSameSiteCookie() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            // BE-06：裸 /online/（尾斜杠）返回 200 index。
+            HttpResponse<String> onlineSlash = client.send(request(port, "/online/"), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> onlineHead = client.send(headRequest(port, "/online/"), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, onlineSlash.statusCode());
+            assertTrue(onlineSlash.body().contains("/online/assets/site/app.js"));
+            assertEquals(200, onlineHead.statusCode());
+
+            // BE-02：Set-Cookie 含 HttpOnly 与 SameSite。
+            String uname = "cookie_" + Instant.now().toEpochMilli();
+            HttpResponse<String> reg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + uname + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, reg.statusCode());
+            String setCookie = reg.headers().firstValue("Set-Cookie").orElse("");
+            assertTrue(setCookie.contains("HttpOnly"));
+            // Undertow 渲染 SameSite 的大小写可能随版本变化，按大小写不敏感校验。
+            assertTrue(setCookie.toLowerCase().contains("samesite=lax"));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void lobbySearchDoesNotExposeFullInternalUserUuid() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+            String name = "mask" + Instant.now().toEpochMilli();
+            HttpResponse<String> reg = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"" + name + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, reg.statusCode());
+
+            HttpResponse<String> search = client.send(getRequest(port, "/online/api/lobby/search?q=" + name, ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, search.statusCode());
+            assertTrue(search.body().contains("\"publicId\":\"u_"));
+            assertTrue(!search.body().contains("\"id\":\""));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void invalidRegisterReturnsChineseErrorBodyAndWeakPasswordRejected() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        try {
+            server.start("127.0.0.1", port);
+            HttpClient client = HttpClient.newHttpClient();
+
+            // BE-03/04：弱密码/非法用户名返回中文错误体（code=BAD_REQUEST）。
+            HttpResponse<String> weak = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"validuser\",\"password\":\"onlyletters\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(400, weak.statusCode());
+            assertTrue(weak.body().contains("密码需同时包含字母和数字"));
+            assertTrue(weak.body().contains("\"code\":\"BAD_REQUEST\""));
+
+            HttpResponse<String> badName = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"ab\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(400, badName.statusCode());
+            assertTrue(badName.body().contains("用户名长度需在 3 到 32 个字符之间"));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
     void readOnlyRoomSnapshotRequiresLoginAndRespectsVisibility() throws Exception {
         OnlineStore store = newStore();
         PublicSiteServer server = new PublicSiteServer(store);

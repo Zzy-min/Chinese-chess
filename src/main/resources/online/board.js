@@ -9,7 +9,7 @@
 class XiangqiBoard {
   constructor(container) {
     this.container = container;
-    this.state = { pieces: {}, selected: null, lastMove: null, hint: null, disabled: false };
+    this.state = { pieces: {}, selected: null, lastMove: null, hint: null, hintTargets: [], disabled: false };
     this.prevState = null;
     this.cells = [];
     this.onClick = null;
@@ -61,8 +61,9 @@ class XiangqiBoard {
     // Last: 把棋子放到目标位置
     toCell.textContent = piece;
     toCell.classList.toggle('is-black', !this._isRedPiece(piece));
+    toCell.classList.add('has-piece');
     fromCell.textContent = '';
-    fromCell.classList.remove('is-black');
+    fromCell.classList.remove('is-black', 'has-piece');
 
     // Invert: 计算位移差
     const dx = fromRect.left - toRect.left;
@@ -95,6 +96,7 @@ class XiangqiBoard {
           const text = newPiece || '';
           cell.textContent = text;
           cell.classList.toggle('is-black', text && !this._isRedPiece(text));
+          cell.classList.toggle('has-piece', !!text);
         }
 
         // 选中状态
@@ -115,6 +117,13 @@ class XiangqiBoard {
         const isHintTo = curr.hint && curr.hint.toRow === r && curr.hint.toCol === c;
         if (wasHintTo !== isHintTo) {
           cell.classList.toggle('is-hint-to', isHintTo);
+        }
+
+        // 合法落点高亮
+        const wasHintTarget = (prev.hintTargets || []).some(t => t.row === r && t.col === c);
+        const isHintTarget = (curr.hintTargets || []).some(t => t.row === r && t.col === c);
+        if (wasHintTarget !== isHintTarget) {
+          cell.classList.toggle('is-hint-target', isHintTarget);
         }
 
         // 上一步高亮

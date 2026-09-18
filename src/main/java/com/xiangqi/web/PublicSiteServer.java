@@ -25,6 +25,7 @@ import io.undertow.server.RoutingHandler;
 import io.undertow.server.handlers.BlockingHandler;
 import io.undertow.server.handlers.CookieImpl;
 import io.undertow.util.Headers;
+import io.undertow.util.HttpString;
 import io.undertow.util.Methods;
 import io.undertow.util.PathTemplateMatch;
 import io.undertow.util.StatusCodes;
@@ -64,8 +65,11 @@ public final class PublicSiteServer {
     private final PracticeGameHub practiceHub;
     private final LegacyHomeSessionHub legacyHomeHub;
     private final WsHub wsHub = new WsHub();
-    private final RateLimiter authLimiter = new RateLimiter(8, 60_000);
+    private final RateLimiter loginLimiter = new RateLimiter(8, 60_000);
+    private final RateLimiter registerLimiter = new RateLimiter(5, 60_000);
     private final RateLimiter createRoomLimiter = new RateLimiter(12, 60_000);
+    /** BE-04：账号维度连续失败短锁，key = normalized:ip。 */
+    private final ConcurrentHashMap<String, int[]> loginFailures = new ConcurrentHashMap<>();
     private Undertow server;
 
     public PublicSiteServer() throws Exception {
@@ -125,6 +129,8 @@ public final class PublicSiteServer {
             .post("/api/auth/logout", this::handleLogout)
             .get("/online", this::handleOnlineIndex)
             .add(Methods.HEAD, "/online", this::handleOnlineIndex)
+            .get("/online/", this::handleOnlineIndex)
+            .add(Methods.HEAD, "/online/", this::handleOnlineIndex)
             .get("/online/index.html", this::handleOnlineIndex)
             .get("/online/assets/site/app.css", this::handleOnlineCss)
             .get("/online/assets/site/mobile.css", this::handleOnlineMobileCss)
@@ -173,8 +179,16 @@ public final class PublicSiteServer {
             .addExactPath("/online/ws", Handlers.websocket(new WebSocketConnectionCallback() {
                 @Override
                 public void onConnect(WebSocketHttpExchange exchange, WebSocketChannel channel) {
-                    String token = extractWsCookie(exchange, AUTH_COOKIE);
-                    Optional<AuthUser> user = token.isEmpty() ? Optional.<AuthUser>empty() : store.findUserByToken(token);
+                    // BE-07：握手失败必须干净失败，禁止把未捕获异常变成 HTTP 500。
+                    String token;
+                    Optional<AuthUser> user;
+                    try {
+                        token = extractWsCookie(exchange, AUTH_COOKIE);
+                        user = token.isEmpty() ? Optional.<AuthUser>empty() : store.findUserByToken(token);
+                    } catch (Exception ex) {
+                        WebSockets.sendClose(1008, "handshake rejected", channel, null);
+                        return;
+                    }
                     if (user.isPresent()) {
                         channel.setAttribute("userId", user.get().id());
                         channel.setAttribute("username", user.get().username());
@@ -183,7 +197,7 @@ public final class PublicSiteServer {
                 }
             }))
             .addPrefixPath("/", new BlockingHandler(routes));
-        server = Undertow.builder().addHttpListener(port, host).setHandler(handler).build();
+        server = Undertow.builder().addHttpListener(port, host).setHandler(addSecurityHeaders(handler)).build();
         server.start();
     }
 
@@ -342,7 +356,13 @@ public final class PublicSiteServer {
     }
 
     private void handleMe(HttpServerExchange exchange) {
-        sendJson(exchange, currentUser(exchange).map(this::userMap).orElse(null));
+        // 契约 BE-01：未登录返回 401 + AUTH_REQUIRED，禁止裸 null 当成功体。
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "AUTH_REQUIRED", "请先登录");
+            return;
+        }
+        sendJson(exchange, userMap(user.get()));
     }
 
     private void handleLobby(HttpServerExchange exchange) {
@@ -358,9 +378,41 @@ public final class PublicSiteServer {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
         body.put("query", query);
         body.put("rooms", searchPublicRooms(query, limit));
-        body.put("players", store.searchUsers(query, limit));
+        body.put("players", sanitizePublicPlayers(store.searchUsers(query, limit)));
         body.put("generatedAt", Instant.now().toString());
         sendJson(exchange, body);
+    }
+
+    /**
+     * BE-03：公开搜索/榜单不要暴露完整内部 user UUID，改为定长短公开 id。
+     */
+    private List<Map<String, Object>> sanitizePublicPlayers(List<Map<String, Object>> rows) {
+        List<Map<String, Object>> out = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> row : rows) {
+            out.add(sanitizePublicPlayer(row));
+        }
+        return out;
+    }
+
+    private Map<String, Object> sanitizePublicPlayer(Map<String, Object> row) {
+        Map<String, Object> item = new LinkedHashMap<String, Object>(row);
+        String rawId = asString(item.remove("id"));
+        Object userId = item.remove("userId");
+        if (userId != null) {
+            rawId = asString(userId);
+        }
+        item.put("publicId", publicUserId(rawId));
+        return item;
+    }
+
+    private String publicUserId(String internalId) {
+        String value = internalId == null ? "" : internalId.trim();
+        if (value.isEmpty()) {
+            return "";
+        }
+        String compact = value.replace("-", "");
+        int start = Math.max(0, compact.length() - 10);
+        return "u_" + compact.substring(start);
     }
 
     private void handleRoomById(HttpServerExchange exchange) {
@@ -554,7 +606,34 @@ public final class PublicSiteServer {
     private void handleCommunityLeaderboard(HttpServerExchange exchange) {
         int windowDays = asInt(queryParam(exchange, "windowDays", "30"), 30);
         int limit = asInt(queryParam(exchange, "limit", "20"), 20);
-        sendJson(exchange, store.communityLeaderboard(windowDays, limit));
+        sendJson(exchange, sanitizeLeaderboard(store.communityLeaderboard(windowDays, limit)));
+    }
+
+    /**
+     * BE-03：榜单行内的 userId（完整内部 UUID）脱敏为短公开 id。
+     */
+    @SuppressWarnings("unchecked")
+    private Object sanitizeLeaderboard(Object value) {
+        if (value instanceof List) {
+            List<Object> out = new ArrayList<Object>();
+            for (Object item : (List<Object>) value) {
+                out.add(sanitizeLeaderboard(item));
+            }
+            return out;
+        }
+        if (value instanceof Map) {
+            Map<String, Object> map = (Map<String, Object>) value;
+            Map<String, Object> out = new LinkedHashMap<String, Object>();
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                if ("userId".equals(entry.getKey())) {
+                    out.put("publicId", publicUserId(asString(entry.getValue())));
+                } else {
+                    out.put(entry.getKey(), sanitizeLeaderboard(entry.getValue()));
+                }
+            }
+            return out;
+        }
+        return value;
     }
 
     private List<Map<String, Object>> watchPublicRooms() {
@@ -848,8 +927,9 @@ public final class PublicSiteServer {
 
     private void handleRegister(HttpServerExchange exchange) {
         String ip = clientIp(exchange);
-        if (!authLimiter.allow(ip + ":register")) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+        // BE-04：注册防刷按 IP 独立限流，避免与登录共享窗口互相误杀。
+        if (!registerLimiter.allow(ip)) {
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "注册过于频繁，请稍后再试");
             return;
         }
         try {
@@ -858,24 +938,68 @@ public final class PublicSiteServer {
             setAuthCookie(exchange, session);
             sendJson(exchange, sessionBody(session));
         } catch (Exception ex) {
-            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+            sendError(exchange, StatusCodes.BAD_REQUEST, "BAD_REQUEST", safeUserMessage(ex.getMessage()));
         }
     }
 
     private void handleLogin(HttpServerExchange exchange) {
         String ip = clientIp(exchange);
-        if (!authLimiter.allow(ip + ":login")) {
-            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "too many requests");
+        Map<String, Object> payload;
+        try {
+            payload = readJson(exchange);
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, "BAD_REQUEST", "请求体无效");
+            return;
+        }
+        String username = asString(payload.get("username")).trim();
+        String lockKey = username.toLowerCase() + ":" + ip;
+        // BE-04：登录限流键改为 username+ip，同 IP 不同用户互不误杀。
+        if (!loginLimiter.allow(lockKey) || loginLockoutReached(lockKey)) {
+            recordLoginFailure(lockKey);
+            sendError(exchange, StatusCodes.TOO_MANY_REQUESTS, "登录尝试过于频繁，请稍后再试");
             return;
         }
         try {
-            Map<String, Object> payload = readJson(exchange);
-            UserSession session = authService.login(asString(payload.get("username")), asString(payload.get("password")));
+            UserSession session = authService.login(username, asString(payload.get("password")));
+            loginFailures.remove(lockKey);
             setAuthCookie(exchange, session);
             sendJson(exchange, sessionBody(session));
         } catch (Exception ex) {
-            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+            recordLoginFailure(lockKey);
+            String message = isCredentialsError(ex) ? "用户名或密码不正确" : safeUserMessage(ex.getMessage());
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "INVALID_CREDENTIALS", message);
         }
+    }
+
+    /**
+     * BE-04：连续失败指数退避——同一 username:ip 连续失败到阈值后短暂锁定。
+     */
+    private boolean loginLockoutReached(String lockKey) {
+        int[] counter = loginFailures.get(lockKey);
+        return counter != null && counter[0] >= 5;
+    }
+
+    private void recordLoginFailure(String lockKey) {
+        int[] counter = loginFailures.computeIfAbsent(lockKey, k -> new int[1]);
+        synchronized (counter) {
+            counter[0] = Math.min(counter[0] + 1, 100);
+        }
+    }
+
+    private boolean isCredentialsError(Exception ex) {
+        String message = ex.getMessage();
+        return message != null && message.contains("invalid credentials");
+    }
+
+    private String safeUserMessage(String message) {
+        // 登录/注册失败不直吐内部英文；中文默认值。
+        if (message == null || message.trim().isEmpty()) {
+            return "操作失败，请重试";
+        }
+        if (message.contains("invalid credentials")) {
+            return "用户名或密码不正确";
+        }
+        return message;
     }
 
     private void handleLogout(HttpServerExchange exchange) {
@@ -1225,7 +1349,22 @@ public final class PublicSiteServer {
         cookie.setPath("/");
         cookie.setHttpOnly(true);
         cookie.setMaxAge(14 * 24 * 3600);
+        // BE-02：SameSite=Lax 兼容分享链接（与同站 Cookie 会随导航发送）；HTTPS 生产才加 Secure。
+        cookie.setSameSite(true);
+        cookie.setSameSiteMode("Lax");
+        if (secureCookiesEnabled()) {
+            cookie.setSecure(true);
+        }
         exchange.setResponseCookie(cookie);
+    }
+
+    /**
+     * BE-02：生产全站 HTTPS 时开启 Secure Cookie。
+     * 用环境变量 XQ_COOKIE_SECURE=true 显式开启，本地 http 默认关闭。
+     */
+    private boolean secureCookiesEnabled() {
+        String flag = System.getenv("XQ_COOKIE_SECURE");
+        return flag != null && ("1".equals(flag.trim()) || "true".equalsIgnoreCase(flag.trim()));
     }
 
     private Map<String, Object> sessionBody(UserSession session) {
@@ -1317,9 +1456,71 @@ public final class PublicSiteServer {
         }
     }
 
+    /**
+     * BE-02：公共响应安全头基线。源站必须带底线；Cloudflare 层的策略是叠加而非替代。
+     * HSTS 仅在全站 HTTPS 且显式开启（XQ_HSTS=1）时才启用，避免本地/localhost 误伤。
+     */
+    private HttpHandler addSecurityHeaders(HttpHandler next) {
+        return exchange -> {
+            putHeaderIfAbsent(exchange, "X-Content-Type-Options", "nosniff");
+            putHeaderIfAbsent(exchange, "X-Frame-Options", "SAMEORIGIN");
+            putHeaderIfAbsent(exchange, "Referrer-Policy", "strict-origin-when-cross-origin");
+            if (hstsEnabled()) {
+                putHeaderIfAbsent(exchange, "Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            }
+            next.handleRequest(exchange);
+        };
+    }
+
+    private void putHeaderIfAbsent(HttpServerExchange exchange, String name, String value) {
+        if (exchange.getResponseHeaders().contains(new HttpString(name))) {
+            return;
+        }
+        exchange.getResponseHeaders().add(new HttpString(name), value);
+    }
+
+    private boolean hstsEnabled() {
+        String flag = System.getenv("XQ_HSTS");
+        return flag != null && ("1".equals(flag.trim()) || "true".equalsIgnoreCase(flag.trim()));
+    }
+
     private void sendError(HttpServerExchange exchange, int statusCode, String message) {
+        sendError(exchange, statusCode, errorCodeForStatus(statusCode), chineseMessage(message));
+    }
+
+    /**
+     * BE-01：把已知的英文回退文案映射为面向用户的中文默认值，避免直吐英文。
+     * 未命中的（如带 id 的动态错误）保留原文，code 仍提供机读契约。
+     */
+    private String chineseMessage(String message) {
+        if (message == null || message.isEmpty()) {
+            return message;
+        }
+        switch (message) {
+            case "login required":
+                return "请先登录";
+            case "room is not accessible":
+            case "game not accessible":
+                return "无权访问该资源";
+            case "game not found":
+            case "room not found":
+                return "资源不存在";
+            case "too many requests":
+            case "rate limited":
+                return "请求过于频繁，请稍后再试";
+            case "learn item not found":
+                return "学习内容不存在";
+            default:
+                return message;
+        }
+    }
+
+    /**
+     * 统一错误体契约（BE-01）：{code, message}，code 可机读、message 面向用户。
+     */
+    private void sendError(HttpServerExchange exchange, int statusCode, String code, String message) {
         try {
-            byte[] json = mapper.writeValueAsBytes(Collections.singletonMap("error", message));
+            byte[] json = mapper.writeValueAsBytes(errorBody(code, message));
             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=UTF-8");
             exchange.setStatusCode(statusCode);
             exchange.getResponseSender().send(new String(json, StandardCharsets.UTF_8));
@@ -1327,6 +1528,30 @@ public final class PublicSiteServer {
             exchange.setStatusCode(statusCode);
             exchange.getResponseSender().send(message == null ? "" : message);
         }
+    }
+
+    private String errorCodeForStatus(int statusCode) {
+        switch (statusCode) {
+            case StatusCodes.UNAUTHORIZED:
+                return "AUTH_REQUIRED";
+            case StatusCodes.FORBIDDEN:
+                return "FORBIDDEN";
+            case StatusCodes.NOT_FOUND:
+                return "NOT_FOUND";
+            case StatusCodes.CONFLICT:
+                return "CONFLICT";
+            case StatusCodes.TOO_MANY_REQUESTS:
+                return "RATE_LIMITED";
+            default:
+                return "BAD_REQUEST";
+        }
+    }
+
+    private Map<String, Object> errorBody(String code, String message) {
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("code", code == null ? "BAD_REQUEST" : code);
+        body.put("message", message == null ? "" : message);
+        return body;
     }
 
     private String queryParam(HttpServerExchange exchange, String key, String fallback) {

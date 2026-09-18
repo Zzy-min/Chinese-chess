@@ -25,8 +25,8 @@ class AuthServiceTest {
         InMemoryUserRepository users = new InMemoryUserRepository();
         AuthService authService = new AuthService(users, new InMemoryAuthSessionRepository(), PasswordHasher.bcrypt(), clock);
 
-        UserSession registered = authService.register("alice", "correct horse battery staple");
-        UserSession loggedIn = authService.login("alice", "correct horse battery staple");
+        UserSession registered = authService.register("alice", "correct horse battery9");
+        UserSession loggedIn = authService.login("alice", "correct horse battery9");
 
         assertEquals("alice", registered.user().username());
         assertEquals(registered.user().id(), loggedIn.user().id());
@@ -43,11 +43,36 @@ class AuthServiceTest {
             clock
         );
 
-        authService.register("alice", "secret-pass");
+        authService.register("alice", "secret-pass99");
 
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-            () -> authService.register("alice", "another-pass"));
+        // 重复用户名：即使新密码合法也要拒绝（先查重）。
+        IllegalArgumentException dup = assertThrows(IllegalArgumentException.class,
+            () -> authService.register("alice", "another-pass99"));
+        assertEquals("username already exists", dup.getMessage());
+    }
 
-        assertEquals("username already exists", error.getMessage());
+    @Test
+    void rejectsShortOrRestrictedUsernamesAndWeakPasswords() {
+        AuthService authService = new AuthService(
+            new InMemoryUserRepository(),
+            new InMemoryAuthSessionRepository(),
+            PasswordHasher.bcrypt(),
+            clock
+        );
+
+        // BE-03：长度过短/非法字符/敏感词均拒绝。
+        assertThrows(IllegalArgumentException.class, () -> authService.register("ab", "GoodPass9"));
+        assertThrows(IllegalArgumentException.class, () -> authService.register("name with space", "GoodPass9"));
+        assertThrows(IllegalArgumentException.class, () -> authService.register("admin", "GoodPass9"));
+        assertThrows(IllegalArgumentException.class, () -> authService.register("bad f**k", "GoodPass9"));
+
+        // BE-04：弱密码/纯字母/过短均拒绝。
+        assertThrows(IllegalArgumentException.class, () -> authService.register("gooduser", "short"));
+        assertThrows(IllegalArgumentException.class, () -> authService.register("gooduser", "onlyletters"));
+        assertThrows(IllegalArgumentException.class, () -> authService.register("gooduser", "password123"));
+
+        // 合法用户名+强密码可通过；登录失败语句仍稳定。
+        UserSession ok = authService.register("good_user", "Passw0rd123!");
+        assertEquals("good_user", ok.user().username());
     }
 }

@@ -350,7 +350,7 @@ public final class OnlineRoomHub {
             if (game.engine.finished() || "FINISHED".equals(game.status)) {
                 throw new IllegalArgumentException("game already finished");
             }
-            String resultText = actor.username() + " resigned";
+            String resultText = actor.username() + " 认输";
             finalizeGame(game, winnerForResignation(game, actor.id()), resultText, "RESIGN");
             persistAll();
             return gameSnapshot(game, actor);
@@ -387,7 +387,7 @@ public final class OnlineRoomHub {
                 throw new IllegalArgumentException("cannot respond to your own draw offer");
             }
             if (accept) {
-                finalizeGame(game, "", "draw agreed", "DRAW_AGREED");
+                finalizeGame(game, "", "双方同意和棋", "DRAW_AGREED");
             } else {
                 clearDrawOffer(game);
                 game.updatedAt = now();
@@ -833,17 +833,30 @@ public final class OnlineRoomHub {
         if (game.firstSide().equals(side)) {
             game.firstRemainingSeconds = Math.max(0, game.firstRemainingSeconds - (int) elapsedSeconds);
             if (game.firstRemainingSeconds <= 0) {
-                finalizeGame(game, game.secondSide(), side.toLowerCase() + " timeout", "TIMEOUT");
+                finalizeGame(game, game.secondSide(), sideTimeoutText(side), "TIMEOUT");
                 return true;
             }
         } else if (game.secondSide().equals(side)) {
             game.secondRemainingSeconds = Math.max(0, game.secondRemainingSeconds - (int) elapsedSeconds);
             if (game.secondRemainingSeconds <= 0) {
-                finalizeGame(game, game.firstSide(), side.toLowerCase() + " timeout", "TIMEOUT");
+                finalizeGame(game, game.firstSide(), sideTimeoutText(side), "TIMEOUT");
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * BE-12：超时结算文案统一中文（terminationReason 枚举保留给前端）。
+     */
+    private String sideTimeoutText(String side) {
+        if ("RED".equals(side)) {
+            return "红方超时";
+        }
+        if ("BLACK".equals(side)) {
+            return "黑方超时";
+        }
+        return side + " 超时";
     }
 
     private Instant now() {

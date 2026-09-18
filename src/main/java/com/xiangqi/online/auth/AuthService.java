@@ -67,12 +67,66 @@ public class AuthService {
         if (value.isEmpty()) {
             throw new IllegalArgumentException("username is required");
         }
+        // BE-03：长度上下限 + 字符集白名单（字母数字中文与有限符号）。
+        if (value.length() < 3 || value.length() > 32) {
+            throw new IllegalArgumentException("用户名长度需在 3 到 32 个字符之间");
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean allowed = Character.isLetterOrDigit(c) || c == '_' || c == '-' || c == '.';
+            if (!allowed) {
+                throw new IllegalArgumentException("用户名只能包含字母、数字、中文、下划线、短横线或点");
+            }
+            if (Character.isISOControl(c)) {
+                throw new IllegalArgumentException("用户名不能包含控制字符");
+            }
+        }
+        // 敏感词黑名单（简单内置贝，运维可扩展为配置文件）。
+        if (containsBannedWord(value)) {
+            throw new IllegalArgumentException("用户名包含不允许的内容");
+        }
         return value;
+    }
+
+    private boolean containsBannedWord(String value) {
+        // 示例黑名单：粗口/辱骂/系统保留词。后续可外置到配置。
+        String[] banned = {"admin", "root", "fuck", "shit", "bitch", "asshole", "stupid", "性交", "淫", "屎", "弱智", "sb"};
+        for (String word : banned) {
+            if (value.contains(word)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void validatePassword(String rawPassword) {
         if (rawPassword == null || rawPassword.length() < 8) {
-            throw new IllegalArgumentException("password must be at least 8 characters");
+            throw new IllegalArgumentException("密码至少需要 8 位");
+        }
+        if (rawPassword.length() > 128) {
+            throw new IllegalArgumentException("密码过长");
+        }
+        // BE-04：复杂度——至少包含字母和数字。
+        boolean hasLetter = false;
+        boolean hasDigit = false;
+        for (int i = 0; i < rawPassword.length(); i++) {
+            char c = rawPassword.charAt(i);
+            if (Character.isLetter(c)) {
+                hasLetter = true;
+            } else if (Character.isDigit(c)) {
+                hasDigit = true;
+            }
+        }
+        if (!hasLetter || !hasDigit) {
+            throw new IllegalArgumentException("密码需同时包含字母和数字");
+        }
+        // 常见/弱密码黑名单。
+        String lowercase = rawPassword.toLowerCase();
+        String[] weak = {"password", "password123", "12345678", "123456789", "qwerty123", "abcdefgh", "letmein", "11111111", "aaaaaaaa"};
+        for (String w : weak) {
+            if (lowercase.equals(w)) {
+                throw new IllegalArgumentException("密码过于常见，请换一个更难猜的");
+            }
         }
     }
 }

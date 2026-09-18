@@ -138,9 +138,13 @@ public class XiangqiMatch implements OnlineMatchEngine {
         if (gameClock.isFlagged()) {
             PieceColor loser = gameClock.flaggedSide();
             if (loser == null) {
-                return "timeout";
+                return "超时";
             }
-            return loser.name().toLowerCase() + " timeout";
+            // BE-12：超时文案中文，避免与 UI 中文并排英文。
+            if (loser == PieceColor.RED) {
+                return "红方超时";
+            }
+            return "黑方超时";
         }
         return board.getGameResult();
     }
