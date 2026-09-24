@@ -5645,9 +5645,13 @@ h1, h2, h3, .sectionTitle, .brandText strong, .stampTitle {
   .boardRailAtmosphere {
     display: none !important;
   }
+  /* Mobile must not inherit desktop R2.1 rail stretch/min-height:100% or stage collapses */
   .boardDesk .boardRail {
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     align-self: auto !important;
+    flex: 0 0 auto !important;
   }
   .boardPage--desk::before,
   .boardPage--desk::after {
