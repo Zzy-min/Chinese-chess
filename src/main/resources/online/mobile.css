@@ -4390,3 +4390,2860 @@
   }
 }
 
+
+/* === 20260924m8 tabs Strict Align === */
+@media (max-width: 768px) {
+  /* 00: 全局宣纸底色与页顶水墨淡洗 (≤0.18) */
+  .mobileLobby,
+  .mobileContentPage {
+    position: relative !important;
+    background: #FAF7F0 !important;
+    min-height: 100dvh !important;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+  }
+
+  .mobileLobby::before,
+  .mobileContentPage::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 190px !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    opacity: 0.16 !important;
+    filter: saturate(0.75) contrast(1.05) !important;
+    background:
+      /* 朝阳 */
+      radial-gradient(circle 38px at 80% 20%, rgba(225, 95, 45, 0.65) 0%, rgba(220, 100, 50, 0.22) 55%, transparent 100%),
+      /* 远山淡峦 (右) */
+      radial-gradient(ellipse 95px 60px at 88% 42%, rgba(55, 75, 80, 0.45) 0%, transparent 72%),
+      radial-gradient(ellipse 75px 45px at 72% 50%, rgba(70, 90, 95, 0.32) 0%, transparent 72%),
+      /* 左侧竹影墨意 */
+      radial-gradient(ellipse 65px 95px at 8% 30%, rgba(45, 75, 60, 0.38) 0%, transparent 68%),
+      radial-gradient(ellipse 45px 75px at 16% 50%, rgba(55, 85, 70, 0.25) 0%, transparent 70%),
+      /* 中景淡洗 */
+      radial-gradient(ellipse at 50% 60%, rgba(100, 90, 75, 0.24) 0%, transparent 55%),
+      /* 融入宣纸 */
+      linear-gradient(180deg, transparent 35%, rgba(250, 247, 240, 0.6) 75%, #FAF7F0 100%) !important;
+  }
+
+  .mobileContentHeader,
+  .mobileContentBody,
+  .mobileLobbyLead,
+  .mobileRoomDisclosure,
+  .profilePage,
+  .learnPage,
+  .watchHero,
+  .watchStage,
+  .watchReplayStage {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* 页头统一 */
+  .mobileContentHeader {
+    min-height: 70px !important;
+    padding: max(10px, env(safe-area-inset-top)) 16px 6px !important;
+    background: transparent !important;
+  }
+
+  .mobileContentHeader > button {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(210, 195, 175, 0.55) !important;
+    background: rgba(252, 249, 242, 0.9) !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 30, 0.04) !important;
+    color: var(--text-ink) !important;
+  }
+
+  .mobileContentHeader span {
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.16em !important;
+  }
+
+  .mobileContentHeader h1 {
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 2px 0 0 !important;
+  }
+
+  /* ===== 章 02：对局 A-02 Strict Align ===== */
+  .mobileLobbyLead {
+    margin: 8px 14px 12px !important;
+    padding: 18px 16px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+  }
+
+  .mobileLobbyLead .mobileEyebrow {
+    display: inline-block !important;
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em !important;
+  }
+
+  .mobileLobbyLead h2 {
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    font-size: 23px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 6px 0 14px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileLobbyPrimaryActions {
+    display: grid !important;
+    gap: 10px !important;
+  }
+
+  /* 快速匹配：朱砂主入口木牌质感 */
+  .mobileLobbyPrimaryActions > .mobilePrimaryAction {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-height: 64px !important;
+    padding: 10px 16px !important;
+    border: none !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, #A43224 0%, #832015 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.35), 0 4px 14px rgba(139, 43, 36, 0.22) !important;
+    color: #fff !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+
+  .mobilePrimaryAction .mobilePrimaryIcon,
+  .mobilePrimaryAction > .mobileIcon {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.18) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #FFDEB5 !important;
+  }
+
+  .mobilePrimaryAction .mobilePrimaryIcon .mobileIcon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .mobilePrimaryAction .mobileActionTexts,
+  .mobilePrimaryAction > div {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .mobilePrimaryAction span,
+  .mobilePrimaryAction strong {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .mobilePrimaryAction small {
+    color: rgba(255, 255, 255, 0.76) !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  .mobilePrimaryAction .mobileActionArrow,
+  .mobilePrimaryAction > svg:last-child {
+    color: rgba(255, 255, 255, 0.6) !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-left: auto !important;
+  }
+
+  /* 人机练习：次级描边纸牌 */
+  .mobileLobbyCta {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-height: 64px !important;
+    padding: 10px 16px !important;
+    border: 1px solid rgba(215, 200, 180, 0.65) !important;
+    border-radius: 14px !important;
+    background: #FAF6EF !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    color: #231C16 !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+
+  .mobileLobbyCta .mobileCtaIcon,
+  .mobileLobbyCta > .mobileIcon {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #5A4738 !important;
+  }
+
+  .mobileLobbyCta .mobileCtaIcon .mobileIcon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .mobileLobbyCta .mobileActionTexts {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .mobileLobbyCta span,
+  .mobileLobbyCta strong {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileLobbyCta small {
+    color: #7E7365 !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileLobbyCta .mobileActionArrow {
+    color: #B0A294 !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-left: auto !important;
+  }
+
+  /* 好友房 / 房间码区 */
+  .mobileRoomComposer {
+    padding: 12px 14px !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    border-radius: 14px !important;
+    background: #FAF6EF !important;
+  }
+
+  .mobileRoomComposer > .mobileCreateRoomBtn,
+  .mobileRoomComposer > button:first-child {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    padding: 4px 0 10px !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(215, 200, 180, 0.45) !important;
+    background: transparent !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+
+  .mobileCreateRoomBtn .mobileActionTexts,
+  .mobileRoomComposer .mobileActionTexts {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileCreateRoomBtn .mobileActionTexts strong {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileCreateRoomBtn .mobileActionTexts small {
+    font-size: 11px !important;
+    color: #7E7365 !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileComposerIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #5A4738 !important;
+  }
+
+  .mobileComposerIcon .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobilePieceDeco {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #A43224 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+    box-shadow: 0 2px 5px rgba(60, 45, 25, 0.12) !important;
+    margin-left: auto !important;
+  }
+
+  .mobileRoomComposer label {
+    display: block !important;
+    padding: 10px 0 2px !important;
+    color: #7E7365 !important;
+    font-size: 12px !important;
+  }
+
+  .mobileJoinRow {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 72px !important;
+    gap: 8px !important;
+    margin-top: 6px !important;
+  }
+
+  .mobileJoinRow input {
+    background: #FCFAF6 !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    border-radius: 10px !important;
+    min-height: 44px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    color: #231C16 !important;
+  }
+
+  .mobileJoinRow button {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  /* 公开候场 */
+  .mobileRoomDisclosure {
+    margin: 0 14px 16px !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    box-shadow: 0 3px 12px rgba(70, 50, 30, 0.03) !important;
+  }
+
+  .mobileRoomDisclosure > summary {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    min-height: 60px !important;
+    padding: 10px 14px !important;
+  }
+
+  .mobileDisclosureLeft {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  .mobileDisclosureIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #5A4738 !important;
+  }
+
+  .mobileDisclosureIcon .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobileRoomDisclosure summary strong {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileRoomDisclosure summary small {
+    color: #7E7365 !important;
+    font-size: 11px !important;
+  }
+
+  .mobileRoomDisclosure > summary > svg:last-child {
+    color: #B0A294 !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* ===== 章 03：棋谱 A-03 Strict Align ===== */
+  .mobileContentPage--learn .learnPage > .hero {
+    margin: 8px 14px 12px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 6px 0 4px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft p {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    line-height: 1.55 !important;
+    margin: 0 !important;
+  }
+
+  .mobileContentPage--learn .learnEndgameCta {
+    width: 100% !important;
+    min-height: 48px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    background: linear-gradient(180deg, #A43224 0%, #832015 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.35), 0 4px 12px rgba(139, 43, 36, 0.2) !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+
+  .mobileContentPage--learn .searchFieldLabel {
+    display: none !important;
+  }
+
+  .mobileContentPage--learn .searchBar--learn {
+    background: #FCFAF6 !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    border-radius: 10px !important;
+    min-height: 42px !important;
+    padding: 0 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    margin-top: 4px !important;
+  }
+
+  .mobileContentPage--learn .searchBar--learn input {
+    background: transparent !important;
+    border: none !important;
+    font-size: 13px !important;
+    color: #231C16 !important;
+  }
+
+  /* 棋谱 filter pills: active 朱砂实心 */
+  .mobileContentPage--learn .learnTabs {
+    padding: 0 14px 8px !important;
+    margin-bottom: 8px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.6) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 6px 14px !important;
+    min-height: 32px !important;
+    font-weight: 500 !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill.is-active {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border-color: #8C2E21 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(140, 46, 33, 0.25) !important;
+  }
+
+  /* 棋谱卡片 */
+  .mobileContentPage--learn .learnCard {
+    margin: 0 14px 10px !important;
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before {
+    content: "帥" !important;
+    position: absolute !important;
+    right: 14px !important;
+    top: 18px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #A43224 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 25, 0.12) !important;
+    opacity: 0.8 !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    content: "將" !important;
+    position: absolute !important;
+    right: 14px !important;
+    top: 18px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #231C16 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 25, 0.12) !important;
+    opacity: 0.8 !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--learn .learnCardBadge {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35) !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo h3 {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo .muted {
+    font-size: 11px !important;
+    color: #8C7D6E !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-learn-complete] {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-action="view-tutorial-detail"] {
+    background: #FAF6EE !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    color: #4A3E33 !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-size: 13px !important;
+  }
+
+  /* ===== 章 04：观战 A-04 Strict Align ===== */
+  .mobileContentPage--watch .watchHero {
+    margin: 8px 14px 12px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  .mobileContentPage--watch .watchHero::after {
+    content: "觀" !important;
+    position: absolute !important;
+    right: 8px !important;
+    top: -10px !important;
+    font-size: 110px !important;
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    color: #6B5542 !important;
+    opacity: 0.08 !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchEyebrow {
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveDot {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--brand-cinnabar) !important;
+    display: inline-block !important;
+  }
+
+  .mobileContentPage--watch .watchHero h1 {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 6px 0 4px !important;
+  }
+
+  .mobileContentPage--watch .watchHero p {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+    max-width: 240px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount {
+    position: relative !important;
+    z-index: 1 !important;
+    background: rgba(245, 238, 225, 0.9) !important;
+    border: 1px solid rgba(215, 195, 175, 0.6) !important;
+    border-radius: 999px !important;
+    padding: 5px 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 3px !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount strong {
+    color: var(--brand-cinnabar) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount span {
+    font-size: 11px !important;
+    color: #5A4738 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchToolbar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 14px 10px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters {
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.6) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 5px 14px !important;
+    min-height: 32px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button.is-active {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border-color: #8C2E21 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(140, 46, 33, 0.25) !important;
+  }
+
+  .mobileContentPage--watch .watchRefresh {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.6) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 5px 12px !important;
+    min-height: 32px !important;
+    white-space: nowrap !important;
+  }
+
+  /* 观战对局卡 */
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 10px !important;
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--watch .watchMatchCard::before {
+    content: "帥" !important;
+    position: absolute !important;
+    right: 18px !important;
+    top: 36px !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #A43224 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 18px !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 25, 0.14) !important;
+    opacity: 0.9 !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--watch .watchGameTag {
+    background: rgba(215, 195, 170, 0.3) !important;
+    color: #5A4738 !important;
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+  }
+
+  .mobileContentPage--watch .watchNow {
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+
+  .mobileContentPage--watch .watchNow i {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--brand-cinnabar) !important;
+    display: inline-block !important;
+    margin-right: 3px !important;
+  }
+
+  .watchGameSeal {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 13px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+  }
+  .watchGameSeal.is-red {
+    background: #8C2E21 !important;
+  }
+  .watchGameSeal.is-green {
+    background: #315C4D !important;
+  }
+
+  .mobileContentPage--watch .watchCardTop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    max-width: 230px !important;
+  }
+
+  .mobileContentPage--watch .watchCardTop .watchNow {
+    margin-left: auto !important;
+  }
+
+  .mobileContentPage--watch .watchPlayers {
+    font-size: 14px !important;
+    margin: 10px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    max-width: 230px !important;
+  }
+
+  .watchPlayer {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .watchAvatar {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    border: 1px solid rgba(190, 165, 140, 0.4) !important;
+    color: #5A4738 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .watchPlayerInfo {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+  }
+
+  .watchPlayerInfo strong {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 72px !important;
+  }
+
+  .watchPlayerInfo small {
+    font-size: 10px !important;
+    color: #8C7D6E !important;
+  }
+
+  .watchVs {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-style: italic !important;
+    color: #A43224 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    padding: 0 2px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed rgba(215, 200, 180, 0.45) !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot span {
+    font-size: 11px !important;
+    color: #8C7D6E !important;
+  }
+
+  /* 实时观战 CTA 按钮：朱砂实心 */
+  .mobileContentPage--watch .watchCardFoot button {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 7px 16px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(140, 46, 33, 0.2) !important;
+  }
+
+  /* ===== 章 05：我的 A-05 Strict Align ===== */
+  .mobileContentPage--me .profileSidebar {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 6px 14px 12px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 52px !important;
+    padding: 8px 10px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    gap: 8px !important;
+    text-align: left !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #5A4738 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active {
+    background: #F7ECE6 !important;
+    border-color: rgba(164, 50, 36, 0.35) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarIcon {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts small {
+    font-size: 10px !important;
+    color: #8C7D6E !important;
+    margin-top: 1px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarChevron {
+    color: #B0A294 !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 个人资料卡 */
+  .mobileContentPage--me .profileHeaderCard {
+    margin: 0 14px 12px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+  }
+
+  .mobileContentPage--me .profileUserRow {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 35%, #A83628 0%, #751D12 100%) !important;
+    color: #FFFFFF !important;
+    font-size: 26px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3), 0 3px 10px rgba(120, 30, 20, 0.2) !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta strong {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta .vipBadge {
+    display: block !important;
+    font-size: 11px !important;
+    color: #8C7D6E !important;
+    margin-top: 1px !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileSlogan {
+    font-size: 10.5px !important;
+    color: #9A8C7E !important;
+    margin: 2px 0 0 !important;
+    font-style: italic !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn {
+    background: #FAF6EE !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    border-radius: 10px !important;
+    color: #4A3E33 !important;
+    font-size: 11px !important;
+    padding: 5px 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  /* 4格战绩水平排布，带竖线分割 */
+  .mobileContentPage--me .profileStatsGrid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0 !important;
+    margin-top: 14px !important;
+    padding-top: 14px !important;
+    border-top: 1px solid rgba(215, 200, 180, 0.45) !important;
+  }
+
+  .mobileContentPage--me .statBox {
+    position: relative !important;
+    text-align: center !important;
+    padding: 0 2px !important;
+  }
+
+  .mobileContentPage--me .statBox:not(:last-child)::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 15% !important;
+    height: 70% !important;
+    width: 1px !important;
+    background: rgba(215, 200, 180, 0.45) !important;
+  }
+
+  .mobileContentPage--me .statBox strong {
+    display: block !important;
+    color: #8C2E21 !important;
+    font-size: 20px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--me .statBox span {
+    display: block !important;
+    color: #7E7365 !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  /* 我的页面二级导航 (对局统计 / 我喜欢的棋谱 / 最近对局) */
+  .profileSecondaryNav {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin: 0 14px 16px !important;
+  }
+
+  .profileSecondaryItem {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 52px !important;
+    padding: 10px 14px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    gap: 12px !important;
+    text-align: left !important;
+    color: #231C16 !important;
+    text-decoration: none !important;
+  }
+
+  .profileSecIcon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #5A4738 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .profileSecIcon .mobileIcon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .profileSecTexts {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .profileSecTexts strong {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .profileSecTexts small {
+    font-size: 10px !important;
+    color: #8C7D6E !important;
+    margin-top: 1px !important;
+  }
+
+  .profileSecondaryItem .mobileIcon:last-child {
+    color: #B0A294 !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* ===== 六、共用底栏 5 项 Strict ===== */
+  .mobileBottomNav,
+  .mobileBottomNav--strict {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 9999 !important;
+    min-height: calc(56px + env(safe-area-inset-bottom)) !important;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid rgba(215, 200, 180, 0.45) !important;
+    background: #FAF6EF !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .mobileBottomNav a,
+  .mobileBottomNav--strict a {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    min-height: 48px !important;
+    color: #7E7365 !important;
+    font-size: 10px !important;
+    text-decoration: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .mobileBottomNav a .mobileIcon,
+  .mobileBottomNav--strict a .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: #8C2E21 !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileBottomNav a.is-active::before,
+  .mobileBottomNav--strict a.is-active::before {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .profileSidebarTexts small,
+  .profileSidebarChevron,
+  .profileSecondaryNav {
+    display: none !important;
+  }
+}
+
+
+
+
+
+/* === 20260924m9 tabs Strict Align === */
+@media (max-width: 768px) {
+  /* Tokens / paper */
+  .mobileLobby,
+  .mobileLobby--strict,
+  .mobileContentPage {
+    background: #F7F1E7 !important;
+  }
+
+  /* Stronger but ≤0.18 ink wash; taller wash band */
+  .mobileLobby::before,
+  .mobileLobby--strict::before,
+  .mobileContentPage::before {
+    height: 240px !important;
+    opacity: 0.175 !important;
+    background:
+      radial-gradient(circle 46px at 82% 18%, rgba(225, 95, 45, 0.72) 0%, rgba(220, 100, 50, 0.24) 52%, transparent 100%),
+      radial-gradient(ellipse 110px 70px at 90% 40%, rgba(50, 70, 78, 0.5) 0%, transparent 72%),
+      radial-gradient(ellipse 88px 52px at 70% 52%, rgba(65, 85, 90, 0.34) 0%, transparent 72%),
+      radial-gradient(ellipse 78px 110px at 6% 28%, rgba(40, 72, 58, 0.42) 0%, transparent 68%),
+      radial-gradient(ellipse 55px 88px at 18% 48%, rgba(50, 80, 65, 0.28) 0%, transparent 70%),
+      radial-gradient(ellipse 40px 70px at 28% 22%, rgba(55, 85, 70, 0.22) 0%, transparent 70%),
+      radial-gradient(ellipse at 48% 58%, rgba(95, 85, 70, 0.22) 0%, transparent 55%),
+      linear-gradient(180deg, transparent 30%, rgba(247, 241, 231, 0.55) 72%, #F7F1E7 100%) !important;
+  }
+
+  /* Taller airy headers */
+  .mobileContentHeader {
+    min-height: 96px !important;
+    padding: max(14px, env(safe-area-inset-top)) 16px 18px !important;
+    align-items: flex-start !important;
+  }
+
+  .mobileContentHeader > div {
+    padding-top: 4px !important;
+  }
+
+  .mobileContentHeader span {
+    color: #9D3023 !important;
+    font-size: 11px !important;
+    letter-spacing: 0.18em !important;
+  }
+
+  .mobileContentHeader h1 {
+    font-size: 24px !important;
+    margin-top: 4px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileHeaderSubtitle {
+    margin: 6px 0 0 !important;
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    letter-spacing: 0.08em !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+  }
+
+  /* Eliminate double gutter: body 0, cards keep ~14px */
+  .mobileContentPage--learn .mobileContentBody,
+  .mobileContentPage--watch .mobileContentBody,
+  .mobileContentPage--me .mobileContentBody {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ===== Play ===== */
+  .mobileLobby--strict .mobileLobbyLead {
+    margin: 12px 14px 14px !important;
+    padding: 22px 16px 20px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    box-shadow: 0 3px 14px rgba(68, 48, 29, 0.035) !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyLead h2 {
+    margin: 8px 0 18px !important;
+    font-size: 24px !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyPrimaryActions {
+    gap: 12px !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction {
+    min-height: 72px !important;
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, #A43224 0%, #7B2118 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.4), 0 4px 14px rgba(139, 43, 36, 0.24) !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon,
+  .mobileLobby--strict .mobilePrimaryAction > .mobileIcon {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon .mobileIcon {
+    width: 22px !important;
+    height: 22px !important;
+    color: #FFF6E8 !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction span,
+  .mobileLobby--strict .mobilePrimaryAction strong {
+    font-size: 18px !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta {
+    min-height: 68px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border-color: rgba(157, 48, 35, 0.28) !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta--bamboo::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 8px !important;
+    top: 4px !important;
+    bottom: 4px !important;
+    width: 72px !important;
+    pointer-events: none !important;
+    opacity: 0.16 !important;
+    background:
+      radial-gradient(ellipse 18px 40px at 70% 30%, rgba(45, 80, 55, 0.7) 0%, transparent 70%),
+      radial-gradient(ellipse 14px 34px at 40% 55%, rgba(55, 90, 65, 0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 12px 28px at 85% 70%, rgba(40, 70, 50, 0.45) 0%, transparent 70%) !important;
+  }
+
+  .mobileLobby--strict .mobileRoomComposer {
+    margin-top: 2px !important;
+    padding: 12px 12px 14px !important;
+    border-radius: 14px !important;
+    background: rgba(250, 246, 239, 0.9) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+  }
+
+  .mobileLobby--strict .mobileCreateRoomBtn {
+    min-height: 58px !important;
+  }
+
+  .mobileLobby--strict .mobilePieceDeco {
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 18px !important;
+    box-shadow: inset 0 0 0 1px rgba(140, 90, 40, 0.35), 0 2px 6px rgba(80, 50, 20, 0.12) !important;
+  }
+
+  .mobileLobby--strict .mobileJoinRow input {
+    background: #FCFAF6 !important;
+    border: 1px solid rgba(210, 195, 175, 0.7) !important;
+    min-height: 40px !important;
+    border-radius: 10px !important;
+  }
+
+  .mobileLobby--strict .mobileJoinRow button {
+    background: #9D3023 !important;
+    min-height: 40px !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure {
+    margin: 0 14px 16px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 3px 14px rgba(68, 48, 29, 0.035) !important;
+    overflow: hidden !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure summary {
+    min-height: 64px !important;
+    padding: 12px 14px !important;
+    position: relative !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure--ink .mobileDisclosureDeco {
+    position: absolute !important;
+    right: 36px !important;
+    top: 8px !important;
+    bottom: 8px !important;
+    width: 88px !important;
+    pointer-events: none !important;
+    opacity: 0.15 !important;
+    background:
+      radial-gradient(ellipse 50px 28px at 60% 55%, rgba(55, 75, 85, 0.55) 0%, transparent 72%),
+      radial-gradient(ellipse 22px 10px at 35% 70%, rgba(40, 55, 60, 0.5) 0%, transparent 70%),
+      radial-gradient(circle 5px at 42% 68%, rgba(30, 40, 45, 0.65) 0%, transparent 100%) !important;
+  }
+
+  /* ===== Learn: full content width ===== */
+  .mobileContentPage--learn .learnPage > .hero {
+    margin: 10px 14px 14px !important;
+    padding: 20px 16px 18px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-size: 26px !important;
+  }
+
+  .mobileContentPage--learn .learnEndgameCta {
+    min-height: 52px !important;
+    background: linear-gradient(180deg, #A43224 0%, #7B2118 100%) !important;
+    font-size: 16px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs {
+    padding: 0 14px 10px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill.is-active {
+    background: #9D3023 !important;
+    border-color: #9D3023 !important;
+  }
+
+  .mobileContentPage--learn .learnCard {
+    margin: 0 14px 12px !important;
+    padding: 16px 16px 14px !important;
+    min-height: 118px !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before,
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 20px !important;
+    opacity: 0.92 !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button {
+    min-height: 36px !important;
+    padding: 8px 14px !important;
+  }
+
+  /* ===== Watch ===== */
+  .mobileContentPage--watch .watchHero {
+    margin: 10px 14px 14px !important;
+    padding: 22px 16px 18px !important;
+    min-height: 148px !important;
+    border-radius: 20px !important;
+  }
+
+  .mobileContentPage--watch .watchHero::after {
+    font-size: 96px !important;
+    opacity: 0.09 !important;
+    right: 10px !important;
+    top: 4px !important;
+  }
+
+  .mobileContentPage--watch .watchHero h1 {
+    font-size: 26px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters,
+  .mobileContentPage--watch .watchToolbar,
+  .mobileContentPage--watch .watchStage {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters .pill.is-active,
+  .mobileContentPage--watch .watchToolbar .pill.is-active {
+    background: #9D3023 !important;
+    border-color: #9D3023 !important;
+  }
+
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 12px !important;
+    padding: 16px 14px 14px !important;
+    min-height: 138px !important;
+    border-radius: 18px !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--watch .watchPlayers {
+    position: relative !important;
+    min-height: 52px !important;
+    padding-right: 48px !important;
+    margin: 10px 0 12px !important;
+  }
+
+  .mobileContentPage--watch .watchPieceDeco {
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #8C2E21 !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(140, 90, 40, 0.35) !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--watch .watchAvatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 14px !important;
+  }
+
+  .mobileContentPage--watch .watchPlayerInfo strong {
+    max-width: 96px !important;
+    font-size: 13px !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot button {
+    background: #9D3023 !important;
+    padding: 8px 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .mobileContentPage--watch .watchReplayStage {
+    margin: 8px 14px 20px !important;
+  }
+
+  /* ===== Me: order card → menu → secondary; wider ===== */
+  .mobileContentPage--me .profilePage--m9 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+
+  .mobileContentPage--me .profilePage--m9 .profileMain--top {
+    order: 1 !important;
+  }
+
+  .mobileContentPage--me .profilePage--m9 .profileSidebar {
+    order: 2 !important;
+    margin: 4px 14px 12px !important;
+    gap: 9px !important;
+  }
+
+  .mobileContentPage--me .profilePage--m9 .profileMain--bottom {
+    order: 3 !important;
+  }
+
+  .mobileContentPage--me .profileHeaderCard {
+    margin: 8px 14px 12px !important;
+    padding: 20px 16px !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(160deg, #B83A2A 0%, #7B2118 100%) !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 230, 190, 0.35), 0 2px 8px rgba(120, 40, 30, 0.18) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar span {
+    font-size: 28px !important;
+    color: #FFF8EE !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta strong {
+    font-size: 17px !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid {
+    margin-top: 16px !important;
+    gap: 0 !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox strong {
+    font-size: 22px !important;
+    color: #9D3023 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    min-height: 62px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 15px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    font-size: 13px !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryNav {
+    margin: 0 14px 16px !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryItem {
+    min-height: 56px !important;
+    padding: 12px 14px !important;
+  }
+
+  /* Hide dense overview extras on first-screen density (still in DOM below secondary) */
+  .mobileContentPage--me .profilePage--m9 .profileOverviewGrid {
+    margin: 0 14px 20px !important;
+  }
+
+  /* Bottom nav cinnabar unify */
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: #9D3023 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active {
+    background: #F6E8E2 !important;
+    border-color: rgba(157, 48, 35, 0.32) !important;
+  }
+
+  .mobileLobby--strict .mobilePieceDeco {
+    background: linear-gradient(145deg, #E8CFA8 0%, #C9A574 55%, #B8915C 100%) !important;
+    color: #8C2E21 !important;
+  }
+
+  /* play page header air: lobby header spacing */
+  .mobileLobby--strict > .mobileContentHeader {
+    min-height: 100px !important;
+    padding-bottom: 20px !important;
+  }
+}
+
+/* === 20260924m10 tabs Strict Align === */
+@media (max-width: 768px) {
+  /* 1. Global Viewport & Paper Base */
+  .mobileLobby,
+  .mobileLobby--strict,
+  .mobileContentPage {
+    background: #F7F1E7 !important;
+  }
+
+  /* Atmosphere ink wash: mountain/bamboo/morning sun CSS wash, strictly opacity ≤ 0.18 */
+  .mobileLobby::before,
+  .mobileLobby--strict::before,
+  .mobileContentPage::before {
+    height: 260px !important;
+    opacity: 0.178 !important;
+    background:
+      /* Morning sun warm radial glow in top right */
+      radial-gradient(circle 52px at 82% 16%, rgba(228, 92, 42, 0.78) 0%, rgba(224, 110, 55, 0.28) 48%, transparent 100%),
+      /* Distant misty mountain ridges */
+      radial-gradient(ellipse 125px 75px at 92% 38%, rgba(45, 68, 76, 0.52) 0%, transparent 72%),
+      radial-gradient(ellipse 95px 56px at 72% 50%, rgba(58, 80, 88, 0.36) 0%, transparent 72%),
+      radial-gradient(ellipse 110px 58px at 52% 44%, rgba(65, 85, 92, 0.28) 0%, transparent 70%),
+      /* Bamboo silhouettes on the left flank */
+      radial-gradient(ellipse 85px 120px at 5% 26%, rgba(35, 70, 54, 0.46) 0%, transparent 68%),
+      radial-gradient(ellipse 60px 96px at 16% 46%, rgba(45, 78, 62, 0.32) 0%, transparent 70%),
+      radial-gradient(ellipse 44px 76px at 26% 20%, rgba(50, 82, 66, 0.26) 0%, transparent 70%),
+      /* Water mist and soft ground paper blending */
+      radial-gradient(ellipse 180px 70px at 50% 56%, rgba(100, 90, 75, 0.22) 0%, transparent 60%),
+      linear-gradient(180deg, transparent 28%, rgba(247, 241, 231, 0.55) 70%, #F7F1E7 100%) !important;
+  }
+
+  /* 2. Page Header: Taller, Airier, Stylized Eyebrow Lines */
+  .mobileContentHeader {
+    min-height: 104px !important;
+    padding: max(16px, env(safe-area-inset-top)) 16px 18px !important;
+    align-items: flex-start !important;
+  }
+
+  .mobileLobby--strict > .mobileContentHeader {
+    min-height: 108px !important;
+    padding-bottom: 22px !important;
+  }
+
+  .mobileContentHeader > button {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(215, 200, 180, 0.65) !important;
+    background: rgba(254, 252, 248, 0.92) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.05) !important;
+    color: #4C3C30 !important;
+  }
+
+  .mobileContentHeader span {
+    color: #9D3023 !important;
+    font-size: 11.5px !important;
+    letter-spacing: 0.2em !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    display: inline-block !important;
+  }
+
+  .mobileContentHeader span::before {
+    content: "— ";
+    opacity: 0.55;
+    margin-right: 2px;
+  }
+
+  .mobileContentHeader span::after {
+    content: " —";
+    opacity: 0.55;
+    margin-left: 2px;
+  }
+
+  .mobileContentHeader h1 {
+    font-size: 25px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin-top: 4px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileHeaderSubtitle {
+    margin: 5px 0 0 !important;
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    letter-spacing: 0.06em !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+  }
+
+  /* 3. Strict 14-16px Content Margins */
+  .mobileContentPage--learn .mobileContentBody,
+  .mobileContentPage--watch .mobileContentBody,
+  .mobileContentPage--me .mobileContentBody {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ===== Tab 02: 对局 / Play ===== */
+  .mobileLobby--strict .mobileLobbyLead {
+    margin: 10px 14px 14px !important;
+    padding: 22px 18px 20px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* Cloud & mist wash in top right of lead card */
+  .mobileLobby--strict .mobileLobbyLead::before {
+    content: "" !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 130px !important;
+    height: 70px !important;
+    pointer-events: none !important;
+    opacity: 0.14 !important;
+    background:
+      radial-gradient(ellipse 65px 35px at 85% 20%, rgba(55, 75, 85, 0.6) 0%, transparent 70%),
+      radial-gradient(circle 24px at 60% 40%, rgba(180, 140, 90, 0.5) 0%, transparent 70%) !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyLead .mobileEyebrow {
+    font-size: 13px !important;
+    color: #9D3023 !important;
+    font-weight: 700 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    letter-spacing: 0.08em !important;
+    display: block !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyLead h2 {
+    margin: 6px 0 16px !important;
+    font-size: 24px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  /* Quick Match CTA: cinnabar wood plaque + gold inner ring + lightning circle */
+  .mobileLobby--strict .mobilePrimaryAction {
+    min-height: 74px !important;
+    padding: 13px 18px !important;
+    border-radius: 16px !important;
+    background: linear-gradient(180deg, #A43224 0%, #8C2619 50%, #721C13 100%) !important;
+    border: none !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(245, 220, 165, 0.6),
+      inset 0 0 0 2.5px rgba(100, 24, 16, 0.7),
+      inset 0 0 0 3.5px rgba(245, 220, 165, 0.3),
+      0 5px 16px rgba(139, 43, 36, 0.28) !important;
+    align-items: center !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle, rgba(70, 15, 10, 0.82) 0%, rgba(38, 8, 5, 0.92) 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 165, 0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon .mobileIcon {
+    width: 24px !important;
+    height: 24px !important;
+    color: #FFF8EE !important;
+    stroke-width: 2 !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction .mobileActionTexts strong {
+    font-size: 19px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #FFF8EE !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction .mobileActionTexts small {
+    font-size: 12.5px !important;
+    color: rgba(255, 238, 220, 0.88) !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction .mobileActionArrow {
+    color: rgba(255, 238, 220, 0.82) !important;
+  }
+
+  /* Human-AI practice CTA with refined bamboo ink wash */
+  .mobileLobby--strict .mobileLobbyCta {
+    min-height: 70px !important;
+    padding: 12px 16px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 248, 241, 0.96) !important;
+    border: 1px solid rgba(220, 205, 185, 0.8) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileLobby--strict .mobileCtaIcon {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta .mobileActionTexts strong {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta .mobileActionTexts small {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta--bamboo::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 8px !important;
+    top: 4px !important;
+    bottom: 4px !important;
+    width: 90px !important;
+    pointer-events: none !important;
+    opacity: 0.17 !important;
+    background:
+      radial-gradient(ellipse 20px 45px at 70% 30%, rgba(40, 75, 52, 0.85) 0%, transparent 70%),
+      radial-gradient(ellipse 16px 38px at 45% 60%, rgba(50, 85, 60, 0.7) 0%, transparent 70%),
+      radial-gradient(ellipse 14px 30px at 85% 72%, rgba(35, 65, 45, 0.6) 0%, transparent 70%) !important;
+  }
+
+  /* Room composer & Create friend room */
+  .mobileLobby--strict .mobileRoomComposer {
+    margin-top: 2px !important;
+    padding: 14px 14px 16px !important;
+    border-radius: 16px !important;
+    background: rgba(250, 246, 239, 0.92) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+  }
+
+  .mobileLobby--strict .mobileCreateRoomBtn {
+    min-height: 64px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 248, 240, 0.95) !important;
+    border: 1px solid rgba(220, 205, 185, 0.7) !important;
+    padding: 10px 14px !important;
+  }
+
+  .mobileLobby--strict .mobileComposerIcon {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobileCreateRoomBtn .mobileActionTexts strong {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  /* 3D wooden piece "帥" decoration */
+  .mobileLobby--strict .mobilePieceDeco {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, #F6E7CF 0%, #DEC398 50%, #C4A16E 85%, #A88350 100%) !important;
+    border: 1.5px solid rgba(145, 100, 50, 0.55) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.85),
+      inset 0 -2px 3px rgba(85, 55, 20, 0.35),
+      0 3px 8px rgba(70, 45, 20, 0.18) !important;
+    color: #9D281B !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Join code row */
+  .mobileLobby--strict .mobileJoinRow input {
+    background: #FCFAF6 radial-gradient(ellipse 40px 24px at 88% 50%, rgba(45, 75, 55, 0.12) 0%, transparent 70%) !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    padding: 0 14px !important;
+    font-size: 14px !important;
+    color: #3C3026 !important;
+  }
+
+  .mobileLobby--strict .mobileJoinRow button {
+    background: linear-gradient(180deg, #A43224 0%, #822218 100%) !important;
+    min-height: 44px !important;
+    padding: 0 20px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.35), 0 3px 10px rgba(139, 43, 36, 0.22) !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    color: #FFF8EE !important;
+  }
+
+  /* Public waiting rooms disclosure with ink landscape / boat decoration */
+  .mobileLobby--strict .mobileRoomDisclosure {
+    margin: 0 14px 18px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 3px 14px rgba(68, 48, 29, 0.035) !important;
+    overflow: hidden !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure summary {
+    min-height: 68px !important;
+    padding: 12px 16px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .mobileLobby--strict .mobileDisclosureIcon {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobileDisclosureLeft .mobileActionTexts small {
+    font-size: 11.5px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileLobby--strict .mobileDisclosureLeft .mobileActionTexts strong {
+    font-size: 16.5px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure--ink .mobileDisclosureDeco {
+    position: absolute !important;
+    right: 40px !important;
+    top: 6px !important;
+    bottom: 6px !important;
+    width: 110px !important;
+    pointer-events: none !important;
+    opacity: 0.17 !important;
+    background:
+      radial-gradient(ellipse 65px 32px at 60% 55%, rgba(50, 72, 82, 0.6) 0%, transparent 75%),
+      radial-gradient(ellipse 26px 12px at 35% 72%, rgba(35, 52, 58, 0.55) 0%, transparent 72%),
+      radial-gradient(circle 6px at 42% 70%, rgba(25, 38, 42, 0.75) 0%, transparent 100%) !important;
+  }
+
+  /* ===== Tab 03: 棋谱 / Learn ===== */
+  .mobileContentPage--learn .learnPage > .hero {
+    margin: 10px 14px 14px !important;
+    padding: 22px 18px 20px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* Board & bamboo subtle watermark on learn hero */
+  .mobileContentPage--learn .learnPage > .hero::before {
+    content: "" !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 140px !important;
+    height: 100px !important;
+    pointer-events: none !important;
+    opacity: 0.14 !important;
+    background:
+      radial-gradient(ellipse 80px 50px at 80% 30%, rgba(45, 75, 60, 0.6) 0%, transparent 70%),
+      radial-gradient(ellipse 50px 30px at 60% 60%, rgba(160, 120, 70, 0.45) 0%, transparent 70%) !important;
+  }
+
+  .mobileContentPage--learn .heroLeft .pill {
+    background: #A43224 !important;
+    color: #FFF8EE !important;
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-size: 27px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 8px 0 6px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft p {
+    font-size: 13px !important;
+    color: #706354 !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Full-width cinnabar endgame CTA */
+  .mobileContentPage--learn .learnEndgameCta {
+    min-height: 54px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, #A43224 0%, #822218 100%) !important;
+    border: none !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.45), 0 4px 14px rgba(139, 43, 36, 0.22) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    color: #FFF8EE !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  .mobileContentPage--learn .searchBar--learn {
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    background: #FCFAF5 !important;
+    border: 1px solid rgba(215, 200, 180, 0.75) !important;
+  }
+
+  /* Filter pills: cinnabar active, paper inactive */
+  .mobileContentPage--learn .learnTabs {
+    padding: 0 14px 12px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill {
+    min-height: 36px !important;
+    padding: 0 16px !important;
+    border-radius: 999px !important;
+    font-size: 13px !important;
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    color: #4A3E33 !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill.is-active {
+    background: #9D3023 !important;
+    border-color: #9D3023 !important;
+    color: #FFF8EE !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.25) !important;
+  }
+
+  /* Tutorial card: taller, wider, elegant cinnabar seal + 3D wood piece */
+  .mobileContentPage--learn .learnCard {
+    margin: 0 14px 14px !important;
+    padding: 18px 16px 16px !important;
+    min-height: 128px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(218, 204, 186, 0.6) !important;
+    box-shadow: 0 3px 12px rgba(65, 45, 25, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--learn .learnCardBadge {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(150deg, #BA3828 0%, #9D281B 50%, #761C12 100%) !important;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 235, 200, 0.4), 0 2px 8px rgba(118, 28, 18, 0.22) !important;
+    color: #FFF8EE !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before,
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    right: 14px !important;
+    top: 16px !important;
+    background: radial-gradient(circle at 35% 30%, #F6E7CF 0%, #DEC398 50%, #C4A16E 85%, #A88350 100%) !important;
+    border: 1.5px solid rgba(145, 100, 50, 0.55) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.85),
+      inset 0 -2px 3px rgba(85, 55, 20, 0.35),
+      0 3px 8px rgba(70, 45, 20, 0.18) !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 20px !important;
+    opacity: 0.95 !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before {
+    color: #9D281B !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo h3 {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo .muted {
+    font-size: 11.5px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileContentPage--learn .learnSummaryOneLine {
+    font-size: 12.5px !important;
+    color: #63574A !important;
+    line-height: 1.45 !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-learn-complete] {
+    background: #9D3023 !important;
+    color: #FFF8EE !important;
+    border: none !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-weight: 700 !important;
+    font-size: 13.5px !important;
+    box-shadow: 0 2px 6px rgba(157, 48, 35, 0.22) !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-action="view-tutorial-detail"] {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    color: #4A3E33 !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-size: 13.5px !important;
+  }
+
+  /* ===== Tab 04: 观战 / Watch ===== */
+  .mobileContentPage--watch .watchHero {
+    margin: 10px 14px 14px !important;
+    padding: 22px 18px 20px !important;
+    min-height: 154px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  /* Calligraphy watermark "觀" in hero */
+  .mobileContentPage--watch .watchHero::after {
+    content: "觀" !important;
+    position: absolute !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 104px !important;
+    font-weight: 700 !important;
+    opacity: 0.11 !important;
+    color: #725D45 !important;
+    right: 12px !important;
+    top: 8px !important;
+    pointer-events: none !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchEyebrow {
+    font-size: 11.5px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileContentPage--watch .watchLiveDot {
+    background: #9D3023 !important;
+    width: 6px !important;
+    height: 6px !important;
+    display: inline-block !important;
+    border-radius: 50% !important;
+    margin-right: 5px !important;
+  }
+
+  .mobileContentPage--watch .watchHero h1 {
+    font-size: 28px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 4px 0 6px !important;
+  }
+
+  .mobileContentPage--watch .watchHero p {
+    font-size: 13px !important;
+    color: #706354 !important;
+    line-height: 1.5 !important;
+    max-width: 240px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount {
+    background: #FAF4EB !important;
+    border: 1px solid rgba(215, 195, 175, 0.7) !important;
+    border-radius: 999px !important;
+    padding: 6px 14px !important;
+    min-width: auto !important;
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 3px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount strong {
+    color: #9D3023 !important;
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount span {
+    color: #5A4738 !important;
+    font-size: 12px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount::after {
+    content: " ›" !important;
+    color: #7E7365 !important;
+    font-size: 14px !important;
+    margin-left: 2px !important;
+  }
+
+  /* Watch toolbar & filters: single line alignment */
+  .mobileContentPage--watch .watchToolbar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    padding: 0 14px 12px !important;
+    gap: 6px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    gap: 6px !important;
+    box-shadow: none !important;
+    overflow-x: visible !important;
+    width: auto !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12.5px !important;
+    padding: 5px 12px !important;
+    min-height: 34px !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button.is-active {
+    background: #9D3023 !important;
+    color: #FFF8EE !important;
+    border-color: #9D3023 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.25) !important;
+  }
+
+  .mobileContentPage--watch .watchRefresh {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 5px 12px !important;
+    min-height: 34px !important;
+    white-space: nowrap !important;
+    margin-left: auto !important;
+  }
+
+  /* Watch match card: taller, wider, remove duplicate "帥" pseudo-element */
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 14px !important;
+    padding: 16px 16px 14px !important;
+    min-height: 148px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(218, 204, 186, 0.6) !important;
+    box-shadow: 0 3px 12px rgba(65, 45, 25, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* CRITICAL FIX: eliminate duplicate "帥" from m8 ::before */
+  .mobileContentPage--watch .watchMatchCard::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  .mobileContentPage--watch .watchCardTop {
+    max-width: 260px !important;
+  }
+
+  .mobileContentPage--watch .watchPlayers {
+    max-width: 260px !important;
+    padding-right: 52px !important;
+  }
+
+  .mobileContentPage--watch .watchPieceDeco {
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, #F6E7CF 0%, #DEC398 50%, #C4A16E 85%, #A88350 100%) !important;
+    border: 1.5px solid rgba(145, 100, 50, 0.55) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.85),
+      inset 0 -2px 3px rgba(85, 55, 20, 0.35),
+      0 3px 8px rgba(70, 45, 20, 0.18) !important;
+    color: #9D281B !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--watch .watchAvatar {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    border: 1px solid rgba(210, 195, 175, 0.7) !important;
+  }
+
+  .mobileContentPage--watch .watchPlayerInfo strong {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--watch .watchVs {
+    font-style: italic !important;
+    color: #9D3023 !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+  }
+
+  /* Cinnabar CTA button on watch card */
+  .mobileContentPage--watch .watchCardFoot button {
+    background: linear-gradient(180deg, #A43224 0%, #822218 100%) !important;
+    color: #FFF8EE !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    padding: 9px 18px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.4), 0 3px 10px rgba(139, 43, 36, 0.22) !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot button::after {
+    content: " ›" !important;
+    font-size: 15px !important;
+    margin-left: 2px !important;
+  }
+
+  /* ===== Tab 05: 我的 / Profile ===== */
+  .mobileContentPage--me .profileHeaderCard {
+    margin: 8px 14px 14px !important;
+    padding: 20px 14px 18px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--me .profileUserRow {
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn {
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    border-radius: 999px !important;
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    color: #4A3E33 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn .mobileIcon {
+    display: none !important;
+  }
+
+  /* Seal avatar 68px (strict 64-72px requirement) with refined seal concentric border */
+  .mobileContentPage--me .profileSealAvatar {
+    width: 68px !important;
+    height: 68px !important;
+    min-width: 68px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(150deg, #BA3828 0%, #9D281B 50%, #761C12 100%) !important;
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 235, 200, 0.45),
+      inset 0 0 0 4px rgba(118, 28, 18, 0.85),
+      inset 0 0 0 5.5px rgba(255, 235, 200, 0.28),
+      0 3px 12px rgba(118, 28, 18, 0.28) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar span {
+    font-size: 32px !important;
+    color: #FFF8EE !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta strong {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileSlogan {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid {
+    margin-top: 18px !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox {
+    text-align: center !important;
+    padding: 0 2px !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox strong {
+    font-size: 23px !important;
+    color: #9D3023 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    display: block !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox span {
+    font-size: 11px !important;
+    color: #7E7365 !important;
+    white-space: nowrap !important;
+    display: block !important;
+  }
+
+  /* Two-column menu: taller cards, cinnabar active wash */
+  .mobileContentPage--me .profilePage--m9 .profileSidebar {
+    margin: 4px 14px 14px !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    min-height: 68px !important;
+    padding: 12px 14px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(220, 205, 185, 0.6) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    font-size: 14.5px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts small {
+    font-size: 11px !important;
+    color: #8A7D6E !important;
+  }
+
+  /* Cinnabar active wash for profile sidebar active item */
+  .mobileContentPage--me .profileSidebarItem.is-active {
+    background: #FAF0EC !important;
+    border: 1.5px solid rgba(157, 48, 35, 0.35) !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.08) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarTexts strong {
+    color: #9D3023 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarIcon {
+    background: linear-gradient(150deg, #BA3828 0%, #9D281B 50%, #761C12 100%) !important;
+    color: #FFF8EE !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 235, 200, 0.4), 0 2px 6px rgba(130, 35, 25, 0.22) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarChevron {
+    color: #9D3023 !important;
+  }
+
+  /* Secondary list */
+  .mobileContentPage--me .profileSecondaryNav {
+    margin: 0 14px 18px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(220, 205, 185, 0.6) !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryItem {
+    min-height: 60px !important;
+    padding: 14px 16px !important;
+  }
+
+  .mobileContentPage--me .profileSecIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSecTexts strong {
+    font-size: 15px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--me .profileSecTexts small {
+    font-size: 11.5px !important;
+    color: #8A7D6E !important;
+  }
+
+  /* ===== Bottom Navigation: 5-item Cinnabar #9D3023 Active ===== */
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: #9D3023 !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileBottomNav a.is-active span,
+  .mobileBottomNav--strict a.is-active span {
+    color: #9D3023 !important;
+  }
+
+  .mobileBottomNav a.is-active .mobileIcon,
+  .mobileBottomNav--strict a.is-active .mobileIcon {
+    stroke: #9D3023 !important;
+    stroke-width: 2.2 !important;
+  }
+}
+
+
+/* === 20260925m101 watch/me center === */
+@media (max-width: 768px) {
+  /* Root cause: early mobile.css gives learn/watch/me .shell padding 16px 16px,
+     while play/home shell is horizontal 0. Cards then add margin 14 → ~30px double gutter. */
+  .site.route-watch .shell,
+  .site.route-me .shell {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobileContentPage--watch .mobileContentBody,
+  .mobileContentPage--me .mobileContentBody {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* watchStage must not re-add horizontal padding (m9 had 14px on stage+toolbar) */
+  .mobileContentPage--watch .watchStage,
+  .mobileContentPage--watch .watchLiveGrid,
+  .mobileContentPage--watch .watchFilters {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .mobileContentPage--watch .watchToolbar {
+    padding: 0 14px 12px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  .mobileContentPage--watch .watchHero {
+    margin: 10px 14px 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--watch .watchReplayStage {
+    margin: 8px 14px 20px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--watch .watchSectionHead {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Me: 14px content column matching play */
+  .mobileContentPage--me .profileHeaderCard {
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--me .profileSidebar,
+  .mobileContentPage--me .profilePage--m9 .profileSidebar {
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryNav {
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  /* Help & feedback: full-span in 2-col grid (odd item was half-width left hang) */
+  .mobileContentPage--me .profileSidebarItem[data-nav="me/help"],
+  .mobileContentPage--me .profileSidebarItem--full {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Secondary list: stretch parent so 14px gutter matches sidebar/header */
+  .mobileContentPage--me .profileMain--bottom,
+  .mobileContentPage--me .profileMain--top {
+    width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryNav {
+    width: auto !important;
+    max-width: none !important;
+    align-self: stretch !important;
+    flex: 0 0 auto !important;
+  }
+}

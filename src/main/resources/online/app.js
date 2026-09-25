@@ -1472,7 +1472,7 @@ function renderLearnPage(route) {
           <p style="margin:0; font-size:14px; color:var(--text-muted);">从残局题库、教程复盘到 AI 对战，当前网页端的学习能力全部保持免费可用。</p>
         </div>
         <div class="heroRight learnSearchWrap">
-          <button class="btn learnEndgameCta" data-nav="learn/puzzles/ENDGAME_FEN">进入残局挑战</button>
+          <button class="btn learnEndgameCta" data-nav="learn/puzzles/ENDGAME_FEN"><span>进入残局挑战</span>${mobileIcon('chevron')}</button>
           <label class="searchFieldLabel" for="learnSearchInput">搜索棋谱</label>
           <div class="searchBar searchBar--learn">
             <span class="searchIcon" aria-hidden="true">🔍</span>
@@ -1894,14 +1894,18 @@ function renderWatchRooms(items) {
     return `
     <article class="watchMatchCard">
       <div class="watchCardTop">
+        <span class="watchGameSeal ${item.gameType === 'GOMOKU' ? 'is-green' : 'is-red'}">${item.gameType === 'GOMOKU' ? '五' : '象'}</span>
         <span class="watchGameTag">${label}</span>
         <span class="watchNow"><i></i>进行中</span>
       </div>
       <div class="watchPlayers">
-        <strong>${escapeHtml(first)}</strong><span>对</span><strong>${escapeHtml(second)}</strong>
+        <div class="watchPlayer"><span class="watchAvatar">${escapeHtml((first || '棋').slice(0, 1))}</span><div class="watchPlayerInfo"><strong>${escapeHtml(first)}</strong></div></div>
+        <span class="watchVs">VS</span>
+        <div class="watchPlayer"><span class="watchAvatar">${escapeHtml((second || '友').slice(0, 1))}</span><div class="watchPlayerInfo"><strong>${escapeHtml(second)}</strong></div></div>
+        <span class="watchPieceDeco" aria-hidden="true">${item.gameType === 'GOMOKU' ? '五' : '帥'}</span>
       </div>
       <div class="watchCardFoot">
-        <span>房间 ${escapeHtml(item.roomCode || String(item.roomId || '').slice(0, 8))}</span>
+        <span>房间 ${escapeHtml(item.roomCode || String(item.roomId || '').slice(0, 8))} · 公开直播</span>
         ${watchActionButton(item)}
       </div>
     </article>`;
@@ -2770,8 +2774,17 @@ function renderProfile() {
   const losses = summary.losses || 0;
   const winRate = totalGames ? Math.round((wins * 100) / totalGames) : 0;
   const earnedCount = achievements.filter(item => item.earned).length;
+  const profileSubtitles = {
+    overview: '管理个人资料',
+    records: '查看历史对局',
+    study: '我的学习进度',
+    achievements: '已获得的勋章',
+    inbox: '系统消息与活动',
+    settings: '对局与界面设置',
+    help: '常见问题与建议'
+  };
   const profileGroups = [
-    { label: '我的棋局', items: [['overview', '⌂', '个人信息'], ['records', '谱', '对局记录']] },
+    { label: '我的棋局', items: [['overview', '个', '个人信息'], ['records', '谱', '对局记录']] },
     { label: '成长', items: [['study', '学', '学习档案'], ['achievements', '章', '我的成就']] },
     { label: '服务', items: [['inbox', '信', '消息通知'], ['settings', '调', '偏好设置'], ['help', '问', '帮助与反馈']] }
   ];
@@ -2779,8 +2792,13 @@ function renderProfile() {
     <div class="profileSidebarGroup">
       <div class="profileSidebarLabel">${group.label}</div>
       ${group.items.map(([tab, icon, label]) => `
-        <button class="profileSidebarItem ${meTab === tab ? 'is-active' : ''}" data-nav="me/${tab}">
-          <span class="profileSidebarIcon">${icon}</span><span>${label}</span>
+        <button class="profileSidebarItem ${tab === 'help' ? 'profileSidebarItem--full ' : ''}${meTab === tab ? 'is-active' : ''}" data-nav="me/${tab}">
+          <span class="profileSidebarIcon">${icon}</span>
+          <span class="profileSidebarTexts">
+            <strong>${label}</strong>
+            <small>${profileSubtitles[tab] || ''}</small>
+          </span>
+          <span class="profileSidebarChevron">${mobileIcon('chevron')}</span>
         </button>`).join('')}
     </div>
   `).join('');
@@ -2887,23 +2905,43 @@ function renderProfile() {
     const activeGame = activity.game;
     const tutorialsDone = (learnProgress.tutorialsCompleted || []).length;
     const puzzlesDone = (learnProgress.puzzlesCompleted || []).length;
-    mainHtml = `
+    const headerCard = `
       <section class="panel profileHeaderCard">
         <div class="profileUserRow">
-          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%238c2e21'/%3E%3Ctext x='20' y='25' text-anchor='middle' font-size='18' fill='white'%3E${escapeHtml((me.username || '棋').slice(0,1))}%3C/text%3E%3C/svg%3E" />
+          <div class="avatar profileSealAvatar"><span>${escapeHtml((me.username || '棋').slice(0,1))}</span></div>
           <div class="profileUserMeta">
             <strong>${escapeHtml(me.username)}</strong>
-            <span class="vipBadge">棋友 · ${escapeHtml(String(me.id || '').slice(0, 8) || '账号')}</span>
+            <span class="vipBadge">棋友 · ID: ${escapeHtml(String(me.id || '').slice(0, 8) || '账号')}</span>
+            <p class="profileSlogan">落子之间，自有风雅。</p>
           </div>
-          <button class="btn btn-red btn-small" data-nav="play">开始对局</button>
+          <button class="ghost profileEditBtn" data-nav="me/settings"><span>编辑资料</span>${mobileIcon('chevron')}</button>
         </div>
         <div class="profileStatsGrid">
           <div class="statBox"><strong>${totalGames}</strong><span>对局数</span></div>
           <div class="statBox"><strong>${winRate}%</strong><span>胜率</span></div>
           <div class="statBox"><strong>${wins}/${losses}</strong><span>胜/负</span></div>
-          <div class="statBox"><strong>${earnedCount}</strong><span>已获成就</span></div>
+          <div class="statBox"><strong>${earnedCount}</strong><span>获得成就</span></div>
         </div>
-      </section>
+      </section>`;
+    const secondaryNav = `
+      <div class="profileSecondaryNav">
+        <button class="profileSecondaryItem" data-nav="me/records">
+          <span class="profileSecIcon">${mobileIcon('chart')}</span>
+          <span class="profileSecTexts"><strong>对局统计</strong><small>查看更详细的战绩数据</small></span>
+          ${mobileIcon('chevron')}
+        </button>
+        <button class="profileSecondaryItem" data-nav="learn/puzzles/ALL">
+          <span class="profileSecIcon">${mobileIcon('learn')}</span>
+          <span class="profileSecTexts"><strong>我喜欢的棋谱</strong><small>收藏的棋局与教程</small></span>
+          ${mobileIcon('chevron')}
+        </button>
+        <button class="profileSecondaryItem" data-nav="me/records">
+          <span class="profileSecIcon">${mobileIcon('play')}</span>
+          <span class="profileSecTexts"><strong>最近对局</strong><small>查看最近对弈记录</small></span>
+          ${mobileIcon('chevron')}
+        </button>
+      </div>`;
+    const overviewExtra = `
       ${activeRoom || activeGame ? renderActivityBanner(activeRoom, activeGame) : ''}
       <div class="profileOverviewGrid">
         <section class="panel">
@@ -2926,6 +2964,14 @@ function renderProfile() {
           </div>
         </section>
       </div>`;
+    /* m9：资料卡 → 双列菜单 → 次级列表（首屏对齐 A；overviewExtra 可滚后见） */
+    return `
+    <div class="profilePage profilePage--m9">
+      <div class="profileMain profileMain--top">${headerCard}</div>
+      <aside class="panel profileSidebar" aria-label="个人中心功能">${sidebar}</aside>
+      <div class="profileMain profileMain--bottom">${secondaryNav}${overviewExtra}</div>
+    </div>
+  `;
   }
 
   return `
@@ -2935,6 +2981,7 @@ function renderProfile() {
     </div>
   `;
 }
+
 
 function renderProfileGameCard(game) {
   const side = sideLabel(game.gameType, game.side);
@@ -6225,11 +6272,11 @@ function mobileIcon(name) {
   return `<svg class="mobileIcon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.chevron}</svg>`;
 }
 
-function renderMobilePageHeader({ eyebrow, title, backPath = 'home', backLabel = '返回首页' }) {
+function renderMobilePageHeader({ eyebrow, title, subtitle = '', backPath = 'home', backLabel = '返回首页' }) {
   return `
     <header class="mobileContentHeader">
       <button data-nav="${backPath}" aria-label="${backLabel}">${mobileIcon('back')}</button>
-      <div><span>${eyebrow}</span><h1>${title}</h1></div>
+      <div><span>${eyebrow}</span><h1>${title}</h1>${subtitle ? `<p class="mobileHeaderSubtitle">${subtitle}</p>` : ''}</div>
       <button data-nav="me" aria-label="打开个人中心">${mobileIcon('me')}</button>
     </header>
   `;
@@ -6247,9 +6294,10 @@ function renderMobileContentPage(route, content) {
   const [eyebrow, title] = titles[route.page] || ['轻棋局', '棋局中心'];
   const backPath = route.page === 'room' ? 'play' : 'home';
   const backLabel = backPath === 'home' ? '返回首页' : '返回对局大厅';
+  const subtitle = route.page === 'me' ? '落子之间，自有风雅' : '';
   return `
     <section class="mobileContentPage mobileContentPage--${route.page}">
-      ${renderMobilePageHeader({ eyebrow, title, backPath, backLabel })}
+      ${renderMobilePageHeader({ eyebrow, title, subtitle, backPath, backLabel })}
       <div class="mobileContentBody">${content}</div>
     </section>
   `;
@@ -6398,22 +6446,44 @@ function renderMobileQuickStartSheet() {
 function renderMobileLobby() {
   const rooms = ((state.lobby && state.lobby.rooms) || []).slice(0, 8);
   return `
-    <div class="mobileLobby">
+    <div class="mobileLobby mobileLobby--strict">
       ${renderMobilePageHeader({ eyebrow: '对局', title: '开始一盘棋' })}
       <section class="mobileLobbyLead">
         <span class="mobileEyebrow">常用入口</span>
         <h2>三步之内，直接开局</h2>
         <div class="mobileLobbyPrimaryActions">
-          <button class="mobilePrimaryAction" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">${mobileIcon('spark')}<span>快速匹配</span><small>默认中国象棋 · 5 分钟</small></button>
-          <button class="mobileLobbyCta" data-action="quick-start-ai-practice">${mobileIcon('play')}<span>人机练习</span><small>立即开始中等象棋练习</small></button>
+          <button class="mobilePrimaryAction" data-action="quick-start-public-match" data-game-type="XIANGQI" data-time-seconds="300">
+            <span class="mobilePrimaryIcon">${mobileIcon('spark')}</span>
+            <span class="mobileActionTexts"><strong>快速匹配</strong><small>默认中国象棋 · 5 分钟</small></span>
+            <span class="mobileActionArrow">${mobileIcon('chevron')}</span>
+          </button>
+          <button class="mobileLobbyCta mobileLobbyCta--bamboo" data-action="quick-start-ai-practice">
+            <span class="mobileCtaIcon">${mobileIcon('robot')}</span>
+            <span class="mobileActionTexts"><strong>人机练习</strong><small>立即开始中等象棋练习</small></span>
+            <span class="mobileActionArrow">${mobileIcon('chevron')}</span>
+          </button>
           <div class="mobileRoomComposer">
-            <button data-action="create-room-xiangqi"><span>创建好友房</span><small>生成房间码邀请棋友</small></button>
-            <label><span>已有房间码</span><span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span></label>
+            <button class="mobileCreateRoomBtn" data-action="create-room-xiangqi">
+              <span class="mobileComposerIcon">${mobileIcon('friends')}</span>
+              <span class="mobileActionTexts"><strong>创建好友房</strong><small>生成房间码邀请棋友</small></span>
+              <span class="mobilePieceDeco">帥</span>
+            </button>
+            <label>
+              <span>已有房间码</span>
+              <span class="mobileJoinRow"><input id="joinCode" type="text" placeholder="输入房间码" autocomplete="off"><button data-action="join-by-code">加入</button></span>
+            </label>
           </div>
         </div>
       </section>
-      <details class="mobileRoomDisclosure">
-        <summary><span><small>公开候场</small><strong>${rooms.length ? `${rooms.length} 间房可查看` : '暂时没有候场'}</strong></span>${mobileIcon('chevron')}</summary>
+      <details class="mobileRoomDisclosure mobileRoomDisclosure--ink">
+        <summary>
+          <span class="mobileDisclosureLeft">
+            <span class="mobileDisclosureIcon">${mobileIcon('friends')}</span>
+            <span class="mobileActionTexts"><small>公开候场</small><strong>${rooms.length ? `${rooms.length} 间房可查看` : '暂时没有候场'}</strong></span>
+          </span>
+          <span class="mobileDisclosureDeco" aria-hidden="true"></span>
+          <span class="mobileActionArrow">${mobileIcon('chevron')}</span>
+        </summary>
         <section class="mobileSection">
           <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><button data-action="refresh-lobby" aria-label="刷新大厅">${mobileIcon('refresh')}<span>刷新</span></button></div>
           <div class="mobileRoomList">
