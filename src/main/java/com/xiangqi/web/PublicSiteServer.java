@@ -152,6 +152,7 @@ public final class PublicSiteServer {
             .get("/online/api/community/leaderboard", this::handleCommunityLeaderboard)
             .get("/online/api/profile/summary", this::handleProfileSummary)
             .get("/online/api/profile/dashboard", this::handleProfileDashboard)
+            .get("/online/api/profile/records", this::handleProfileRecords)
             .get("/online/api/profile/preferences", this::handleProfilePreferences)
             .post("/online/api/auth/register", this::handleRegister)
             .post("/online/api/auth/login", this::handleLogin)
@@ -730,6 +731,31 @@ public final class PublicSiteServer {
             return;
         }
         sendJson(exchange, buildProfileDashboard(user.get()));
+    }
+
+    private void handleProfileRecords(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "AUTH_REQUIRED", "请先登录");
+            return;
+        }
+        String gameType = queryParam(exchange, "gameType", "ALL").toUpperCase(java.util.Locale.ROOT);
+        String sort = queryParam(exchange, "sort", "desc").toLowerCase(java.util.Locale.ROOT);
+        if (!("ALL".equals(gameType) || "XIANGQI".equals(gameType) || "GOMOKU".equals(gameType))
+            || !("asc".equals(sort) || "desc".equals(sort))) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, "BAD_REQUEST", "筛选条件无效");
+            return;
+        }
+        int offset = Math.max(0, asInt(queryParam(exchange, "offset", "0"), 0));
+        int limit = Math.max(1, Math.min(30, asInt(queryParam(exchange, "limit", "12"), 12)));
+        List<Map<String, Object>> rows = store.gamesForUser(user.get().id(), gameType, sort, offset, limit + 1);
+        boolean hasMore = rows.size() > limit;
+        Map<String, Object> body = new LinkedHashMap<String, Object>();
+        body.put("items", hasMore ? rows.subList(0, limit) : rows);
+        body.put("offset", offset);
+        body.put("limit", limit);
+        body.put("hasMore", hasMore);
+        sendJson(exchange, body);
     }
 
     private void handleProfilePreferences(HttpServerExchange exchange) {

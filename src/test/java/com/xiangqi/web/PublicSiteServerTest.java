@@ -316,6 +316,7 @@ class PublicSiteServerTest {
         OnlineStore store = newStore();
         PublicSiteServer server = new PublicSiteServer(store);
         int port = findFreePort();
+        WebSocket spectatorSocket = null;
         try {
             server.start("127.0.0.1", port);
             HttpClient client = HttpClient.newHttpClient();
@@ -350,13 +351,56 @@ class PublicSiteServerTest {
                 "{\"ready\":true}", c2), HttpResponse.BodyHandlers.ofString());
             assertEquals(200, ready1.statusCode());
             assertEquals(200, ready2.statusCode());
+            String gameId = extract(ready2.body(), "gameId");
+            assertTrue(!gameId.isEmpty());
+
+            HttpResponse<String> spectator = client.send(postRequest(port, "/online/api/auth/register",
+                "{\"username\":\"watch_guest_" + Instant.now().toEpochMilli() + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, spectator.statusCode());
+            String spectatorCookie = spectator.headers().firstValue("Set-Cookie").orElse("").split(";", 2)[0];
+            assertEquals(200, client.send(getRequest(port, "/online/api/games/" + gameId, spectatorCookie), HttpResponse.BodyHandlers.ofString()).statusCode());
+            BlockingQueue<String> spectatorEvents = new LinkedBlockingQueue<String>();
+            spectatorSocket = client.newWebSocketBuilder().header("Cookie", spectatorCookie)
+                .buildAsync(URI.create("ws://127.0.0.1:" + port + "/online/ws"), new WebSocket.Listener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket) {
+                        webSocket.request(1);
+                    }
+
+                    @Override
+                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                        spectatorEvents.offer(data.toString());
+                        webSocket.request(1);
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }).get(5, TimeUnit.SECONDS);
+            spectatorSocket.sendText("{\"type\":\"subscribe\",\"roomId\":\"" + roomId + "\"}", true).join();
+            String initialEvent = spectatorEvents.poll(5, TimeUnit.SECONDS);
+            assertNotNull(initialEvent);
+            assertTrue(initialEvent.contains("\"type\":\"room_state\""));
+            HttpResponse<String> forbiddenMove = client.send(postRequest(port, "/online/api/games/" + gameId + "/move",
+                "{\"fromRow\":6,\"fromCol\":0,\"toRow\":5,\"toCol\":0}", spectatorCookie), HttpResponse.BodyHandlers.ofString());
+            assertTrue(forbiddenMove.statusCode() >= 400);
+            assertEquals(200, client.send(postRequest(port, "/online/api/games/" + gameId + "/move",
+                "{\"fromRow\":6,\"fromCol\":0,\"toRow\":5,\"toCol\":0}", c1), HttpResponse.BodyHandlers.ofString()).statusCode());
+            String moveEvent = spectatorEvents.poll(5, TimeUnit.SECONDS);
+            assertNotNull(moveEvent);
+            assertTrue(moveEvent.contains("\"moveCount\":1"));
+            HttpResponse<String> spectatorState = client.send(getRequest(port, "/online/api/games/" + gameId, spectatorCookie), HttpResponse.BodyHandlers.ofString());
+            assertTrue(spectatorState.body().contains("\"moveCount\":1"));
 
             HttpResponse<String> watch = client.send(getRequest(port, "/online/api/watch/overview", ""), HttpResponse.BodyHandlers.ofString());
             assertEquals(200, watch.statusCode());
             assertTrue(watch.body().contains("\"roomCode\":\"" + roomCode + "\""));
             assertTrue(watch.body().contains("\"side\":\"RED\""));
             assertTrue(watch.body().contains("\"side\":\"BLACK\""));
+            client.send(postRequest(port, "/online/api/games/" + gameId + "/resign", "{}", c2), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> records = client.send(getRequest(port, "/online/api/profile/records", c1), HttpResponse.BodyHandlers.ofString());
+            assertTrue(records.body().contains("\"gameId\":\"" + gameId + "\""));
         } finally {
+            if (spectatorSocket != null) {
+                spectatorSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
+            }
             server.stop();
         }
     }
@@ -584,6 +628,7 @@ class PublicSiteServerTest {
 
             HttpResponse<String> guest = client.send(getRequest(port, "/online/api/profile/dashboard", ""), HttpResponse.BodyHandlers.ofString());
             assertEquals(401, guest.statusCode());
+            assertEquals(401, client.send(getRequest(port, "/online/api/profile/records", ""), HttpResponse.BodyHandlers.ofString()).statusCode());
 
             HttpResponse<String> register = client.send(postRequest(port, "/online/api/auth/register",
                 "{\"username\":\"" + username + "\",\"password\":\"Passw0rd123!\"}", ""), HttpResponse.BodyHandlers.ofString());
@@ -614,6 +659,13 @@ class PublicSiteServerTest {
             assertTrue(dashboard.body().contains("\"path\":\"analysis/" + gameId + "\""));
             assertTrue(dashboard.body().contains("\"boardTheme\":\"ink\""));
             assertTrue(dashboard.body().contains("\"earned\":true"));
+            HttpResponse<String> records = client.send(getRequest(port,
+                "/online/api/profile/records?gameType=XIANGQI&sort=desc&offset=0&limit=1", authCookie), HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, records.statusCode());
+            assertTrue(records.body().contains("\"gameId\":\"" + gameId + "\""));
+            assertTrue(records.body().contains("\"hasMore\":false"));
+            assertEquals(400, client.send(getRequest(port,
+                "/online/api/profile/records?gameType=UNKNOWN", authCookie), HttpResponse.BodyHandlers.ofString()).statusCode());
         } finally {
             server.stop();
         }

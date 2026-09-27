@@ -281,9 +281,9 @@ public final class OnlineStore {
         Map<String, Object> summary = new LinkedHashMap<String, Object>();
         String sql = "select count(*) as total, "
             + "sum(case when winner_side = first_side and first_user_id = ? then 1 when winner_side = second_side and second_user_id = ? then 1 else 0 end) as wins, "
-            + "sum(case when termination_reason = 'DRAW_AGREED' then 1 else 0 end) as draws, "
+            + "sum(case when coalesce(winner_side, '') = '' then 1 else 0 end) as draws, "
             + "max(coalesce(finished_at, started_at)) as last_game_at "
-            + "from games where first_user_id = ? or second_user_id = ?";
+            + "from games where status = 'FINISHED' and (first_user_id = ? or second_user_id = ?)";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, userId);
             ps.setString(2, userId);
@@ -374,13 +374,22 @@ public final class OnlineStore {
     }
 
     public List<Map<String, Object>> recentGamesForUser(String userId, int limit) {
+        return gamesForUser(userId, "ALL", "desc", 0, limit);
+    }
+
+    public List<Map<String, Object>> gamesForUser(String userId, String gameType, String sort, int offset, int limit) {
         List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
+        String type = "XIANGQI".equals(gameType) || "GOMOKU".equals(gameType) ? gameType : "ALL";
+        String direction = "asc".equalsIgnoreCase(sort) ? "asc" : "desc";
         String sql = "select id, room_id, game_type, is_training, opponent_type, ai_engine, difficulty, status, first_user_id, first_username, first_side, second_user_id, second_username, second_side, winner_side, result_text, termination_reason, move_count, started_at, finished_at "
-            + "from games where first_user_id = ? or second_user_id = ? order by started_at desc limit ?";
+            + "from games where status = 'FINISHED' and (first_user_id = ? or second_user_id = ?) and (? = 'ALL' or game_type = ?) order by started_at " + direction + ", id " + direction + " limit ? offset ?";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, userId);
             ps.setString(2, userId);
-            ps.setInt(3, limit);
+            ps.setString(3, type);
+            ps.setString(4, type);
+            ps.setInt(5, Math.max(1, limit));
+            ps.setInt(6, Math.max(0, offset));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Map<String, Object> item = new LinkedHashMap<String, Object>();

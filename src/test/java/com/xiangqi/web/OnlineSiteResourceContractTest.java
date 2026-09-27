@@ -51,7 +51,7 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("function renderMobileQuickStartSheet"));
         assertTrue(js.contains("function renderMobileBottomNav"));
         assertTrue(js.contains("data-action=\"open-mobile-quick-start\""));
-        assertFalse(js.contains("data-mobile-nav=\"home\""));
+        assertTrue(js.contains("data-mobile-nav=\"home\""));
         assertTrue(js.contains("data-mobile-nav=\"play\""));
         assertTrue(js.contains("data-mobile-nav=\"learn\""));
         assertTrue(js.contains("data-mobile-nav=\"watch\""));
@@ -83,9 +83,9 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260811m18"));
-        assertTrue(html.contains("mobile.css?v=20260811m18"));
-        assertTrue(html.contains("app.js?v=20260811m19"));
+        assertTrue(html.contains("app.css?v=20260925m101"));
+        assertTrue(html.contains("mobile.css?v=20260925m101"));
+        assertTrue(html.contains("app.js?v=20260927m105"));
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -124,7 +124,7 @@ class OnlineSiteResourceContractTest {
     }
 
     @Test
-    void mobileLobbyUsesFourTasksAndThreePrimaryActions() throws Exception {
+    void mobileLobbyKeepsFiveNavigationEntriesAndThreePrimaryActions() throws Exception {
         String js = readResource("/online/app.js");
         String mobileCss = readResource("/online/mobile.css");
 
@@ -136,8 +136,8 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("data-mobile-nav=\"learn\""));
         assertTrue(js.contains("data-mobile-nav=\"watch\""));
         assertTrue(js.contains("data-mobile-nav=\"me\""));
-        assertFalse(js.contains("data-mobile-nav=\"home\""));
-        assertTrue(mobileCss.contains("grid-template-columns: repeat(4, minmax(0, 1fr))"));
+        assertTrue(js.contains("data-mobile-nav=\"home\""));
+        assertTrue(mobileCss.contains("grid-template-columns: repeat(5, minmax(0, 1fr))"));
     }
 
     @Test

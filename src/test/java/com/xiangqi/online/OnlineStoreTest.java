@@ -54,6 +54,38 @@ class OnlineStoreTest {
     }
 
     @Test
+    void profileRecordsFilterAndPageOnlyTheCurrentUsersGames() throws Exception {
+        OnlineStore store = newStore();
+        OnlineRoomHub hub = new OnlineRoomHub(store);
+        AuthUser alice = new AuthUser("records-alice", "records-alice");
+        AuthUser bob = new AuthUser("records-bob", "records-bob");
+        AuthUser other = new AuthUser("records-other", "records-other");
+
+        String active = startXiangqiGame(hub, alice, bob);
+        assertEquals(0, store.profileSummary(alice.id()).get("totalGames"));
+        assertEquals(0, store.profileSummary(alice.id()).get("losses"));
+        assertTrue(store.gamesForUser(alice.id(), "ALL", "desc", 0, 10).isEmpty());
+
+        String xiangqi = startXiangqiGame(hub, alice, bob);
+        hub.resign(xiangqi, bob);
+        String gomoku = startGomokuGame(hub, alice, bob);
+        hub.resign(gomoku, bob);
+        String unrelated = startGomokuGame(hub, bob, other);
+        hub.resign(unrelated, other);
+
+        assertEquals(xiangqi, store.gamesForUser(alice.id(), "XIANGQI", "desc", 0, 10).get(0).get("gameId"));
+        assertEquals(gomoku, store.gamesForUser(alice.id(), "GOMOKU", "desc", 0, 10).get(0).get("gameId"));
+        List<Map<String, Object>> firstPage = store.gamesForUser(alice.id(), "ALL", "asc", 0, 1);
+        List<Map<String, Object>> secondPage = store.gamesForUser(alice.id(), "ALL", "asc", 1, 1);
+        assertEquals(1, firstPage.size());
+        assertEquals(1, secondPage.size());
+        assertTrue(!firstPage.get(0).get("gameId").equals(secondPage.get(0).get("gameId")));
+        assertTrue(!unrelated.equals(firstPage.get(0).get("gameId")));
+        assertTrue(!unrelated.equals(secondPage.get(0).get("gameId")));
+        assertTrue(!active.equals(firstPage.get(0).get("gameId")));
+    }
+
+    @Test
     void practiceGamesAreTaggedInRecentGamesAndRemainReplayable() throws Exception {
         OnlineStore store = newStore();
         PracticeGameHub hub = new PracticeGameHub(store);

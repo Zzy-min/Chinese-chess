@@ -1,11 +1,18 @@
 const state = {
   bootstrap: null,
+  bootstrapError: '',
   me: null,
+  authCheckError: '',
   lobby: null,
+  lobbyError: '',
+  lobbyLoading: false,
   room: null,
   game: null,
   profile: null,
   profileDashboard: null,
+  profileLoading: false,
+  profileError: '',
+  profileRecords: { items: [], hasMore: false, loading: false, error: '', loaded: false, gameType: 'ALL', sort: 'desc', requestId: 0 },
   analysis: null,
   analysisStep: 0,
   learnContent: null,
@@ -17,8 +24,13 @@ const state = {
   learnDetails: {},
   learnDetailLoading: {},
   learnProgress: null,
+  learnProgressLoading: false,
+  learnProgressError: '',
   watchOverview: null,
+  watchError: '',
+  watchLoading: false,
   communityLeaderboard: null,
+  communityError: '',
   watchFilters: {
     gameType: 'ALL',
     status: 'ALL'
@@ -191,15 +203,31 @@ function notifyNativeGameState(route) {
 }
 
 async function loadBootstrap() {
-  state.bootstrap = await fetchJson(`${API_BASE}/site/bootstrap`).catch(() => null);
+  try {
+    state.bootstrap = await fetchJson(`${API_BASE}/site/bootstrap`);
+    state.bootstrapError = '';
+  } catch (error) {
+    state.bootstrapError = error.message || '首页数据加载失败';
+  }
 }
 
 async function loadMe() {
-  state.me = await fetchJson(`${API_BASE}/auth/me`).catch(() => null);
+  try {
+    state.me = await fetchJson(`${API_BASE}/auth/me`);
+    state.authCheckError = '';
+  } catch (error) {
+    if (error.status === 401) {
+      state.me = null;
+      state.authCheckError = '';
+    } else {
+      state.authCheckError = error.message || '登录状态暂时无法确认';
+    }
+  }
   if (!state.me) {
     state.learnProgress = null;
     state.profileDashboard = null;
     state.profile = null;
+    state.profileRecords = { items: [], hasMore: false, loading: false, error: '', loaded: false, gameType: 'ALL', sort: 'desc', requestId: state.profileRecords.requestId + 1 };
   }
 }
 
@@ -258,15 +286,32 @@ async function loadLearnProgress() {
     render();
     return;
   }
-  state.learnProgress = await fetchJson(`${API_BASE}/learn/progress`).catch(() => ({ tutorialsCompleted: [], puzzlesCompleted: [] }));
-  render();
+  if (state.learnProgressLoading) return;
+  state.learnProgressLoading = true;
+  state.learnProgressError = '';
+  try {
+    state.learnProgress = await fetchJson(`${API_BASE}/learn/progress`);
+  } catch (error) {
+    state.learnProgressError = error.message || '学习进度加载失败';
+  } finally {
+    state.learnProgressLoading = false;
+    render();
+  }
 }
 
 async function loadWatchOverview(renderAfter = true) {
-  state.watchOverview = await fetchJson(`${API_BASE}/watch/overview`).catch(() => ({ publicRooms: [], replayGames: [], archivedGames: [] }));
-  state.watchUpdatedAt = Date.now();
-  if (renderAfter) {
-    render();
+  if (state.watchLoading) return;
+  state.watchLoading = true;
+  state.watchError = '';
+  try {
+    state.watchOverview = await fetchJson(`${API_BASE}/watch/overview`);
+    state.watchUpdatedAt = Date.now();
+  } catch (error) {
+    state.watchError = error.message || '观战列表加载失败';
+    state.watchUpdatedAt = Date.now();
+  } finally {
+    state.watchLoading = false;
+    if (renderAfter) render();
   }
 }
 
@@ -275,12 +320,11 @@ async function loadCommunityLeaderboard() {
     return;
   }
   state._loadingLeaderboard = true;
+  state.communityError = '';
   try {
-    state.communityLeaderboard = await fetchJson(`${API_BASE}/community/leaderboard`).catch(() => ({
-      winBoard: [],
-      activityBoard: [],
-      byGameType: {}
-    }));
+    state.communityLeaderboard = await fetchJson(`${API_BASE}/community/leaderboard`);
+  } catch (error) {
+    state.communityError = error.message || '榜单加载失败';
   } finally {
     state._loadingLeaderboard = false;
   }
@@ -683,6 +727,9 @@ function render() {
     <div class="${siteClasses.join(' ')}">
       ${renderTopbar(route.page)}
       <main class="shell" id="mainContent">
+        ${state.authCheckError ? `<div class="banner">登录状态暂时无法确认：${escapeHtml(state.authCheckError)} <button class="ghost" data-action="retry-auth-check">重试</button></div>` : ''}
+        ${state.bootstrapError && (route.page === 'home' || route.page === 'play') ? `<div class="banner">首页数据暂时无法更新：${escapeHtml(state.bootstrapError)} <button class="ghost" data-action="retry-bootstrap">重试</button></div>` : ''}
+        ${state.communityError && (route.page === 'home' || route.page === 'play') ? `<div class="banner">榜单数据暂时无法更新：${escapeHtml(state.communityError)} <button class="ghost" data-action="retry-community">重试</button></div>` : ''}
         ${renderPage(route)}
       </main>
       ${renderBottomNav(route.page)}
@@ -956,8 +1003,8 @@ function renderTopbar(active) {
       </nav>
       <div class="userBar">
         <button class="ghost" data-action="toggle-sound">音效：${state.soundEnabled ? '开' : '关'}</button>
-        ${me ? `<button class="ghost topbarProfile" data-nav="me">@${escapeHtml(me.username)}</button>` : '<span class="muted">未登录</span>'}
-        ${me ? '<button class="ghost" data-action="logout">退出</button>' : '<button class="ghost" data-auth-mode="login">登录</button><button class="btn btn-cinnabar" data-auth-mode="register">注册</button>'}
+        ${me ? `<button class="ghost topbarProfile" data-nav="me">@${escapeHtml(me.username)}</button>` : `<span class="muted">${state.authCheckError ? '身份待确认' : '未登录'}</span>`}
+        ${me ? '<button class="ghost" data-action="logout">退出</button>' : state.authCheckError ? '<button class="ghost" data-action="retry-auth-check">重试身份</button>' : '<button class="ghost" data-auth-mode="login">登录</button><button class="btn btn-cinnabar" data-auth-mode="register">注册</button>'}
       </div>
     </header>
   `;
@@ -971,6 +1018,7 @@ function renderGameEndModal() {
   const modal = state.endGameModal;
   const game = modal.game || {};
   const isPractice = !!game.isTraining;
+  const isParticipant = isPractice || !!(game.viewerSide || inferViewerSide(game));
   const winner = game.winnerSide ? `${sideLabel(game.gameType, game.winnerSide)}胜` : (game.terminationReason === 'DRAW' || game.terminationReason === 'AGREED_DRAW' ? '双方战和' : '无');
   const resultText = escapeHtml(formatGameResultText(game));
   const reason = escapeHtml(liveTerminationLabel(game.terminationReason) || '-');
@@ -984,11 +1032,11 @@ function renderGameEndModal() {
         <p class="endGameReason muted">结束原因：${reason}</p>
         <div class="endGameActions">
           <div class="endGamePrimaryAction">
-            ${isPractice ? '<button class="btn btn-cinnabar" data-action="practice-rematch">再开一局</button>' : renderOnlineRematchActions(game)}
+            ${isPractice ? '<button class="btn btn-cinnabar" data-action="practice-rematch">再开一局</button>' : (isParticipant ? renderOnlineRematchActions(game) : '')}
           </div>
           <div class="endGameSecondaryActions">
             <button class="ghost" data-nav="${analysisHref}">进入分析</button>
-            ${isPractice ? '<button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : `<button class="ghost" data-action="leave-room">离开房间</button>`}
+            ${isPractice ? '<button class="ghost" data-nav="learn/puzzles/ALL">返回学习</button>' : (isParticipant ? '<button class="ghost" data-action="leave-room">离开房间</button>' : '<button class="ghost" data-nav="watch">返回观战</button>')}
             <button class="ghost" data-action="close-end-modal">关闭</button>
           </div>
         </div>
@@ -1247,7 +1295,10 @@ function turnTextForViewer(game, viewerSide) {
   if (!turn) {
     return '-';
   }
-  const actor = viewerSide && turn === viewerSide ? '你' : '对手';
+  if (!viewerSide) {
+    return sideLabel(game.gameType, turn);
+  }
+  const actor = turn === viewerSide ? '你' : '对手';
   return `${actor}（${sideLabel(game.gameType, turn)}）`;
 }
 
@@ -1282,6 +1333,7 @@ function onlineCheckNotice(game) {
 }
 
 function shouldShowAuthOverlay(route) {
+  if (state.authCheckError) return false;
   if (state.me) return false;
   if (state.showAuthModal) return true;
   // Mode showcase pages remain browsable without login.
@@ -1432,7 +1484,7 @@ function renderLearnPage(route) {
   if ((!state.learnCatalog || state.learnCatalogKey !== catalogKey) && !state.learnCatalogLoading) {
     loadLearnContent({ filter: requestFilter, query });
   }
-  if (state.me && !state.learnProgress) {
+  if (state.me && !state.learnProgress && !state.learnProgressLoading && !state.learnProgressError) {
     loadLearnProgress();
   }
   
@@ -1465,6 +1517,7 @@ function renderLearnPage(route) {
 
   return `
     <div class="learnPage">
+      ${state.learnProgressError ? `<div class="banner">学习进度暂时无法同步：${escapeHtml(state.learnProgressError)} <button class="ghost" data-action="retry-learn-progress">重试</button></div>` : ''}
       <section class="hero" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
         <div class="heroLeft" style="flex:1; min-width:300px; text-align:left;">
           <span class="pill" style="background:#e85a4f; color:#fff; font-size:11px; padding:3px 8px; border-radius:10px; font-weight:bold; vertical-align:middle;">练习</span>
@@ -1501,8 +1554,11 @@ function renderLearnPage(route) {
 
 
 function renderWatchPage() {
+  if (state.watchError && !state.watchOverview) {
+    return `<section class="watchEmpty"><strong>观棋台暂时无法连接</strong><span>${escapeHtml(state.watchError)}</span><button class="ghost" data-action="refresh-watch">重新加载</button></section>`;
+  }
   if (!state.watchOverview) {
-    loadWatchOverview();
+    if (!state.watchLoading) loadWatchOverview();
     return '<section class="watchEmpty"><strong>正在登上观棋台…</strong><span>为你寻找公开直播对局</span></section>';
   }
   const rooms = filterWatchRooms((state.watchOverview.publicRooms || []), state.watchFilters);
@@ -1517,6 +1573,7 @@ function renderWatchPage() {
       <div class="watchLiveCount"><strong>${rooms.length}</strong><span>局正在直播</span></div>
     </section>
     <section class="watchStage">
+      ${state.watchError ? `<div class="banner">直播数据更新失败，当前显示上次结果：${escapeHtml(state.watchError)} <button class="ghost" data-action="refresh-watch">重试</button></div>` : ''}
       <div class="watchToolbar">
         <div class="watchFilters" role="group" aria-label="筛选棋种">
           ${[['ALL', '全部'], ['XIANGQI', '中国象棋'], ['GOMOKU', '五子棋']].map(([value, label]) =>
@@ -1542,8 +1599,11 @@ function renderWatchPage() {
 }
 
 function renderCommunityPage() {
+  if (state.communityError && !state.communityLeaderboard) {
+    return `<section class="panel"><h2 class="sectionTitle">榜单暂时无法加载</h2><p class="muted">${escapeHtml(state.communityError)}</p><button class="ghost" data-action="retry-community">重新加载</button></section>`;
+  }
   if (!state.communityLeaderboard) {
-    loadCommunityLeaderboard();
+    if (!state._loadingLeaderboard) loadCommunityLeaderboard();
     return '<section class="panel"><h2 class="sectionTitle">社区榜单加载中</h2></section>';
   }
   const board = state.communityLeaderboard || { winBoard: [], activityBoard: [] };
@@ -1560,6 +1620,7 @@ function renderCommunityPage() {
       <h1>排行榜与活跃榜</h1>
       <p>默认按最近 ${board.windowDaysUsed || board.requestedWindowDays || 30} 天统计。若样本不足会自动回退到全量历史。</p>
       ${quickEntry}
+      ${state.communityError ? `<div class="banner">榜单更新失败，当前显示上次结果：${escapeHtml(state.communityError)} <button class="ghost" data-action="retry-community">重试</button></div>` : ''}
     </section>
     <section class="panel" style="margin-top:18px">
       <div class="roomRow" style="margin-bottom:12px">
@@ -2064,14 +2125,14 @@ function renderRoom(roomId) {
           <p>${room.guest ? (room.guestReady ? '已准备' : '等待准备') : '打开链接即可加入'}</p>
         </div>
       </div>
-      ${betweenGames ? `<div class="rematchBar"><span>${rematch ? `${escapeHtml(rematch.offeredByUsername || '对手')} 已发起再战请求` : '双方可发起再战，也可继续手动准备'}</span><div>${renderOnlineRematchActions({ roomId: room.roomId })}</div></div>` : ''}
+      ${betweenGames && isRoomParticipant(room) ? `<div class="rematchBar"><span>${rematch ? `${escapeHtml(rematch.offeredByUsername || '对手')} 已发起再战请求` : '双方可发起再战，也可继续手动准备'}</span><div>${renderOnlineRematchActions({ roomId: room.roomId })}</div></div>` : ''}
       <div class="roomRow" style="margin-top:18px">
-        ${room.guest || isRoomHost(room) ? '' : '<button class="ghost" data-action="join-room">加入当前房间</button>'}
+        ${room.guest || isRoomHost(room) || room.status === 'PLAYING' ? '' : '<button class="ghost" data-action="join-room">加入当前房间</button>'}
         <button class="ghost" data-action="share-room" data-room-code="${escapeHtml(room.roomCode || '')}">分享房间</button>
-        <button class="btn" data-action="toggle-ready">${isViewerReady(room) ? '取消准备' : '我已准备'}</button>
+        ${isRoomParticipant(room) && room.status !== 'PLAYING' ? `<button class="btn" data-action="toggle-ready">${isViewerReady(room) ? '取消准备' : '我已准备'}</button>` : ''}
         ${room.status === 'PLAYING' && room.gameId ? `<button class="btn" data-nav="game/${room.gameId}">进入对局</button>` : ''}
         ${betweenGames && room.lastGameId ? `<button class="ghost" data-nav="analysis/${room.lastGameId}">复盘上一局</button>` : ''}
-        ${!isRoomHost(room) && room.status !== 'PLAYING' ? '<button class="ghost danger" data-action="leave-room">离开房间</button>' : ''}
+        ${isRoomParticipant(room) && !isRoomHost(room) && room.status !== 'PLAYING' ? '<button class="ghost danger" data-action="leave-room">离开房间</button>' : ''}
         ${isRoomHost(room) && room.status !== 'PLAYING' ? '<button class="ghost danger" data-action="close-room">关闭房间</button>' : ''}
       </div>
     </section>
@@ -2331,7 +2392,7 @@ function renderRightSidebar(game, isAnalysis = false) {
           <div class="moves scrollable" data-live-moves>
             ${renderMovesTableHtml(game, false)}
           </div>
-          ${renderPlaybackControls(totalMoves, totalMoves)}
+          <div data-live-playback>${renderPlaybackControls(totalMoves, totalMoves)}</div>
         </div>
       `;
     }
@@ -2352,7 +2413,7 @@ function renderOnlineGameView(game) {
   const drawOffer = game.drawOffer;
   const viewerSide = game.viewerSide || inferViewerSide(game);
   const opponentSide = resolveOpponentSide(game, viewerSide);
-  const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
+  const canRespondDraw = !!viewerSide && drawOffer && drawOffer.side !== viewerSide;
   const canOfferDraw = game.status === 'PLAYING' && !drawOffer;
   const firstPlayer = (game.players && game.players.first) || {};
   const secondPlayer = (game.players && game.players.second) || {};
@@ -2420,6 +2481,9 @@ function renderOnlineGameView(game) {
 }
 
 function renderOnlineGameActions(game, canOfferDraw) {
+  if (!(game.viewerSide || inferViewerSide(game))) {
+    return `<button class="ghost actionBtn--leave" data-nav="room/${game.roomId || ''}">${mobileIcon('leave')}<span>离开</span></button>`;
+  }
   return `
     <button class="ghost actionBtn--undo" disabled title="在线真人对局不支持单方悔棋">${mobileIcon('undo')}<span>悔棋</span></button>
     ${canOfferDraw ? '<button class="ghost actionBtn--draw" data-action="offer-draw">' + mobileIcon('handshake') + '<span>求和</span></button>' : '<button class="ghost actionBtn--draw" disabled>' + mobileIcon('handshake') + '<span>求和</span></button>'}
@@ -2608,7 +2672,7 @@ function renderClockCard(game, slot) {
 
   const color = side === 'RED' ? '%238B2E2E' : '%232C2A26';
   const label = side === 'RED' ? '红方' : (side === 'BLACK' ? '黑方' : (side === 'WHITE' ? '白方' : '棋手'));
-  const level = side === 'RED' ? '业余1段 2527' : '业余1段 2344';
+  const level = '在线棋手';
 
   let turnBadgeHtml = '';
   if (game.status === 'PLAYING') {
@@ -2756,7 +2820,10 @@ function renderProfile() {
     return renderPlaceholder('个人', '登录后可查看战绩、最近对局与活动入口。');
   }
   if (!state.profileDashboard && !state.profile) {
-    loadProfileDashboard(true);
+    if (state.profileError) {
+      return `<section class="panel"><h2 class="sectionTitle">个人摘要暂时无法加载</h2><p class="muted">${escapeHtml(state.profileError)}</p><button class="ghost" data-action="retry-profile">重新加载</button></section>`;
+    }
+    if (!state.profileLoading) loadProfileDashboard(true);
     return '<section class="panel"><h2 class="sectionTitle">个人摘要加载中</h2></section>';
   }
   const route = currentRoute();
@@ -2786,7 +2853,7 @@ function renderProfile() {
   const profileGroups = [
     { label: '我的棋局', items: [['overview', '个', '个人信息'], ['records', '谱', '对局记录']] },
     { label: '成长', items: [['study', '学', '学习档案'], ['achievements', '章', '我的成就']] },
-    { label: '服务', items: [['inbox', '信', '消息通知'], ['settings', '调', '偏好设置'], ['help', '问', '帮助与反馈']] }
+    { label: '服务', items: [['inbox', '信', '系统提示'], ['settings', '调', '偏好设置'], ['help', '问', '帮助与反馈']] }
   ];
   const sidebar = profileGroups.map(group => `
     <div class="profileSidebarGroup">
@@ -2805,16 +2872,22 @@ function renderProfile() {
 
   let mainHtml = '';
   if (meTab === 'records') {
-    const limit = state.profileListLimits.records || 6;
+    const records = state.profileRecords;
+    if (!records.loaded && !records.loading && !records.error) loadProfileRecords();
     mainHtml = `
       <section class="panel profileSection">
         <div class="profileSectionHead"><div><span class="meta">棋局留痕</span>
         <h2 class="sectionTitle">对局记录</h2>
         </div><button class="ghost" data-nav="play">开始新对局</button></div>
-        <div class="moves">
-          ${recentGames.length ? recentGames.slice(0, limit).map(renderProfileGameCard).join('') : '<div class="banner">暂无对局记录，去大厅或练习开一局吧。</div>'}
+        <div class="roomRow" role="group" aria-label="筛选对局记录">
+          ${[['ALL', '全部'], ['XIANGQI', '象棋'], ['GOMOKU', '五子棋']].map(([value, label]) => `<button class="${records.gameType === value ? 'btn' : 'ghost'}" data-records-type="${value}">${label}</button>`).join('')}
+          <button class="ghost" data-records-sort="${records.sort === 'desc' ? 'asc' : 'desc'}">${records.sort === 'desc' ? '最新在前' : '最早在前'}</button>
         </div>
-        ${recentGames.length > limit ? '<button class="ghost profileMore" data-profile-more="records">查看更多</button>' : ''}
+        <div class="moves">
+          ${records.items.length ? records.items.map(renderProfileGameCard).join('') : records.loading ? '<div class="banner">正在加载对局记录…</div>' : records.error ? '' : '<div class="banner">暂无对局记录，去大厅或练习开一局吧。</div>'}
+        </div>
+        ${records.error ? `<div class="banner">${escapeHtml(records.error)} <button class="ghost" data-action="retry-records">重试</button></div>` : ''}
+        ${records.hasMore ? `<button class="ghost profileMore" data-action="load-more-records" ${records.loading ? 'disabled' : ''}>${records.loading ? '加载中…' : '查看更多'}</button>` : ''}
       </section>`;
   } else if (meTab === 'study') {
     const tDone = (learnProgress.tutorialsCompleted || []).length;
@@ -2835,8 +2908,9 @@ function renderProfile() {
     const limit = state.profileListLimits.inbox || 6;
     mainHtml = `
       <section class="panel profileSection">
-        <span class="meta">消息匣</span>
-        <h2 class="sectionTitle">消息通知</h2>
+        <span class="meta">账户动态</span>
+        <h2 class="sectionTitle">系统提示</h2>
+        <p class="muted">根据你的对局与学习进度生成，暂不支持独立消息收发。</p>
         <div class="moves">
           ${notifications.length ? notifications.slice(0, limit).map(item => `
             <div class="move">
@@ -2914,7 +2988,7 @@ function renderProfile() {
             <span class="vipBadge">棋友 · ID: ${escapeHtml(String(me.id || '').slice(0, 8) || '账号')}</span>
             <p class="profileSlogan">落子之间，自有风雅。</p>
           </div>
-          <button class="ghost profileEditBtn" data-nav="me/settings"><span>编辑资料</span>${mobileIcon('chevron')}</button>
+          <button class="ghost profileEditBtn" data-nav="me/settings"><span>偏好设置</span>${mobileIcon('chevron')}</button>
         </div>
         <div class="profileStatsGrid">
           <div class="statBox"><strong>${totalGames}</strong><span>对局数</span></div>
@@ -3805,6 +3879,18 @@ function bindCommon(route) {
     state.profileListLimits[key] += 6;
     render();
   }));
+  document.querySelectorAll('[data-records-type]').forEach(el => el.addEventListener('click', () => {
+    const gameType = el.getAttribute('data-records-type');
+    if (state.profileRecords.gameType === gameType) return;
+    state.profileRecords.gameType = gameType;
+    loadProfileRecords(false);
+  }));
+  document.querySelectorAll('[data-records-sort]').forEach(el => el.addEventListener('click', () => {
+    state.profileRecords.sort = el.getAttribute('data-records-sort');
+    loadProfileRecords(false);
+  }));
+  on('[data-action="load-more-records"]', () => loadProfileRecords(true));
+  on('[data-action="retry-records"]', () => loadProfileRecords(state.profileRecords.items.length > 0));
   on('[data-action="open-mobile-quick-start"]', () => {
     notifyNative('haptic', { style: 'medium' });
     state.mobileQuickStartOpen = true;
@@ -3821,6 +3907,11 @@ function bindCommon(route) {
     render();
   });
   on('[data-action="refresh-lobby"]', loadLobby);
+  on('[data-action="retry-community"]', loadCommunityLeaderboard);
+  on('[data-action="retry-profile"]', loadProfileDashboard);
+  on('[data-action="retry-auth-check"]', async () => { await loadMe(); render(); });
+  on('[data-action="retry-bootstrap"]', async () => { await loadBootstrap(); render(); });
+  on('[data-action="retry-learn-progress"]', loadLearnProgress);
   on('[data-action="mobile-version-tap"]', () => {
     notifyNative('versionTap');
   });
@@ -3842,9 +3933,6 @@ function bindCommon(route) {
   on('[data-action="start-xiangqi-game"]', () => quickStartPublicMatch('XIANGQI', 300));
   on('[data-action="start-gomoku-game"]', () => quickStartPublicMatch('GOMOKU', 300));
   on('[data-action="join-by-code"]', joinByCode);
-  on('[data-action="daily-signin"]', () => {
-    showToast('今日签到成功，已连续签到 3 天！', 'success');
-  });
   document.querySelectorAll('[data-action="view-tutorial-detail"]').forEach(el => {
     if (el.dataset.boundTutorialDetail === '1') return;
     el.dataset.boundTutorialDetail = '1';
@@ -3937,10 +4025,10 @@ function bindCommon(route) {
     state.analysisStep = Number(el.getAttribute('data-analysis-step'));
     render();
   }));
-  if ((route.page === 'play' || route.page === 'home') && !state.lobby) {
+  if ((route.page === 'play' || route.page === 'home') && !state.lobby && !state.lobbyLoading && !state.lobbyError) {
     loadLobby();
   }
-  if ((route.page === 'play' || route.page === 'home' || route.page === 'community') && !state.communityLeaderboard) {
+  if ((route.page === 'play' || route.page === 'home' || route.page === 'community') && !state.communityLeaderboard && !state._loadingLeaderboard && !state.communityError) {
     loadCommunityLeaderboard();
   }
   
@@ -4591,6 +4679,10 @@ function isRoomHost(room) {
   return !!(room && room.host && state.me && room.host.id === state.me.id);
 }
 
+function isRoomParticipant(room) {
+  return isRoomHost(room) || !!(room && room.guest && state.me && room.guest.id === state.me.id);
+}
+
 function isViewerReady(room) {
   if (!room || !state.me) return false;
   if (room.host && room.host.id === state.me.id) return !!room.hostReady;
@@ -4652,8 +4744,17 @@ async function sendGameAction(url, body) {
 }
 
 async function loadLobby() {
-  state.lobby = await fetchJson(`${API_BASE}/lobby/overview`).catch(() => ({ rooms: [] }));
-  render();
+  if (state.lobbyLoading) return;
+  state.lobbyLoading = true;
+  try {
+    state.lobby = await fetchJson(`${API_BASE}/lobby/overview`);
+    state.lobbyError = '';
+  } catch (error) {
+    state.lobbyError = error.message || '大厅加载失败';
+  } finally {
+    state.lobbyLoading = false;
+    render();
+  }
 }
 
 async function loadRoom(roomId) {
@@ -4766,6 +4867,35 @@ async function loadProfile() {
   await loadProfileDashboard(true);
 }
 
+async function loadProfileRecords(append = false) {
+  if (!state.me || (append && state.profileRecords.loading)) return;
+  const records = state.profileRecords;
+  const requestId = ++records.requestId;
+  records.loading = true;
+  records.error = '';
+  if (!append) {
+    records.items = [];
+    records.hasMore = false;
+  }
+  render();
+  try {
+    const offset = append ? records.items.length : 0;
+    const data = await fetchJson(`${API_BASE}/profile/records?gameType=${records.gameType}&sort=${records.sort}&offset=${offset}&limit=12`);
+    if (records.requestId !== requestId) return;
+    records.items = append ? [...records.items, ...(data.items || [])] : (data.items || []);
+    records.hasMore = !!data.hasMore;
+    records.loaded = true;
+  } catch (error) {
+    if (records.requestId !== requestId) return;
+    records.error = error.message || '对局记录加载失败';
+  } finally {
+    if (records.requestId === requestId) {
+      records.loading = false;
+      render();
+    }
+  }
+}
+
 async function loadProfileDashboard(renderAfter = true) {
   if (!state.me) {
     state.profileDashboard = null;
@@ -4773,8 +4903,11 @@ async function loadProfileDashboard(renderAfter = true) {
     if (renderAfter) render();
     return;
   }
-  const dash = await fetchJson(`${API_BASE}/profile/dashboard`).catch(() => null);
-  if (dash) {
+  if (state.profileLoading) return;
+  state.profileLoading = true;
+  state.profileError = '';
+  try {
+    const dash = await fetchJson(`${API_BASE}/profile/dashboard`);
     state.profileDashboard = dash;
     state.profile = {
       user: dash.user,
@@ -4786,10 +4919,12 @@ async function loadProfileDashboard(renderAfter = true) {
       state.learnProgress = dash.learnProgress;
     }
     applyPreferencesToState(dash.preferences || {});
-  } else {
-    state.profile = await fetchJson(`${API_BASE}/profile/summary`).catch(() => null);
+  } catch (error) {
+    state.profileError = error.message || '个人摘要加载失败';
+  } finally {
+    state.profileLoading = false;
+    if (renderAfter) render();
   }
-  if (renderAfter) render();
 }
 
 async function loadProfilePreferences() {
@@ -4836,6 +4971,7 @@ async function refreshBootstrapAndProfile() {
   await loadBootstrap();
   if (state.me) {
     await loadProfileDashboard(false);
+    state.profileRecords.loaded = false;
   }
 }
 
@@ -4941,11 +5077,7 @@ function patchOnlineGameRealtimeView() {
   const viewerSide = state.game.viewerSide || inferViewerSide(state.game);
   const clockHost = document.querySelector('[data-live-clock-grid]');
   if (clockHost) {
-    const firstPlayer = (state.game.players && state.game.players.first) || {};
-    const isViewerFirst = viewerSide ? (viewerSide === firstPlayer.side) : true;
-    const opponentSlot = isViewerFirst ? 'second' : 'first';
-    const selfSlot = isViewerFirst ? 'first' : 'second';
-    clockHost.innerHTML = `${renderClockCard(state.game, opponentSlot)}${renderClockCard(state.game, selfSlot)}`;
+    clockHost.innerHTML = `${renderClockCard(state.game, 'first')}${renderClockCard(state.game, 'second')}`;
     patched = true;
   }
   const railNoteHost = document.querySelector('[data-live-rail-note]');
@@ -4963,8 +5095,14 @@ function patchOnlineGameRealtimeView() {
     movesHost.innerHTML = renderMovesTableHtml(state.game, false);
     patched = true;
   }
+  const playbackHost = document.querySelector('[data-live-playback]');
+  if (playbackHost) {
+    const totalMoves = (state.game.moves || []).length;
+    playbackHost.innerHTML = renderPlaybackControls(totalMoves, totalMoves);
+    patched = true;
+  }
   const drawOffer = state.game.drawOffer;
-  const canRespondDraw = drawOffer && drawOffer.side !== viewerSide;
+  const canRespondDraw = !!viewerSide && drawOffer && drawOffer.side !== viewerSide;
   const drawHost = document.querySelector('[data-live-draw-offer]');
   if (drawHost) {
     drawHost.innerHTML = drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : '';
@@ -6043,7 +6181,19 @@ async function fetchJson(url, options = {}) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    throw new Error(data && data.error ? data.error : `Request failed (${response.status})`);
+    const error = new Error(data && (data.message || data.error) ? (data.message || data.error) : `请求失败（${response.status}）`);
+    error.code = data && data.code ? data.code : '';
+    error.status = response.status;
+    if (response.status === 401 && !/\/auth\/(?:me|login|register)$/.test(url)) {
+      state.me = null;
+      state.profile = null;
+      state.profileDashboard = null;
+      state.learnProgress = null;
+      state.profileRecords.loaded = false;
+      state.showAuthModal = true;
+      state.authError = '登录已失效，请重新登录';
+    }
+    throw error;
   }
   return data;
 }
@@ -6105,7 +6255,7 @@ function leaderboardBucket(board, gameType) {
 
 function renderHomePageGuofeng() {
   const b = state.bootstrap || { recentGames: [], activeRooms: 0, totalUsers: 0, totalGames: 0 };
-  if (!state.communityLeaderboard) {
+  if (!state.communityLeaderboard && !state.communityError && !state._loadingLeaderboard) {
     loadCommunityLeaderboard();
   }
   const leaderboard = state.communityLeaderboard || { winBoard: [], activityBoard: [], byGameType: {} };
@@ -6157,37 +6307,34 @@ function renderHomePageGuofeng() {
           <div class="deskSigninContent">
             <div class="signinSeal" aria-hidden="true">印</div>
             <div class="signinMeta">
-              <div class="signinDays">已连续签到 <strong>3</strong> 天</div>
-              <button class="btn btn-secondary btn-small signinBtn" data-action="daily-signin">签到领取</button>
+              <div class="signinDays">签到功能开发中</div>
+              <button class="btn btn-secondary btn-small signinBtn" disabled title="签到功能尚未开放">暂未开放</button>
             </div>
           </div>
         </section>
         
         <section class="panel deskHomeCard col-tasks">
-          <div class="deskSectionHeader"><h3>每日任务</h3></div>
+          <div class="deskSectionHeader"><h3>今日棋趣</h3></div>
           <div class="taskList">
             <div class="taskRow">
               <span class="taskTypeBadge">局</span>
               <div class="taskInfo">
-                <strong>完成1局对局</strong>
+                <strong>来一局对弈</strong>
               </div>
-              <span class="taskReward"><span class="rewardCoin">🪙</span>+10</span>
               <button class="ghost btn-tiny taskActionBtn" data-nav="play">去完成</button>
             </div>
             <div class="taskRow">
               <span class="taskTypeBadge">谱</span>
               <div class="taskInfo">
-                <strong>观看1次棋谱</strong>
+                <strong>研究一份棋谱</strong>
               </div>
-              <span class="taskReward"><span class="rewardCoin">🪙</span>+5</span>
               <button class="ghost btn-tiny taskActionBtn" data-nav="learn/puzzles/ALL">去完成</button>
             </div>
             <div class="taskRow">
               <span class="taskTypeBadge">习</span>
               <div class="taskInfo">
-                <strong>研究1道题目</strong>
+                <strong>试解一道题目</strong>
               </div>
-              <span class="taskReward"><span class="rewardCoin">🪙</span>+5</span>
               <button class="ghost btn-tiny taskActionBtn" data-nav="learn/puzzles/ALL">去完成</button>
             </div>
           </div>
@@ -6448,6 +6595,7 @@ function renderMobileLobby() {
   return `
     <div class="mobileLobby mobileLobby--strict">
       ${renderMobilePageHeader({ eyebrow: '对局', title: '开始一盘棋' })}
+      ${state.lobbyError ? `<div class="mobileEmptyState"><strong>大厅暂时无法加载</strong><span>${escapeHtml(state.lobbyError)}</span><button class="ghost" data-action="refresh-lobby">重新加载</button></div>` : ''}
       <section class="mobileLobbyLead">
         <span class="mobileEyebrow">常用入口</span>
         <h2>三步之内，直接开局</h2>
@@ -6487,7 +6635,7 @@ function renderMobileLobby() {
         <section class="mobileSection">
           <div class="mobileSectionHead"><div><span>公开房间</span><h2>正在等候</h2></div><button data-action="refresh-lobby" aria-label="刷新大厅">${mobileIcon('refresh')}<span>刷新</span></button></div>
           <div class="mobileRoomList">
-            ${rooms.length ? rooms.map(room => `
+            ${state.lobbyLoading && !state.lobby ? '<div class="mobileEmptyState">正在加载公开房间…</div>' : state.lobbyError && !state.lobby ? '<div class="mobileEmptyState">公开房间暂时不可用</div>' : rooms.length ? rooms.map(room => `
               <button data-nav="room/${escapeHtml(room.roomId || '')}">
                 <span class="mobileGameSeal ${room.gameType === 'GOMOKU' ? 'is-green' : ''}">${room.gameType === 'GOMOKU' ? '五' : '象'}</span>
                 <span><strong>${escapeHtml(room.hostUsername || '棋友')} 的${room.gameType === 'GOMOKU' ? '五子棋' : '象棋'}房</strong><small>${escapeHtml(room.roomCode || '')} · ${room.guestUsername ? '对局中' : '等待加入'}</small></span>
@@ -6504,13 +6652,14 @@ function renderMobileLobby() {
 function renderPlayLobbyDesk() {
   const b = state.bootstrap || { recentGames: [], activeRooms: 0, totalUsers: 0, totalGames: 0 };
   const recentGames = ((state.bootstrap && state.bootstrap.recentGames) || []).slice(0, 5);
-  if (!state.communityLeaderboard) {
+  if (!state.communityLeaderboard && !state.communityError && !state._loadingLeaderboard) {
     loadCommunityLeaderboard();
   }
   const leaderboard = state.communityLeaderboard || { winBoard: [], byGameType: {} };
   const xqBoard = leaderboardBucket(leaderboard, 'XIANGQI');
-  const activeXq = 12564 + ((b.activeRooms || 0) * 12);
-  const activeGm = 9642 + ((b.activeRooms || 0) * 8);
+  const openRooms = (state.lobby && state.lobby.rooms) || [];
+  const activeXq = openRooms.filter(room => room.gameType === 'XIANGQI').length;
+  const activeGm = openRooms.filter(room => room.gameType === 'GOMOKU').length;
   return `
     <div class="deskLobby">
       <aside class="panel deskSidebar">
@@ -6531,11 +6680,12 @@ function renderPlayLobbyDesk() {
         <button class="deskSidebarItem" data-nav="me/settings"><span class="sidebarIcon">⚙️</span>设置</button>
       </aside>
       <section class="deskLobbyMain">
+        ${state.lobbyError ? `<div class="banner">大厅数据暂时无法加载：${escapeHtml(state.lobbyError)} <button class="ghost" data-action="refresh-lobby">重试</button></div>` : ''}
         <div class="panel deskLobbySearch">
           <label class="searchFieldLabel" for="lobbySearchInput">搜索大厅</label>
           <div class="searchBar searchBar--lobby">
             <span class="searchIcon" aria-hidden="true">🔍</span>
-            <input type="search" id="lobbySearchInput" name="lobbySearch" placeholder="搜索对手、房间、棋谱、赛事..." value="${escapeHtml(state.lobbySearch.query)}" autocomplete="off" />
+            <input type="search" id="lobbySearchInput" name="lobbySearch" placeholder="搜索棋友或公开房间..." value="${escapeHtml(state.lobbySearch.query)}" autocomplete="off" />
           </div>
           <div class="deskLobbyTabs">
             <button class="pill is-active">全部</button>
@@ -6552,7 +6702,7 @@ function renderPlayLobbyDesk() {
               <h3>在线象棋</h3>
               <p>楚河汉界，智策对决</p>
               <div class="deskModePanelMeta">
-                <span class="onlineCountTag"><span class="onlineDot">●</span> ${activeXq} 人在线</span>
+                <span class="onlineCountTag"><span class="onlineDot">●</span> ${state.lobbyLoading && !state.lobby ? '加载中' : `${activeXq} 间公开房`}</span>
               </div>
               <button class="btn btn-red" data-nav="play/xiangqi">进入大厅</button>
             </div>
@@ -6564,7 +6714,7 @@ function renderPlayLobbyDesk() {
               <h3>五子棋</h3>
               <p>黑白相间，落子无悔</p>
               <div class="deskModePanelMeta">
-                <span class="onlineCountTag"><span class="onlineDot">●</span> ${activeGm} 人在线</span>
+                <span class="onlineCountTag"><span class="onlineDot">●</span> ${state.lobbyLoading && !state.lobby ? '加载中' : `${activeGm} 间公开房`}</span>
               </div>
               <button class="btn btn-charcoal" data-nav="play/gomoku">进入大厅</button>
             </div>
@@ -6594,9 +6744,9 @@ function renderPlayLobbyDesk() {
                           <span class="gameBadge red">人</span>
                           <div class="gameDetails">
                             <strong>${escapeHtml(player.username)} (玩家)</strong>
-                            <span class="muted">当前在线</span>
+                            <span class="muted">已注册棋友</span>
                           </div>
-                          <span class="gameTime">在线</span>
+                          <span class="gameTime">棋友</span>
                         </div>
                       `)
                     ].join('')
@@ -6614,7 +6764,7 @@ function renderPlayLobbyDesk() {
                     <span class="gameBadge ${game.gameType === 'XIANGQI' ? 'red' : 'green'}">${game.gameType === 'XIANGQI' ? '帅' : '五'}</span>
                     <div class="gameDetails">
                       <strong>${game.gameType === 'XIANGQI' ? '中国象棋' : '五子棋'} · ${escapeHtml(game.firstUsername || '-')} vs ${escapeHtml(game.secondUsername || '-')}</strong>
-                      <span class="muted">积分场 · 已归档</span>
+                      <span class="muted">已归档对局</span>
                     </div>
                     <span class="recentResultTag ${tagClass}">${escapeHtml(resultText)}</span>
                     <span class="gameTime">已完赛</span>
@@ -6863,7 +7013,7 @@ function renderPlayGomoku() {
 }
 
 function renderBottomNav(activePage) {
-  if (activePage === 'welcome') {
+  if (isBoardRoutePage(activePage) || activePage === 'welcome') {
     return '';
   }
   return renderMobileBottomNav(activePage);
