@@ -157,7 +157,7 @@ class OnlineSiteResourceContractTest {
     }
 
     @Test
-    void mobileLobbyUsesFourTasksAndThreePrimaryActions() throws Exception {
+    void mobileLobbyKeepsFiveNavigationEntriesAndThreePrimaryActions() throws Exception {
         String js = readResource("/online/app.js");
         String mobileCss = readResource("/online/mobile.css");
 
@@ -171,8 +171,7 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("data-mobile-nav=\"me\""));
         // Five destinations in the current shell (首页/对局/棋谱/观战/我的).
         assertTrue(js.contains("data-mobile-nav=\"home\""));
-        assertTrue(mobileCss.contains("grid-template-columns: repeat(4, minmax(0, 1fr))"));
-        assertTrue(mobileCss.contains("grid-template-columns: repeat(5, 1fr)"));
+        assertTrue(mobileCss.contains("grid-template-columns: repeat(5, minmax(0, 1fr))"));
     }
 
     @Test
