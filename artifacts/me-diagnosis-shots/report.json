@@ -1,0 +1,981 @@
+{
+  "consoleErrors": [
+    "[Guest][desktop-1440] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[Guest][tablet-768] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[Guest][mobile-375] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[Guest][mobile-320] Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "failedRequests": [],
+  "checks": [
+    {
+      "mode": "guest",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\guest-desktop-1440.png",
+      "metrics": {
+        "html": "<div id=\"app\">\n    <div class=\"site route-me\">\n      \n    <header class=\"topbar\">\n      <div class=\"brand\" data-nav=\"home\" style=\"cursor:pointer\" data-bound-nav=\"1\">\n        <div class=\"brandMark\">棋</div>\n        <div class=\"brandText\">\n          <strong>轻棋局</strong>\n          <span>落子之间，自有风雅</span>",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440
+      }
+    },
+    {
+      "mode": "guest",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\guest-tablet-768.png",
+      "metrics": {
+        "html": "<div id=\"app\">\n    <div class=\"site route-me is-mobile-layout\">\n      \n    <header class=\"topbar\">\n      <div class=\"brand\" data-nav=\"home\" style=\"cursor:pointer\" data-bound-nav=\"1\">\n        <div class=\"brandMark\">棋</div>\n        <div class=\"brandText\">\n          <strong>轻棋局</strong>\n          <span",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768
+      }
+    },
+    {
+      "mode": "guest",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\guest-mobile-375.png",
+      "metrics": {
+        "html": "<div id=\"app\">\n    <div class=\"site route-me is-mobile-layout\">\n      \n    <header class=\"topbar\">\n      <div class=\"brand\" data-nav=\"home\" style=\"cursor:pointer\" data-bound-nav=\"1\">\n        <div class=\"brandMark\">棋</div>\n        <div class=\"brandText\">\n          <strong>轻棋局</strong>\n          <span",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375
+      }
+    },
+    {
+      "mode": "guest",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\guest-mobile-320.png",
+      "metrics": {
+        "html": "<div id=\"app\">\n    <div class=\"site route-me is-mobile-layout\">\n      \n    <header class=\"topbar\">\n      <div class=\"brand\" data-nav=\"home\" style=\"cursor:pointer\" data-bound-nav=\"1\">\n        <div class=\"brandMark\">棋</div>\n        <div class=\"brandText\">\n          <strong>轻棋局</strong>\n          <span",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "overview",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-overview-desktop-1440.png",
+      "metrics": {
+        "tab": "overview",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 540,
+          "top": 96,
+          "right": 1320,
+          "bottom": 636,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 459,
+          "top": 96,
+          "right": 1320,
+          "bottom": 555,
+          "left": 386
+        },
+        "headerCardRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 189,
+          "top": 96,
+          "right": 1320,
+          "bottom": 285,
+          "left": 386
+        },
+        "statsGridRect": {
+          "x": 405,
+          "y": 203,
+          "width": 896,
+          "height": 63,
+          "top": 203,
+          "right": 1301,
+          "bottom": 266,
+          "left": 405
+        }
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "records",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-records-desktop-1440.png",
+      "metrics": {
+        "tab": "records",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 540,
+          "top": 96,
+          "right": 1320,
+          "bottom": 636,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 161,
+          "top": 96,
+          "right": 1320,
+          "bottom": 257,
+          "left": 386
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "study",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-study-desktop-1440.png",
+      "metrics": {
+        "tab": "study",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 540,
+          "top": 96,
+          "right": 1320,
+          "bottom": 636,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 280,
+          "top": 96,
+          "right": 1320,
+          "bottom": 376,
+          "left": 386
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "achievements",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-achievements-desktop-1440.png",
+      "metrics": {
+        "tab": "achievements",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 540,
+          "top": 96,
+          "right": 1320,
+          "bottom": 636,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 537,
+          "top": 96,
+          "right": 1320,
+          "bottom": 633,
+          "left": 386
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "inbox",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-inbox-desktop-1440.png",
+      "metrics": {
+        "tab": "inbox",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 540,
+          "top": 96,
+          "right": 1320,
+          "bottom": 636,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 161,
+          "top": 96,
+          "right": 1320,
+          "bottom": 257,
+          "left": 386
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "settings",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-settings-desktop-1440.png",
+      "metrics": {
+        "tab": "settings",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 540,
+          "top": 96,
+          "right": 1320,
+          "bottom": 636,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 446,
+          "top": 96,
+          "right": 1320,
+          "bottom": 542,
+          "left": 386
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "help",
+      "viewport": "desktop-1440",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-help-desktop-1440.png",
+      "metrics": {
+        "tab": "help",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 1440,
+        "windowWidth": 1440,
+        "profilePageRect": {
+          "x": 120,
+          "y": 96,
+          "width": 1200,
+          "height": 697,
+          "top": 96,
+          "right": 1320,
+          "bottom": 793,
+          "left": 120
+        },
+        "sidebarRect": {
+          "x": 120,
+          "y": 96,
+          "width": 250,
+          "height": 540,
+          "top": 96,
+          "right": 370,
+          "bottom": 636,
+          "left": 120
+        },
+        "mainRect": {
+          "x": 386,
+          "y": 96,
+          "width": 934,
+          "height": 697,
+          "top": 96,
+          "right": 1320,
+          "bottom": 793,
+          "left": 386
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "overview",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-overview-tablet-768.png",
+      "metrics": {
+        "tab": "overview",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": {
+          "x": 14,
+          "y": 360,
+          "width": 740,
+          "height": 212,
+          "top": 360,
+          "right": 754,
+          "bottom": 572,
+          "left": 14
+        },
+        "mainRect": null,
+        "headerCardRect": {
+          "x": 14,
+          "y": 126,
+          "width": 740,
+          "height": 200,
+          "top": 126,
+          "right": 754,
+          "bottom": 326,
+          "left": 14
+        },
+        "statsGridRect": {
+          "x": 29,
+          "y": 235,
+          "width": 710,
+          "height": 72,
+          "top": 235,
+          "right": 739,
+          "bottom": 307,
+          "left": 29
+        }
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "records",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-records-tablet-768.png",
+      "metrics": {
+        "tab": "records",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 740,
+          "height": 233,
+          "top": 181,
+          "right": 754,
+          "bottom": 414,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "study",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-study-tablet-768.png",
+      "metrics": {
+        "tab": "study",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 740,
+          "height": 373,
+          "top": 181,
+          "right": 754,
+          "bottom": 554,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "achievements",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-achievements-tablet-768.png",
+      "metrics": {
+        "tab": "achievements",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 740,
+          "height": 567,
+          "top": 181,
+          "right": 754,
+          "bottom": 748,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "inbox",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-inbox-tablet-768.png",
+      "metrics": {
+        "tab": "inbox",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 740,
+          "height": 169,
+          "top": 181,
+          "right": 754,
+          "bottom": 350,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "settings",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-settings-tablet-768.png",
+      "metrics": {
+        "tab": "settings",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 740,
+          "height": 467,
+          "top": 181,
+          "right": 754,
+          "bottom": 648,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "help",
+      "viewport": "tablet-768",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-help-tablet-768.png",
+      "metrics": {
+        "tab": "help",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 768,
+        "windowWidth": 768,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 740,
+          "height": 1173,
+          "top": 181,
+          "right": 754,
+          "bottom": 1354,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "overview",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-overview-mobile-375.png",
+      "metrics": {
+        "tab": "overview",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": {
+          "x": 14,
+          "y": 360,
+          "width": 347,
+          "height": 212,
+          "top": 360,
+          "right": 361,
+          "bottom": 572,
+          "left": 14
+        },
+        "mainRect": null,
+        "headerCardRect": {
+          "x": 14,
+          "y": 126,
+          "width": 347,
+          "height": 200,
+          "top": 126,
+          "right": 361,
+          "bottom": 326,
+          "left": 14
+        },
+        "statsGridRect": {
+          "x": 29,
+          "y": 235,
+          "width": 317,
+          "height": 72,
+          "top": 235,
+          "right": 346,
+          "bottom": 307,
+          "left": 29
+        }
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "records",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-records-mobile-375.png",
+      "metrics": {
+        "tab": "records",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 347,
+          "height": 257,
+          "top": 181,
+          "right": 361,
+          "bottom": 438,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "study",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-study-mobile-375.png",
+      "metrics": {
+        "tab": "study",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 347,
+          "height": 431,
+          "top": 181,
+          "right": 361,
+          "bottom": 612,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "achievements",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-achievements-mobile-375.png",
+      "metrics": {
+        "tab": "achievements",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 347,
+          "height": 567,
+          "top": 181,
+          "right": 361,
+          "bottom": 748,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "inbox",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-inbox-mobile-375.png",
+      "metrics": {
+        "tab": "inbox",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 347,
+          "height": 169,
+          "top": 181,
+          "right": 361,
+          "bottom": 350,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "settings",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-settings-mobile-375.png",
+      "metrics": {
+        "tab": "settings",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 347,
+          "height": 484,
+          "top": 181,
+          "right": 361,
+          "bottom": 665,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "help",
+      "viewport": "mobile-375",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-help-mobile-375.png",
+      "metrics": {
+        "tab": "help",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 375,
+        "windowWidth": 375,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 347,
+          "height": 1316,
+          "top": 181,
+          "right": 361,
+          "bottom": 1497,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "overview",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-overview-mobile-320.png",
+      "metrics": {
+        "tab": "overview",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": {
+          "x": 14,
+          "y": 351,
+          "width": 292,
+          "height": 194,
+          "top": 351,
+          "right": 306,
+          "bottom": 545,
+          "left": 14
+        },
+        "mainRect": null,
+        "headerCardRect": {
+          "x": 14,
+          "y": 126,
+          "width": 292,
+          "height": 191,
+          "top": 126,
+          "right": 306,
+          "bottom": 317,
+          "left": 14
+        },
+        "statsGridRect": {
+          "x": 29,
+          "y": 226,
+          "width": 262,
+          "height": 72,
+          "top": 226,
+          "right": 291,
+          "bottom": 298,
+          "left": 29
+        }
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "records",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-records-mobile-320.png",
+      "metrics": {
+        "tab": "records",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 292,
+          "height": 257,
+          "top": 181,
+          "right": 306,
+          "bottom": 438,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "study",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-study-mobile-320.png",
+      "metrics": {
+        "tab": "study",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 292,
+          "height": 489,
+          "top": 181,
+          "right": 306,
+          "bottom": 670,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "achievements",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-achievements-mobile-320.png",
+      "metrics": {
+        "tab": "achievements",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 292,
+          "height": 567,
+          "top": 181,
+          "right": 306,
+          "bottom": 748,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "inbox",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-inbox-mobile-320.png",
+      "metrics": {
+        "tab": "inbox",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 292,
+          "height": 169,
+          "top": 181,
+          "right": 306,
+          "bottom": 350,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "settings",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-settings-mobile-320.png",
+      "metrics": {
+        "tab": "settings",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 292,
+          "height": 517,
+          "top": 181,
+          "right": 306,
+          "bottom": 698,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    },
+    {
+      "mode": "authenticated",
+      "tab": "help",
+      "viewport": "mobile-320",
+      "screenshot": "D:\\Projects\\Active\\Backend\\Chinese-chess\\artifacts\\me-diagnosis-shots\\auth-help-mobile-320.png",
+      "metrics": {
+        "tab": "help",
+        "hasHorizontalOverflow": false,
+        "bodyWidth": 320,
+        "windowWidth": 320,
+        "profilePageRect": null,
+        "sidebarRect": null,
+        "mainRect": {
+          "x": 14,
+          "y": 181,
+          "width": 292,
+          "height": 1383,
+          "top": 181,
+          "right": 306,
+          "bottom": 1564,
+          "left": 14
+        },
+        "headerCardRect": null,
+        "statsGridRect": null
+      }
+    }
+  ]
+}

@@ -12,12 +12,58 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PracticeGameHubTest {
+
+    @Test
+    void abandonIsIdempotentAndRemovesActiveGame() throws Exception {
+        OnlineStore store = newStore();
+        PracticeGameHub hub = new PracticeGameHub(store, Clock.systemUTC(), Duration.ofMinutes(15), false);
+        AuthUser user = new AuthUser("u-abandon", "abandon-user");
+        Map<String, Object> created = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.XIANGQI, "EASY", true, "BUILTIN", ""));
+        String gameId = asString(created.get("gameId"));
+
+        Map<String, Object> first = hub.abandon(gameId, user);
+        Map<String, Object> repeated = hub.abandon(gameId, user);
+
+        assertEquals("ABANDONED", first.get("status"));
+        assertEquals("USER_ABANDONED", first.get("terminationReason"));
+        assertEquals("ABANDONED", repeated.get("status"));
+        assertFalse(hub.hasActiveGame(gameId));
+        assertEquals(0, store.profileSummary(user.id()).get("totalGames"));
+    }
+
+    @Test
+    void expiresOnlyAfterFifteenMinutesOfInactivity() throws Exception {
+        OnlineStore store = newStore();
+        MutableClock clock = new MutableClock(Instant.parse("2026-08-11T00:00:00Z"));
+        PracticeGameHub hub = new PracticeGameHub(store, clock, Duration.ofMinutes(15), false);
+        AuthUser user = new AuthUser("u-idle", "idle-user");
+        Map<String, Object> created = hub.createGame(user, new CreatePracticeGameRequest(
+            GameType.XIANGQI, "EASY", true, "BUILTIN", ""));
+        String gameId = asString(created.get("gameId"));
+
+        clock.advance(Duration.ofMinutes(14));
+        assertEquals(0, hub.expireIdleGames());
+        assertTrue(hub.hasActiveGame(gameId));
+
+        clock.advance(Duration.ofMinutes(1));
+        assertEquals(1, hub.expireIdleGames());
+        assertFalse(hub.hasActiveGame(gameId));
+        Map<String, Object> stored = hub.gameSnapshotById(gameId, user);
+        assertEquals("ABANDONED", stored.get("status"));
+        assertEquals("IDLE_TIMEOUT", stored.get("terminationReason"));
+    }
 
     @Test
     void createsXiangqiPracticeGameAndFallsBackToBuiltinEngine() throws Exception {
@@ -298,5 +344,32 @@ class PracticeGameHubTest {
             latest = supplier.get();
         }
         return latest;
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
     }
 }

@@ -166,7 +166,8 @@ public final class OnlineStore {
             ps.setInt(7, asInt(snapshot.get("firstRemainingSeconds")));
             ps.setInt(8, asInt(snapshot.get("secondRemainingSeconds")));
             ps.setString(9, asString(snapshot.get("terminationReason")));
-            if ("FINISHED".equalsIgnoreCase(asString(snapshot.get("status")))) {
+            String status = asString(snapshot.get("status"));
+            if ("FINISHED".equalsIgnoreCase(status) || "ABANDONED".equalsIgnoreCase(status)) {
                 ps.setTimestamp(10, Timestamp.from(Instant.now()));
             } else {
                 ps.setTimestamp(10, null);
@@ -283,7 +284,7 @@ public final class OnlineStore {
             + "sum(case when winner_side = first_side and first_user_id = ? then 1 when winner_side = second_side and second_user_id = ? then 1 else 0 end) as wins, "
             + "sum(case when termination_reason = 'DRAW_AGREED' then 1 else 0 end) as draws, "
             + "max(coalesce(finished_at, started_at)) as last_game_at "
-            + "from games where first_user_id = ? or second_user_id = ?";
+            + "from games where status = 'FINISHED' and (first_user_id = ? or second_user_id = ?)";
         try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, userId);
             ps.setString(2, userId);

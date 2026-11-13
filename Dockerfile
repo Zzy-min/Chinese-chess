@@ -1,10 +1,11 @@
+# syntax=docker/dockerfile:1.7
 FROM maven:3.9.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
 COPY pom.xml ./
 COPY src ./src
 
-RUN mvn -DskipTests clean package
+RUN --mount=type=cache,target=/root/.m2 mvn -DskipTests clean package
 
 FROM debian:bookworm-slim AS engines
 
@@ -21,11 +22,14 @@ RUN apt-get update \
 
 WORKDIR /tmp/engines
 RUN set -eux; \
-    curl -fL --retry 3 -o pikafish.7z "$PIKAFISH_URL"; \
+    curl --http1.1 -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 600 \
+      -o pikafish.7z "$PIKAFISH_URL"; \
     echo "$PIKAFISH_SHA256  pikafish.7z" | sha256sum -c -; \
-    curl -fL --retry 3 -o rapfi.7z "$RAPFI_URL"; \
+    curl --http1.1 -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 600 \
+      -o rapfi.7z "$RAPFI_URL"; \
     echo "$RAPFI_SHA256  rapfi.7z" | sha256sum -c -; \
-    curl -fL --retry 3 -o rapfi-copying.txt "$RAPFI_LICENSE_URL"; \
+    curl --http1.1 -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 120 \
+      -o rapfi-copying.txt "$RAPFI_LICENSE_URL"; \
     echo "$RAPFI_LICENSE_SHA256  rapfi-copying.txt" | sha256sum -c -; \
     7z x -y -opikafish pikafish.7z >/dev/null; \
     7z x -y -orapfi rapfi.7z >/dev/null; \
@@ -42,7 +46,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libatomic1 \
+    && apt-get install -y --no-install-recommends curl libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/target/classes ./classes

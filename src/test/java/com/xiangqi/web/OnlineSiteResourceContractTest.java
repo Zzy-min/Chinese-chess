@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -51,7 +52,9 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("function renderMobileQuickStartSheet"));
         assertTrue(js.contains("function renderMobileBottomNav"));
         assertTrue(js.contains("data-action=\"open-mobile-quick-start\""));
-        assertFalse(js.contains("data-mobile-nav=\"home\""));
+        // The mobile shell exposes five destinations; 首页 was restored on purpose
+        // in the R2 redesign, so the bottom nav is no longer four-item only.
+        assertTrue(js.contains("data-mobile-nav=\"home\""));
         assertTrue(js.contains("data-mobile-nav=\"play\""));
         assertTrue(js.contains("data-mobile-nav=\"learn\""));
         assertTrue(js.contains("data-mobile-nav=\"watch\""));
@@ -72,7 +75,7 @@ class OnlineSiteResourceContractTest {
     void boardRoutesDoNotRenderMobileBottomNavigation() throws Exception {
         String js = readResource("/online/app.js");
 
-        assertTrue(js.contains("if (isBoardRoutePage(activePage) || activePage === 'welcome')"));
+        assertTrue(js.contains("if (!isBoardRoutePage(route.page) && route.page !== 'welcome')"));
         assertTrue(js.contains("return '';"));
     }
 
@@ -83,9 +86,20 @@ class OnlineSiteResourceContractTest {
         String css = readResource("/online/app.css");
         String mobileCss = readResource("/online/mobile.css");
 
-        assertTrue(html.contains("app.css?v=20260811m18"));
-        assertTrue(html.contains("mobile.css?v=20260811m18"));
-        assertTrue(html.contains("app.js?v=20260811m19"));
+        // The cache-busting token is bumped on every frontend release, so pinning
+        // a literal version turned this into a test that always rots. Assert the
+        // invariant that actually matters: four assets, one shared token.
+        java.util.regex.Matcher versions = java.util.regex.Pattern
+                .compile("(app\\.css|mobile\\.css|app\\.js|board\\.js)\\?v=(\\w+)")
+                .matcher(html);
+        java.util.Set<String> tokens = new java.util.HashSet<>();
+        int assets = 0;
+        while (versions.find()) {
+            assets += 1;
+            tokens.add(versions.group(2));
+        }
+        assertEquals(4, assets, "expected app.css, mobile.css, app.js and board.js");
+        assertEquals(1, tokens.size(), "assets disagree on the cache-busting token: " + tokens);
         assertTrue(js.contains("data-nav=\"learn/puzzles/ENDGAME_FEN\""));
         assertTrue(js.contains("data-action=\"load-more-learn\""));
         assertTrue(js.contains("LEARN_PAGE_SIZE_MOBILE = 12"));
@@ -124,6 +138,25 @@ class OnlineSiteResourceContractTest {
     }
 
     @Test
+    void practiceLifecycleExposesResignAndBootstrapContract() throws Exception {
+        String js = readResource("/online/app.js");
+        String onlineServer = readSource("src/main/java/com/xiangqi/online/server/OnlineSiteServer.java");
+        String publicServer = readSource("src/main/java/com/xiangqi/web/PublicSiteServer.java");
+
+        assertTrue(onlineServer.contains("/api/bootstrap"));
+        // The public site namespaces its bootstrap endpoint under /site/.
+        assertTrue(publicServer.contains("/online/api/site/bootstrap"));
+        // Ending a practice game goes through the shared resign action; the
+        // dedicated "abandon" affordance was retired from the client.
+        assertTrue(publicServer.contains("/online/api/learn/practice-games/{gameId}/resign"));
+        assertTrue(js.contains("data-action=\"resign\""));
+        assertTrue(js.contains("/resign"));
+        // Unload must not fire a beacon: the server-side idle timeout owns cleanup.
+        assertFalse(js.contains("pagehide"));
+        assertFalse(js.contains("sendBeacon"));
+    }
+
+    @Test
     void mobileLobbyUsesFourTasksAndThreePrimaryActions() throws Exception {
         String js = readResource("/online/app.js");
         String mobileCss = readResource("/online/mobile.css");
@@ -136,8 +169,10 @@ class OnlineSiteResourceContractTest {
         assertTrue(js.contains("data-mobile-nav=\"learn\""));
         assertTrue(js.contains("data-mobile-nav=\"watch\""));
         assertTrue(js.contains("data-mobile-nav=\"me\""));
-        assertFalse(js.contains("data-mobile-nav=\"home\""));
+        // Five destinations in the current shell (首页/对局/棋谱/观战/我的).
+        assertTrue(js.contains("data-mobile-nav=\"home\""));
         assertTrue(mobileCss.contains("grid-template-columns: repeat(4, minmax(0, 1fr))"));
+        assertTrue(mobileCss.contains("grid-template-columns: repeat(5, 1fr)"));
     }
 
     @Test

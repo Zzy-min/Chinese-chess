@@ -80,6 +80,7 @@ public final class OnlineSiteServer {
             .get("/assets/site/mobile.css", this::handleMobileCss)
             .get("/assets/site/app.js", this::handleJs)
             .get("/assets/site/board.js", this::handleBoardJs)
+            .get("/api/bootstrap", this::handleBootstrap)
             .get("/api/site/bootstrap", this::handleBootstrap)
             .get("/api/auth/me", this::handleMe)
             .get("/api/lobby/overview", this::handleLobby)
@@ -111,6 +112,7 @@ public final class OnlineSiteServer {
             .post("/api/learn/practice-games", this::handleCreatePracticeGame)
             .post("/api/learn/practice-games/{gameId}/move", this::handlePracticeMove)
             .post("/api/learn/practice-games/{gameId}/resign", this::handlePracticeResign)
+            .post("/api/learn/practice-games/{gameId}/abandon", this::handlePracticeAbandon)
             .post("/api/learn/puzzles/{id}/complete", this::handleCompletePuzzle)
             .post("/api/learn/tutorials/{id}/complete", this::handleCompleteTutorial);
         HttpHandler handler = Handlers.path(new BlockingHandler(routes))
@@ -138,6 +140,14 @@ public final class OnlineSiteServer {
             .addPrefixPath("/", new BlockingHandler(routes));
         server = Undertow.builder().addHttpListener(port, host).setHandler(handler).build();
         server.start();
+    }
+
+    public void stop() {
+        if (server != null) {
+            server.stop();
+            server = null;
+        }
+        practiceHub.close();
     }
 
     private void handleIndex(HttpServerExchange exchange) throws IOException {
@@ -624,6 +634,19 @@ public final class OnlineSiteServer {
         }
         try {
             sendJson(exchange, practiceHub.resign(pathParam(exchange, "gameId"), user.get()));
+        } catch (Exception ex) {
+            sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    private void handlePracticeAbandon(HttpServerExchange exchange) {
+        Optional<AuthUser> user = currentUser(exchange);
+        if (!user.isPresent()) {
+            sendError(exchange, StatusCodes.UNAUTHORIZED, "login required");
+            return;
+        }
+        try {
+            sendJson(exchange, practiceHub.abandon(pathParam(exchange, "gameId"), user.get()));
         } catch (Exception ex) {
             sendError(exchange, StatusCodes.BAD_REQUEST, ex.getMessage());
         }

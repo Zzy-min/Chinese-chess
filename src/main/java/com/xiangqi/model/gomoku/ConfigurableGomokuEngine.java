@@ -1,6 +1,7 @@
 package com.xiangqi.model.gomoku;
 
 import com.xiangqi.ai.MinimaxAI;
+import com.xiangqi.ai.ExternalEngineGate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,7 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
     private GomokuDifficultyProfile difficultyProfile = GomokuDifficultyProfile.EASY;
     private boolean lastMoveUsedBuiltin;
     private boolean engineFallback;
+    private volatile String executionState = "IDLE";
 
     public ConfigurableGomokuEngine() {
         this.rapfiCmdText = readSetting("xq.gomoku.rapfi.cmd", "XQ_GOMOKU_RAPFI_CMD",
@@ -57,6 +59,8 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
             && !PREF_BUILTIN.equals(preferredEngine);
         if (difficultyProfile.preferBuiltin()) {
             lastMoveUsedBuiltin = true;
+            executionState = "THINKING";
+            engineFallback = false;
             return builtin.findBestMove(board, aiStone, difficultyProfile);
         }
         lastMoveUsedBuiltin = false;
@@ -65,22 +69,42 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
         }
         if (selected != builtin) {
             int[] move;
+            ExternalEngineGate.Lease lease = null;
             try {
+                executionState = "QUEUED";
+                lease = ExternalEngineGate.global().tryAcquire(ExternalEngineGate.DEFAULT_WAIT_MILLIS);
+                if (lease == null) {
+                    executionState = "FALLBACK";
+                    engineFallback = true;
+                    lastMoveUsedBuiltin = true;
+                    return builtin.findBestMove(board, aiStone, difficultyProfile);
+                }
+                executionState = "THINKING";
                 move = selected instanceof PiskvorkGomokuEngine
                     ? ((PiskvorkGomokuEngine) selected).findBestMove(board, aiStone, difficultyProfile)
                     : selected.findBestMove(board, aiStone, difficultyProfile.builtinDifficulty());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                move = null;
             } catch (Exception ignored) {
                 move = null;
+            } finally {
+                selected.close();
+                if (lease != null) {
+                    lease.close();
+                }
             }
             if (move != null) {
+                executionState = "IDLE";
+                engineFallback = false;
                 return move;
             }
-            selected.close();
             selected = builtin;
             selectedId = builtin.getEngineId();
             selectedText = builtin.getEngineText() + "（外部引擎异常已回退）";
             engineFallback = true;
             lastMoveUsedBuiltin = true;
+            executionState = "FALLBACK";
         }
         return builtin.findBestMove(board, aiStone, difficultyProfile);
     }
@@ -114,6 +138,10 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
 
     public synchronized boolean isEngineFallback() {
         return engineFallback;
+    }
+
+    public String getExecutionState() {
+        return executionState;
     }
 
     public synchronized String getPreferredEngine() {
@@ -157,6 +185,7 @@ public final class ConfigurableGomokuEngine implements GomokuEngine {
         selected = next;
         selectedId = next.getEngineId();
         selectedText = next.getEngineText();
+        executionState = "IDLE";
     }
 
     private GomokuEngine chooseEngine(String preference) {

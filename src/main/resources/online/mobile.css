@@ -1,14 +1,32 @@
 :root {
-  --mobile-paper: #f5f0e6;
-  --mobile-paper-deep: #e9dfcf;
-  --mobile-ink: #211d18;
-  --mobile-muted: #6f675c;
-  --mobile-cinnabar: #9d3023;
-  --mobile-cinnabar-dark: #782219;
+  --bg-paper: #F7F1E7;
+  --bg-paper-soft: #FBF7F0;
+  --bg-panel: #F4EBDD;
+  --brand-cinnabar: #A73622;
+  --brand-cinnabar-deep: #8F2C1C;
+  --brand-cinnabar-soft: #EAD2C9;
+  --text-ink: #2A241F;
+  --text-ink-soft: #5D5348;
+  --text-muted: #8B8074;
+  --text-light: #B1A79B;
+  --line-soft: #E3D8C8;
+  --line-mid: #D4C6B4;
+  --wood-board: #C89655;
+  --wood-board-deep: #A96F34;
+  --wood-border: #8B5928;
+  --wood-shadow: rgba(92, 56, 20, 0.22);
+  --success: #4A7A53;
+  --warning-pill: #D6B47A;
+  --mobile-paper: var(--bg-paper);
+  --mobile-paper-deep: var(--bg-panel);
+  --mobile-ink: var(--text-ink);
+  --mobile-muted: var(--text-muted);
+  --mobile-cinnabar: var(--brand-cinnabar);
+  --mobile-cinnabar-dark: var(--brand-cinnabar-deep);
   --mobile-pine: #315c4d;
-  --mobile-gold: #b47a36;
-  --mobile-line: #d9cfbf;
-  --mobile-panel: #fbf8f1;
+  --mobile-gold: var(--warning-pill);
+  --mobile-line: var(--line-soft);
+  --mobile-panel: var(--bg-paper-soft);
   --mobile-ease: cubic-bezier(.22, 1, .36, 1);
 }
 
@@ -905,6 +923,23 @@
     background: var(--mobile-paper);
   }
 
+  .boardPage.boardPage--desk {
+    display: flex !important;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .boardPage--desk > .boardMobileTabs {
+    order: 3;
+    flex: 0 0 auto;
+  }
+
+  .boardPage--desk > .boardDesk {
+    order: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
   .boardPage--desk .boardDesk {
     display: flex !important;
     height: 100%;
@@ -916,7 +951,8 @@
   }
 
   .boardRail {
-    order: 2;
+    order: 1;
+    flex: 0 0 auto !important;
     display: grid;
     grid-template-columns: 1fr;
     gap: 4px;
@@ -930,11 +966,12 @@
   }
 
   .clockGrid,
-  .boardRail--practice,
+  .practiceGrid,
   .boardRail--practice .practiceGrid {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 4px !important;
+    width: 100% !important;
   }
 
   .boardPlayerCard {
@@ -988,12 +1025,14 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .turnBadge {
-    display: none;
+  .turnBadge,
+  .boardPlayerCard .turnBadge,
+  .boardRail .turnBadge {
+    display: none !important;
   }
 
   .boardStage {
-    order: 1;
+    order: 2;
     display: flex;
     min-width: 0;
     min-height: 0;
@@ -1038,9 +1077,14 @@
     touch-action: none;
   }
 
-  .mobile-pane-board .boardStage,
+  .mobile-pane-board .boardStage {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+
   .mobile-pane-board .boardHost {
-    flex: 0 1 auto;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
   }
 
   .boardHost .xiangqiBoard,
@@ -1051,15 +1095,15 @@
 
   .woodActions {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
     gap: 5px !important;
     margin-top: 4px !important;
   }
 
   .woodActions button {
     min-width: 0 !important;
-    min-height: 38px;
-    padding: 6px 4px !important;
+    min-height: 44px;
+    padding: 8px 4px !important;
     font-family: inherit !important;
     font-size: 12px !important;
   }
@@ -1127,16 +1171,22 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
-    margin-bottom: 4px;
+    margin: 2px 0 0;
     padding: 3px;
     border-radius: 12px;
-    background: #e7ded1;
+    background: #ede6d8;
   }
 
   .boardMobileTabs button {
-    min-height: 36px;
+    min-height: 44px;
     border-radius: 9px;
     font-size: 13px;
+  }
+
+  .boardMobileTabs button.btn {
+    background: var(--mobile-cinnabar) !important;
+    color: #fff !important;
+    border-color: var(--mobile-cinnabar) !important;
   }
 
   .toastHost {
@@ -1192,7 +1242,8 @@
 
   .mobileContentPage--learn .learnEndgameCta {
     width: 100%;
-    min-height: 44px;
+    height: 42px;
+    min-height: 42px;
   }
 
   .mobileContentPage--learn .learnTabs {
@@ -1726,5 +1777,5706 @@
     padding: 8px 10px;
     text-align: left;
     font-size: 12px;
+  }
+}
+
+/* === 20260924m1 mobile guofeng scheme A === */
+/* Desktop keeps .boardRailAtmosphere; mobile watermark only below. */
+@media (min-width: 769px) {
+  .boardStageWatermark {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Reinforce: hide desktop left-rail atmosphere on small screens */
+  .boardRailAtmosphere {
+    display: none !important;
+  }
+
+  /* Scheme A: faint off-board watermark strip (boat / basket SVG) */
+  .boardStage {
+    position: relative;
+  }
+
+  .boardStageWatermark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    height: 40px;
+    max-height: 48px;
+    margin: 4px 6px 2px;
+    overflow: hidden;
+    opacity: 0.16;
+    pointer-events: none !important;
+    user-select: none;
+  }
+
+  .boardStageWatermark .boardAtmosphereSvg,
+  .boardStageWatermark svg {
+    display: block;
+    width: auto;
+    max-width: min(220px, 72vw);
+    height: 48px;
+    max-height: 48px;
+  }
+
+  /* Resign stays ghost / de-emphasized on mobile */
+  .woodActions .actionBtn--resign,
+  .woodActions button.ghost.danger {
+    border: 1px solid var(--mobile-line) !important;
+    background: transparent !important;
+    color: var(--mobile-muted) !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+  }
+
+  .woodActions .actionBtn--resign:hover:not(:disabled),
+  .woodActions .actionBtn--resign:active:not(:disabled),
+  .woodActions button.ghost.danger:hover:not(:disabled),
+  .woodActions button.ghost.danger:active:not(:disabled) {
+    border-color: #c0b4a4 !important;
+    background: rgba(245, 240, 230, 0.85) !important;
+    color: var(--mobile-ink) !important;
+  }
+
+  /* Paper shell polish for board chrome */
+  .woodActions {
+    background: #fdfbf7;
+    border: 1px solid var(--mobile-line);
+    border-radius: 12px;
+    padding: 4px !important;
+  }
+
+  .boardMobileTabs {
+    background: #ede6d8;
+  }
+
+  .boardMobileTabs button.is-active,
+  .boardMobileTabs button[aria-pressed="true"],
+  .boardMobileTabs button.active {
+    color: var(--mobile-cinnabar);
+    font-weight: 700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boardStageWatermark {
+    opacity: 0.08 !important;
+  }
+}
+
+
+/* === 20260924m2 strict align rebuild (REF-01..04) === */
+@media (max-width: 768px) {
+  html, body {
+    background: var(--bg-paper) !important;
+    color: var(--text-ink) !important;
+  }
+
+  .mobileMatchChrome {
+    display: block;
+    flex: 0 0 auto;
+    order: 0;
+    margin: 0 0 4px;
+    padding: 0 4px;
+  }
+
+  .boardPage--strict {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    height: auto !important;
+    min-height: 100dvh;
+    overflow: auto !important;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(167, 54, 34, 0.04), transparent 42%),
+      var(--bg-paper) !important;
+  }
+
+  body.mobile-board-route,
+  html.mobile-board-route {
+    overflow: auto !important;
+    height: auto !important;
+  }
+
+  body.mobile-board-route .site,
+  body.mobile-board-route .shell {
+    height: auto !important;
+    min-height: 100dvh;
+    overflow: visible !important;
+  }
+
+  .site.is-board-route .shell {
+    padding: 0 0 calc(72px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .boardPage--strict.boardPage--desk {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    padding: max(6px, env(safe-area-inset-top)) 10px 8px !important;
+  }
+
+  .boardPage--strict > .mobileMatchChrome { order: 0; }
+  .boardPage--strict > .boardDesk { order: 1; flex: 0 0 auto; height: auto !important; overflow: visible !important; }
+  .boardPage--strict > .boardMobileTabs { order: 3; }
+
+  .boardPage--strict .boardDesk {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .boardPage--strict .boardRail {
+    order: 1;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .boardPage--strict .boardStage {
+    order: 2;
+    flex: 0 0 auto;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .boardPage--strict .boardSidebar { order: 4; }
+
+  .boardPage--strict .gameMetaRow,
+  .boardPage--strict .boardStage > .status {
+    display: none !important;
+  }
+
+  /* Match header */
+  .mobileMatchHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 48px;
+  }
+  .mobileMatchHeader .mobileBrand {
+    flex: 1;
+    min-width: 0;
+  }
+  .mobileBrand--compact strong {
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .mobileMatchBack {
+    margin-left: -4px;
+  }
+  .mobileMatchSlogan {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 4px 0 8px;
+    color: var(--text-ink-soft);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: .08em;
+  }
+  .mobileMatchSlogan span {
+    display: block;
+    width: 28px;
+    height: 1px;
+    background: var(--line-mid);
+  }
+
+  .mobileTopTabs {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    margin: 2px 0 8px;
+    padding: 0 2px 2px;
+    border-bottom: 1px solid var(--line-soft);
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobileTopTabs a {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 10px 10px 8px;
+    color: var(--text-muted);
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .mobileTopTabs a.is-active {
+    color: var(--text-ink);
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 var(--brand-cinnabar);
+  }
+
+  .mobileMatchTitleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 0 8px;
+  }
+  .mobileMatchTitleLeft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .mobileMatchTitleLeft h2 {
+    margin: 0;
+    color: var(--text-ink);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .mobileOnlineDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(74, 122, 83, .15);
+  }
+  .mobileOnlineLabel {
+    color: var(--text-ink-soft);
+    font-size: 14px;
+  }
+  .mobileMatchTitleTools {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mobileHeaderActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mobileIconBtn {
+    position: relative;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-ink-soft);
+  }
+  .mobileBadgeDot {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--brand-cinnabar);
+  }
+
+  /* Player cards — REF-02/03 */
+  .boardPage--strict .clockGrid,
+  .boardPage--strict .practiceGrid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .boardPage--strict .boardPlayerCard {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-height: 88px;
+    padding: 10px 10px 8px !important;
+    border: 1px solid var(--line-soft) !important;
+    border-radius: 14px !important;
+    background: var(--bg-paper-soft) !important;
+    box-shadow: 0 1px 0 rgba(42, 36, 31, 0.03);
+  }
+  .boardPage--strict .boardPlayerCardTop {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+  .boardPage--strict .boardPlayerCard .avatar {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50%;
+  }
+  .boardPage--strict .boardPlayerCardTop .userMeta strong {
+    max-width: none;
+    color: var(--text-ink);
+    font-size: 15px !important;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .boardPage--strict .boardPlayerCardTop .vipBadge {
+    display: block !important;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .mobileSideBadge {
+    position: absolute;
+    left: 26px;
+    bottom: -2px;
+    z-index: 1;
+    display: grid;
+    width: 16px;
+    height: 16px;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    background: #2A241F;
+  }
+  .mobileSideBadge.is-red { background: var(--brand-cinnabar); }
+  .mobileSideBadge.is-black { background: #2A241F; }
+  .mobileSideBadge.is-white { background: #f5f5f5; color: #333; border: 1px solid #ccc; }
+
+  .boardPage--strict .boardPlayerClockBlock {
+    align-items: flex-start !important;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 10px;
+    background: var(--bg-panel);
+  }
+  .boardPage--strict .boardPlayerCard[data-clock-card="RED"] .boardPlayerClockBlock,
+  .boardPage--strict .boardPlayerCard--self .boardPlayerClockBlock {
+    background: var(--brand-cinnabar-soft);
+  }
+  .boardPage--strict .boardPlayerClock {
+    color: var(--text-ink) !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
+  }
+  .boardPage--strict .boardPlayerCard[data-clock-card="RED"] .boardPlayerClock,
+  .boardPage--strict .boardPlayerCard--self .boardPlayerClock {
+    color: var(--brand-cinnabar) !important;
+  }
+  .boardPage--strict .clockTimingStatus {
+    display: block !important;
+    color: var(--text-muted) !important;
+    font-size: 12px !important;
+  }
+  .boardPage--strict .turnBadge { display: none !important; }
+
+  .mobileDifficultyPill {
+    margin-left: auto;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: var(--warning-pill);
+    color: #5a4320;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+
+  /* Board host wood */
+  .boardPage--strict .boardHost {
+    flex: 0 0 auto !important;
+    margin: 4px auto 0;
+    padding: 8px !important;
+    max-width: min(100%, 360px);
+    border-radius: 14px;
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.18), transparent 40%),
+      var(--wood-board);
+    border: 3px solid var(--wood-border);
+    box-shadow: 0 10px 24px var(--wood-shadow);
+  }
+  .boardPage--strict .boardHost .xiangqiBoard,
+  .boardPage--strict .boardHost .gomokuBoard {
+    max-height: min(52vh, 420px) !important;
+  }
+
+  /* Actions */
+  .boardPage--strict .woodActions {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 8px 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+  .boardPage--strict .woodActions button {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 52px !important;
+    padding: 8px 4px !important;
+    border: 1px solid var(--line-soft) !important;
+    border-radius: 10px !important;
+    background: var(--bg-paper-soft) !important;
+    color: var(--text-ink) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .woodActions button .mobileIcon {
+    width: 18px;
+    height: 18px;
+  }
+  .boardPage--strict .woodActions .actionBtn--resign,
+  .boardPage--strict .woodActions button.ghost.danger {
+    border-color: transparent !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-weight: 500 !important;
+  }
+
+  /* Tabs — xiangqi underline; gomoku pill */
+  .boardPage--strict > .boardMobileTabs {
+    display: flex !important;
+    justify-content: center;
+    gap: 28px;
+    margin: 6px auto 4px;
+    padding: 0;
+    max-width: 220px;
+    background: transparent !important;
+    border-radius: 0;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    max-width: 200px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--bg-panel) !important;
+  }
+  .boardPage--strict > .boardMobileTabs button {
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0 !important;
+    border-radius: 0;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict > .boardMobileTabs button.btn,
+  .boardPage--strict > .boardMobileTabs button.is-active {
+    color: var(--brand-cinnabar) !important;
+    box-shadow: inset 0 -2px 0 var(--brand-cinnabar) !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button.btn,
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button.is-active {
+    border-radius: 999px !important;
+    background: var(--brand-cinnabar) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .boardPage--strict .boardStageWatermark {
+    order: 5;
+    opacity: 0.18;
+    height: 44px;
+    max-height: 48px;
+    margin: 2px auto 8px;
+  }
+
+  .boardPage--strict .boardRailAtmosphere {
+    display: none !important;
+  }
+
+  /* Bottom nav 5-item */
+  .mobileBottomNav,
+  .mobileBottomNav--strict {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    min-height: calc(58px + env(safe-area-inset-bottom));
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line-soft);
+    border-radius: 18px 18px 0 0;
+    background: rgba(251, 247, 240, 0.96);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -6px 20px rgba(42, 36, 31, 0.06);
+  }
+  .mobileBottomNav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 44px;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-decoration: none;
+  }
+  .mobileBottomNav a.is-active {
+    color: var(--brand-cinnabar);
+    font-weight: 600;
+  }
+  .mobileBottomNav a.is-active::before { display: none; }
+
+  /* ===== HOME REF-01 ===== */
+  .mobileHome--strict {
+    padding: 0 0 calc(88px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(ellipse at 70% 8%, rgba(167,54,34,.06), transparent 28%),
+      linear-gradient(180deg, #FBF7F0 0%, var(--bg-paper) 40%, #EFE6D8 100%);
+  }
+  .mobileAppHeader--strict {
+    padding: max(10px, env(safe-area-inset-top)) 16px 4px;
+  }
+  .mobileAppHeader--strict .mobileBrand strong {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .mobileAppHeader--strict .mobileBrand small {
+    font-size: 11px;
+  }
+
+  .mobileHero--strict {
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 4px 16px 0 !important;
+    padding: 12px 12px 10px !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+  .mobileHero--strict::before { display: none; }
+  .mobileHero--strict .mobileHeroWash {
+    position: absolute;
+    inset: -10px -8px auto;
+    height: 110px;
+    width: auto;
+    right: 0;
+    left: 0;
+    top: -20px;
+    opacity: 0.22;
+    background:
+      radial-gradient(circle at 78% 30%, rgba(200, 120, 60, .35), transparent 28%),
+      radial-gradient(ellipse at 50% 80%, rgba(90, 110, 90, .18), transparent 50%),
+      linear-gradient(180deg, transparent, var(--bg-paper));
+    pointer-events: none;
+  }
+  .mobileHero--strict .mobileHeroCopy {
+    position: relative;
+    z-index: 1;
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 8px 8px 4px !important;
+    text-align: center;
+  }
+  .mobileHero--strict h1 {
+    margin: 6px 0 6px;
+    color: var(--text-ink);
+    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    line-height: 1.35;
+    letter-spacing: .04em;
+  }
+  .mobileHero--strict p {
+    margin: 0 0 12px;
+    color: var(--text-ink-soft);
+    font-size: 13px;
+  }
+  .mobilePrimaryAction--cta {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 18px !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.12), transparent 40%),
+      var(--brand-cinnabar) !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 8px 18px rgba(143, 44, 28, 0.28);
+  }
+  .mobilePrimaryAction--cta small { display: none; }
+  .mobileCtaGlyph .mobileIcon { width: 22px; height: 22px; }
+  .mobileCtaArrow { font-size: 22px; line-height: 1; opacity: .9; }
+
+  .mobileDualEntry {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 8px 16px 0;
+  }
+  .mobileEntryCard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 84px;
+    padding: 12px 12px;
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    background: var(--bg-paper-soft);
+    color: var(--text-ink);
+    text-align: left;
+    box-shadow: 0 1px 0 rgba(42,36,31,.03);
+  }
+  .mobileEntryCard strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .mobileEntryCard small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .mobileEntryIcon {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--bg-panel);
+    color: var(--brand-cinnabar);
+  }
+
+  .mobileGamePick {
+    margin: 14px 16px 0;
+  }
+  .mobileHome--strict .mobileSectionHead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .mobileHome--strict .mobileSectionHead h2 {
+    margin: 0;
+    color: var(--text-ink);
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .mobileHome--strict .mobileSectionHead button {
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .mobileGamePickGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .mobileGamePickCard {
+    position: relative;
+    overflow: hidden;
+    min-height: 148px;
+    padding: 12px 12px 10px;
+    border-radius: 14px;
+    border: 1px solid var(--line-soft);
+    background: #efe4d2;
+  }
+  .mobileGamePickCard--xiangqi {
+    background:
+      linear-gradient(180deg, rgba(247,241,231,.2), rgba(247,241,231,.92) 70%),
+      linear-gradient(135deg, #c9a06a, #8f5a2c);
+  }
+  .mobileGamePickCard--gomoku {
+    background:
+      linear-gradient(180deg, rgba(247,241,231,.15), rgba(247,241,231,.92) 72%),
+      linear-gradient(135deg, #7a9a78, #3f5c48);
+  }
+  .mobileGamePickCard h3 {
+    position: relative;
+    margin: 0 0 4px;
+    color: var(--text-ink);
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .mobileGamePickCard p {
+    position: relative;
+    margin: 0 0 16px;
+    color: var(--text-ink-soft);
+    font-size: 11px;
+  }
+  .mobileGamePickBtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .mobileGamePickBtn.is-cinnabar { background: var(--brand-cinnabar-deep); }
+  .mobileGamePickBtn.is-pine { background: #2f4f3e; }
+
+  .mobileToolGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 16px 0;
+  }
+  .mobileToolGrid button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 88px;
+    padding: 10px 4px;
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    background: var(--bg-paper-soft);
+    color: var(--text-ink);
+  }
+  .mobileToolIcon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    color: var(--text-ink-soft);
+  }
+  .mobileToolGrid strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .mobileToolGrid small {
+    color: var(--text-light);
+    font-size: 10px;
+  }
+
+  .mobileRecentSection {
+    margin: 12px 16px 0;
+  }
+  .mobileRecentList--strict button {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto 18px;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 4px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    background: transparent;
+    color: var(--text-ink);
+    text-align: left;
+  }
+  .mobileRecentAvatar {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    color: var(--brand-cinnabar);
+    font-family: "Source Han Serif SC", "Songti SC", serif;
+    font-weight: 700;
+  }
+  .mobileRecentMain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .mobileRecentMain strong {
+    font-size: 14px;
+  }
+  .mobileRecentTag {
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .mobileRecentTag.is-xiangqi {
+    background: var(--brand-cinnabar-soft);
+    color: var(--brand-cinnabar-deep);
+  }
+  .mobileRecentTag.is-gomoku {
+    background: #d7e4d8;
+    color: var(--success);
+  }
+  .mobileRecentResult {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .mobileRecentResult.is-win { color: var(--success); }
+  .mobileRecentResult.is-loss { color: var(--brand-cinnabar); }
+
+  /* Hide legacy home blocks if any leak */
+  .mobileHome--strict .mobileContinueStrip,
+  .mobileHome--strict .mobileRankNote,
+  .mobileHome--strict .mobileEyebrow { display: none !important; }
+}
+
+@media (min-width: 769px) {
+  .mobileMatchChrome { display: none !important; }
+  .mobileSideBadge { display: none !important; }
+  .mobileDifficultyPill { display: none !important; }
+  .mobileBottomNav--strict { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  /* REF-04: board → actions → tabs */
+  .boardPage--strict.gomokuTheme .boardDesk,
+  .boardPage--strict.gomokuTheme .boardStage {
+    display: contents !important;
+  }
+  .boardPage--strict.gomokuTheme .boardRail { order: 1; }
+  .boardPage--strict.gomokuTheme .boardHost {
+    order: 2;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .boardPage--strict.gomokuTheme .woodActions { order: 3; }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs { order: 4; }
+  .boardPage--strict.gomokuTheme .boardStageWatermark { order: 5; }
+  .boardPage--strict.gomokuTheme .boardSidebar { order: 6; }
+
+  /* REF-02/03: board → actions → tabs */
+  .boardPage--strict.xiangqiTheme .boardStageWatermark {
+    order: 4;
+  }
+}
+
+/* === 20260924m3 visual calibration (B→A; chatgpt-refs) === */
+@media (max-width: 768px) {
+  /* Home: flatten Hero into continuous xuan paper (less card) */
+  .mobileHero--strict {
+    margin: 0 12px !important;
+    padding: 6px 4px 2px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.14 !important;
+    height: 130px;
+    top: -28px;
+    background:
+      radial-gradient(ellipse at 72% 38%, rgba(90, 110, 120, .22), transparent 42%),
+      radial-gradient(ellipse at 28% 70%, rgba(120, 100, 80, .12), transparent 48%),
+      linear-gradient(180deg, transparent 55%, var(--bg-paper));
+    filter: saturate(.55);
+  }
+  .mobileHero--strict .mobileHeroWash::after { display: none; }
+  .mobileHero--strict h1 {
+    font-size: 26px !important;
+    letter-spacing: .06em;
+  }
+  .mobileHero--strict p {
+    margin-bottom: 14px;
+    color: var(--text-muted);
+  }
+
+  /* CTA: shorter, deeper cinnabar seal feel */
+  .mobilePrimaryAction--cta {
+    min-height: 46px !important;
+    border-radius: 8px !important;
+    background:
+      repeating-linear-gradient(
+        -12deg,
+        rgba(255,255,255,.04) 0 2px,
+        transparent 2px 6px
+      ),
+      linear-gradient(180deg, #B33D2A 0%, var(--brand-cinnabar-deep) 58%, #7A2418 100%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.18),
+      inset 0 -1px 0 rgba(0,0,0,.12),
+      0 4px 10px rgba(122, 36, 24, 0.22) !important;
+    letter-spacing: .12em;
+  }
+  .mobilePrimaryAction--cta .mobileCtaGlyph {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.35);
+    background: rgba(255,255,255,.1);
+  }
+
+  /* Dual entry / tool cards: softer, less SaaS elevation */
+  .mobileEntryCard,
+  .mobileToolGrid button {
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    background: rgba(251, 247, 240, 0.72) !important;
+  }
+  .mobileGamePickCard {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+  }
+
+  /* Recent matches: single-line + light scroll (honest: may still need scroll) */
+  .mobileRecentList--strict {
+    max-height: 148px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .mobileRecentList--strict > button {
+    grid-template-columns: 32px minmax(0, 1fr) auto auto 14px !important;
+    min-height: 44px !important;
+    padding: 6px 2px !important;
+    gap: 8px !important;
+  }
+  .mobileRecentAvatar {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px;
+  }
+  .mobileRecentMain strong { font-size: 13px !important; }
+  .mobileRecentTime {
+    color: var(--text-light);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .mobileRecentResult { font-size: 11px !important; }
+
+  /* Bottom nav: paper + cinnabar active; flatter */
+  .mobileBottomNav,
+  .mobileBottomNav--strict {
+    border-radius: 0 !important;
+    background: var(--bg-paper-soft) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-top: 1px solid var(--line-soft) !important;
+  }
+
+  /* Player cards: compress height; unify AI/self chrome */
+  .boardPage--strict .boardPlayerCard,
+  .boardPage--strict .boardPlayerCard--ai,
+  .boardPage--strict .boardPlayerCard--self {
+    min-height: 0 !important;
+    gap: 4px !important;
+    padding: 8px 8px 6px !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    background: rgba(251, 247, 240, 0.85) !important;
+  }
+  .boardPage--strict .boardPlayerCard--ai {
+    border-color: var(--line-soft) !important;
+  }
+  .boardPage--strict .boardPlayerCard .avatar {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .userMeta strong {
+    font-size: 13px !important;
+  }
+  .boardPage--strict .boardPlayerClockBlock {
+    padding: 4px 6px !important;
+    border-radius: 8px !important;
+  }
+  .boardPage--strict .boardPlayerClock {
+    font-size: 16px !important;
+  }
+  .boardPage--strict .clockTimingStatus {
+    font-size: 11px !important;
+  }
+  .mobileDifficultyPill {
+    padding: 2px 7px !important;
+    border-radius: 999px !important;
+    background: rgba(214, 180, 122, 0.55) !important;
+    color: #5a4320 !important;
+    font-size: 9px !important;
+    letter-spacing: .06em;
+    font-weight: 700;
+  }
+
+  /* Actions: true ghost (no filled card chip) */
+  .boardPage--strict .woodActions button {
+    background: transparent !important;
+    border: 1px solid var(--line-mid) !important;
+    border-radius: 8px !important;
+    color: var(--text-ink-soft) !important;
+    min-height: 48px !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .woodActions .actionBtn--resign,
+  .boardPage--strict .woodActions button.ghost.danger {
+    border-color: transparent !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+  }
+  .boardPage--strict .woodActions .actionBtn--leave {
+    border-color: var(--line-soft) !important;
+  }
+
+  /* Board priority: slightly larger wood host */
+  .boardPage--strict .boardHost {
+    max-width: min(100%, 372px);
+    margin-top: 2px;
+    padding: 7px !important;
+    border-radius: 12px;
+  }
+  .boardPage--strict .boardHost .xiangqiBoard,
+  .boardPage--strict .boardHost .gomokuBoard {
+    max-height: min(54vh, 440px) !important;
+  }
+
+  /* Atmosphere caps */
+  .boardPage--strict .boardStageWatermark,
+  .boardStageWatermark {
+    opacity: 0.15 !important;
+  }
+  .boardRailAtmosphere {
+    opacity: 0.14 !important;
+  }
+
+  /* Gomoku shell polish (still practice identity — honest boundary) */
+  .boardPage--strict.gomokuTheme .boardHost {
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.14), transparent 42%),
+      var(--wood-board);
+    border-color: var(--wood-border);
+  }
+}
+
+/* === 20260924m4 Strict Align visual calibration (B→A; chatgpt-refs 01-04) === */
+@media (max-width: 768px) {
+  /* 01: Home Strict Align */
+  .mobileHome--strict {
+    padding-top: max(4px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(60px, calc(52px + env(safe-area-inset-bottom))) !important;
+  }
+  .mobileHero--strict {
+    margin: 0 10px 4px !important;
+    padding: 4px 4px 2px !important;
+    text-align: center;
+  }
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.16 !important;
+    height: 136px !important;
+    top: -24px !important;
+    background:
+      radial-gradient(ellipse at 70% 36%, rgba(70, 95, 105, 0.25), transparent 45%),
+      radial-gradient(ellipse at 25% 68%, rgba(135, 110, 85, 0.15), transparent 50%),
+      linear-gradient(180deg, transparent 50%, var(--bg-paper)) !important;
+  }
+  .mobileHero--strict h1 {
+    font-size: 24px !important;
+    letter-spacing: .08em !important;
+    font-weight: 700 !important;
+    margin: 2px 0 2px !important;
+    color: var(--text-ink) !important;
+    line-height: 1.25 !important;
+  }
+  .mobileHero--strict p {
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+    margin: 0 0 10px !important;
+    line-height: 1.3 !important;
+  }
+  .mobilePrimaryAction--cta {
+    min-height: 44px !important;
+    height: 44px !important;
+    padding: 0 20px !important;
+    border-radius: 8px !important;
+    border: 1px solid #751F13 !important;
+    background:
+      repeating-linear-gradient(-12deg, rgba(255,255,255,.04) 0 2px, transparent 2px 6px),
+      linear-gradient(180deg, #A83624 0%, #882618 60%, #6E1C10 100%) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(240, 215, 170, 0.35),
+      inset 0 1px 0 rgba(255,255,255,.2),
+      0 3px 8px rgba(110, 28, 16, 0.22) !important;
+    letter-spacing: .1em !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+  }
+  .mobilePrimaryAction--cta .mobileCtaGlyph {
+    width: 22px !important;
+    height: 22px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #fff !important;
+  }
+  .mobilePrimaryAction--cta .mobileCtaGlyph .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .mobilePrimaryAction--cta .mobileCtaArrow {
+    font-size: 16px !important;
+    color: rgba(255,255,255,0.7) !important;
+    margin-left: 2px !important;
+  }
+
+  /* Dual Entry (在线对局 / 快速匹配) */
+  .mobileDualEntry {
+    margin: 4px 10px 6px !important;
+    gap: 8px !important;
+  }
+  .mobileEntryCard {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 10px !important;
+    min-height: 48px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(210, 195, 175, 0.5) !important;
+    background: rgba(252, 248, 241, 0.88) !important;
+    box-shadow: none !important;
+  }
+  .mobileEntryCard .mobileEntryIcon {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: rgba(220, 205, 185, 0.35) !important;
+    display: grid !important;
+    place-items: center !important;
+    color: #5C4935 !important;
+    flex-shrink: 0 !important;
+  }
+  .mobileEntryCard .mobileEntryIcon .mobileIcon {
+    width: 17px !important;
+    height: 17px !important;
+  }
+  .mobileEntryCard > span:nth-child(2) {
+    flex: 1 1 auto;
+    text-align: left;
+    margin-left: 8px;
+  }
+  .mobileEntryCard strong {
+    font-size: 13px !important;
+    color: var(--text-ink) !important;
+    display: block;
+    line-height: 1.25;
+  }
+  .mobileEntryCard small {
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    display: block;
+    line-height: 1.2;
+    margin-top: 1px;
+  }
+  .mobileCardArrow {
+    color: var(--text-light) !important;
+    font-size: 15px !important;
+    flex-shrink: 0;
+    margin-left: 4px;
+  }
+
+  /* 选择棋类 (压缩垂直高度留出空间给对局记录) */
+  .mobileSection.mobileGamePick {
+    margin: 4px 10px 4px !important;
+  }
+  .mobileGamePick .mobileSectionHead {
+    margin-bottom: 4px !important;
+  }
+  .mobileGamePick .mobileSectionHead h2 {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+  .mobileGamePick .mobileSectionHead button {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+  }
+  .mobileGamePickGrid {
+    gap: 8px !important;
+  }
+  .mobileGamePickCard {
+    padding: 8px 10px !important;
+    min-height: 112px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(210, 195, 175, 0.45) !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  .mobileGamePickCard h3 {
+    font-size: 15px !important;
+    margin-bottom: 2px !important;
+    line-height: 1.2 !important;
+  }
+  .mobileGamePickCard p {
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    margin-bottom: 6px !important;
+    color: var(--text-muted) !important;
+  }
+  .mobileGamePickBtn {
+    align-self: flex-start !important;
+    padding: 2px 8px !important;
+    font-size: 10px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    border-radius: 6px !important;
+    line-height: 20px !important;
+  }
+
+  /* 工具入口 (新手教学/棋谱库/赛事活动/排行榜: 纯轻量四列) */
+  .mobileToolGrid {
+    margin: 4px 10px 4px !important;
+    gap: 4px !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .mobileToolGrid button {
+    padding: 3px 2px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .mobileToolGrid .mobileToolIcon {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
+    background: rgba(226, 212, 188, 0.35) !important;
+    display: grid !important;
+    place-items: center !important;
+    color: #5C4935 !important;
+    margin-bottom: 2px !important;
+  }
+  .mobileToolGrid .mobileToolIcon .mobileIcon {
+    width: 17px !important;
+    height: 17px !important;
+  }
+  .mobileToolGrid button strong {
+    font-size: 11px !important;
+    color: var(--text-ink) !important;
+    margin-top: 1px !important;
+    line-height: 1.2 !important;
+  }
+  .mobileToolGrid button small {
+    font-size: 9px !important;
+    color: var(--text-light) !important;
+    line-height: 1.1 !important;
+    transform: scale(0.95);
+  }
+
+  /* 最近对局 (轻量单行，保证首屏直接露出) */
+  .mobileSection.mobileRecentSection {
+    margin: 4px 10px 8px !important;
+  }
+  .mobileRecentSection .mobileSectionHead {
+    margin-bottom: 4px !important;
+  }
+  .mobileRecentSection .mobileSectionHead h2 {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+  .mobileRecentSection .mobileSectionHead button {
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+  }
+  .mobileRecentList--strict {
+    max-height: 168px !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+  }
+  .mobileRecentList--strict > button {
+    grid-template-columns: 26px minmax(0, 1fr) auto auto 12px !important;
+    min-height: 38px !important;
+    padding: 4px 2px !important;
+    gap: 6px !important;
+    border-bottom: 1px solid rgba(210, 195, 175, 0.3) !important;
+  }
+  .mobileRecentAvatar {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 11px !important;
+    border-radius: 50% !important;
+    background: #5C4935 !important;
+    color: #fff !important;
+  }
+  .mobileRecentMain strong {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+  .mobileRecentTag {
+    font-size: 9px !important;
+    padding: 1px 5px !important;
+    border-radius: 4px !important;
+    margin-left: 4px !important;
+  }
+  .mobileRecentTag.is-xiangqi {
+    background: rgba(184, 46, 31, 0.1) !important;
+    color: #9E2A1C !important;
+  }
+  .mobileRecentTag.is-gomoku {
+    background: rgba(77, 103, 86, 0.12) !important;
+    color: #3E5A47 !important;
+  }
+  .mobileRecentResult {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+  .mobileRecentResult.is-win { color: #3E6B48 !important; }
+  .mobileRecentResult.is-loss { color: #A53222 !important; }
+  .mobileRecentTime {
+    font-size: 10px !important;
+    color: var(--text-light) !important;
+  }
+
+  /* 02 & 03: 对局与练习容器 */
+  .boardPage--strict {
+    padding: max(4px, env(safe-area-inset-top)) 8px calc(48px + env(safe-area-inset-bottom)) !important;
+  }
+  .boardPage--strict .boardRail,
+  .boardPage--strict .boardRail--practice,
+  .boardPage--strict .boardRail--players {
+    display: block !important;
+    width: 100% !important;
+    order: 1 !important;
+    margin-bottom: 2px !important;
+  }
+  .boardPage--strict .clockGrid,
+  .boardPage--strict .practiceGrid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .boardPage--strict .boardPlayerCard,
+  .boardPage--strict .boardPlayerCard--ai,
+  .boardPage--strict .boardPlayerCard--self {
+    min-width: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    min-height: 72px !important;
+    padding: 6px 8px 5px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(210, 195, 175, 0.5) !important;
+    background: rgba(252, 248, 241, 0.92) !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .boardPlayerCardTop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    min-width: 0 !important;
+    position: relative !important;
+  }
+  .boardPage--strict .boardPlayerCard .avatar {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .userMeta {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .userMeta strong {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: var(--text-ink) !important;
+    line-height: 1.2 !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 80px !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .vipBadge {
+    display: block !important;
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    line-height: 1.1 !important;
+    margin-top: 1px !important;
+  }
+  .boardPage--strict .mobileDifficultyPill {
+    padding: 1px 6px !important;
+    border-radius: 999px !important;
+    background: rgba(214, 180, 122, 0.5) !important;
+    color: #5a4320 !important;
+    font-size: 8px !important;
+    letter-spacing: .06em !important;
+    font-weight: 700 !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 时钟展示框: 红方浅粉朱砂字, 黑方/AI浅灰黑灰字 */
+  .boardPage--strict .boardPlayerClockBlock {
+    margin-top: 3px !important;
+    padding: 3px 6px !important;
+    border-radius: 6px !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    background: rgba(42, 36, 31, 0.05) !important;
+  }
+  .boardPage--strict .boardPlayerCard[data-clock-card="RED"] .boardPlayerClockBlock,
+  .boardPage--strict .boardPlayerCard--self .boardPlayerClockBlock {
+    background: rgba(184, 46, 31, 0.08) !important;
+  }
+  .boardPage--strict .boardPlayerClock {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    color: var(--text-ink) !important;
+  }
+  .boardPage--strict .boardPlayerCard[data-clock-card="RED"] .boardPlayerClock,
+  .boardPage--strict .boardPlayerCard--self .boardPlayerClock {
+    color: var(--brand-cinnabar) !important;
+  }
+  .boardPage--strict .clockTimingStatus {
+    display: block !important;
+    font-size: 9px !important;
+    color: var(--text-muted) !important;
+    line-height: 1.1 !important;
+    margin-top: 1px !important;
+  }
+
+  /* 棋盘主体 (宿主饱满撑满, 规避缩水) */
+  .boardPage--strict .boardStage {
+    order: 2 !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+  .boardPage--strict .boardHost {
+    max-width: min(100%, 356px) !important;
+    width: 100% !important;
+    margin: 2px auto !important;
+    padding: 6px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+  }
+  .boardPage--strict .boardHost .xiangqiBoard,
+  .boardPage--strict .boardHost .gomokuBoard {
+    max-height: min(53vh, 420px) !important;
+    margin: 0 auto !important;
+  }
+
+  /* 操作按钮栏 (4个并排 ghost 按钮，单行水平结构) */
+  .boardPage--strict .woodActions {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+    margin: 4px auto 2px !important;
+    max-width: 356px !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  .boardPage--strict .woodActions button {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 4px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(210, 195, 175, 0.55) !important;
+    background: rgba(252, 248, 241, 0.82) !important;
+    color: var(--text-ink) !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .woodActions button .mobileIcon {
+    width: 14px !important;
+    height: 14px !important;
+    stroke-width: 1.6 !important;
+    flex-shrink: 0 !important;
+  }
+  .boardPage--strict .woodActions button span {
+    font-size: 12px !important;
+    white-space: nowrap !important;
+  }
+  .boardPage--strict .woodActions .actionBtn--resign,
+  .boardPage--strict .woodActions button.ghost.danger {
+    border-color: rgba(210, 195, 175, 0.4) !important;
+    color: var(--text-muted) !important;
+    background: rgba(252, 248, 241, 0.5) !important;
+  }
+
+  /* 棋盘/棋谱 Tab */
+  .boardPage--strict > .boardMobileTabs {
+    order: 3 !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 24px !important;
+    margin: 4px auto 2px !important;
+    padding: 0 !important;
+    max-width: 180px !important;
+    background: transparent !important;
+  }
+  .boardPage--strict > .boardMobileTabs button {
+    min-height: 30px !important;
+    height: 30px !important;
+    padding: 2px 8px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict > .boardMobileTabs button.btn,
+  .boardPage--strict > .boardMobileTabs button.is-active {
+    color: var(--brand-cinnabar) !important;
+    box-shadow: inset 0 -2px 0 var(--brand-cinnabar) !important;
+    font-weight: 700 !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0 !important;
+    max-width: 160px !important;
+    padding: 2px !important;
+    border-radius: 999px !important;
+    background: rgba(42, 36, 31, 0.07) !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button {
+    border-radius: 999px !important;
+    font-size: 12px !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button.btn,
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button.is-active {
+    background: var(--brand-cinnabar) !important;
+    color: #fff !important;
+    box-shadow: none !important;
+  }
+
+  /* 底部氛围水墨孤舟 */
+  .boardStageWatermark {
+    opacity: 0.16 !important;
+    max-height: 42px !important;
+    margin: 2px auto 0 !important;
+  }
+  .boardStageWatermark svg {
+    max-height: 40px !important;
+    width: auto !important;
+  }
+}
+
+
+/* === 20260924m4 hand polish (post-agy): ghost actions + hero wash ≤0.18 === */
+@media (max-width: 768px) {
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.17 !important;
+  }
+
+  .boardPage--strict .woodActions button {
+    background: transparent !important;
+    border: 1px solid rgba(90, 70, 50, 0.18) !important;
+    color: var(--text-ink-soft) !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .woodActions .actionBtn--resign,
+  .boardPage--strict .woodActions button.ghost.danger {
+    border-color: transparent !important;
+    color: var(--text-muted) !important;
+    background: transparent !important;
+    opacity: 0.78;
+  }
+
+  .boardPage--strict .boardPlayerCard,
+  .boardPage--strict .boardPlayerCard--ai,
+  .boardPage--strict .boardPlayerCard--self {
+    box-shadow: none !important;
+    border-color: rgba(210, 195, 175, 0.42) !important;
+  }
+
+  .mobileBottomNav,
+  .mobileBottomNav--strict {
+    background: var(--bg-paper-soft) !important;
+    border-top: 1px solid var(--line-soft) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: var(--brand-cinnabar-deep) !important;
+  }
+}
+
+/* === 20260924m5 Strict Align visual calibration (B→A; chatgpt-refs 01-04) === */
+@media (max-width: 768px) {
+  /* 01: 首页 Home - 宣纸通体、水墨淡洗 ≤0.18、朱砂印章、竹青五子按钮、紧凑对局列表 */
+  .mobileHero--strict {
+    margin: 0 10px 4px !important;
+    padding: 2px 4px 2px !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.16 !important;
+    height: 140px !important;
+    top: -20px !important;
+    background:
+      radial-gradient(ellipse at 70% 32%, rgba(70, 95, 105, 0.22), transparent 48%),
+      radial-gradient(ellipse at 25% 65%, rgba(135, 110, 85, 0.14), transparent 52%),
+      linear-gradient(180deg, transparent 45%, var(--bg-paper)) !important;
+  }
+  .mobileHero--strict h1 {
+    font-size: 24px !important;
+    letter-spacing: .08em !important;
+    margin: 2px 0 !important;
+  }
+  .mobileHero--strict p {
+    font-size: 12px !important;
+    margin: 0 0 10px !important;
+    color: var(--text-muted) !important;
+  }
+  .mobilePrimaryAction--cta {
+    min-height: 44px !important;
+    height: 44px !important;
+    padding: 0 20px !important;
+    border-radius: 8px !important;
+    border: 1px solid #701D11 !important;
+    background:
+      repeating-linear-gradient(-12deg, rgba(255,255,255,.04) 0 2px, transparent 2px 6px),
+      linear-gradient(180deg, #A83624 0%, #882618 60%, #6E1C10 100%) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(240, 215, 170, 0.35),
+      inset 0 1px 0 rgba(255,255,255,.22),
+      0 2px 6px rgba(110, 28, 16, 0.2) !important;
+  }
+
+  /* 五子棋入口卡片按钮 - 对齐 A-01 雅致竹青墨绿 */
+  .mobileGamePickBtn.is-pine {
+    background: linear-gradient(180deg, #3B5B4F 0%, #2B453C 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #1E342D !important;
+    border-radius: 6px !important;
+  }
+
+  /* 最近对局 - 轻量单行紧凑对齐，留出首屏从容呼吸空间 */
+  .mobileRecentSection {
+    margin: 4px 10px 4px !important;
+  }
+  .mobileRecentList--strict {
+    max-height: 146px !important;
+    padding: 0 !important;
+  }
+  .mobileRecentList--strict > button {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 2px 4px !important;
+    gap: 6px !important;
+    border-bottom: 1px solid rgba(210, 195, 175, 0.28) !important;
+  }
+
+  /* 02 & 03: 象棋在线与人机练习 - 玩家卡同壳、头像角标精准定位、时钟居中平衡 */
+  .boardPage--strict .clockGrid,
+  .boardPage--strict .practiceGrid {
+    gap: 8px !important;
+  }
+  .boardPage--strict .boardPlayerCard,
+  .boardPage--strict .boardPlayerCard--ai,
+  .boardPage--strict .boardPlayerCard--self {
+    min-height: 68px !important;
+    padding: 5px 8px 4px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(210, 195, 175, 0.45) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .boardPlayerCardTop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    position: relative !important;
+    min-width: 0 !important;
+  }
+  .boardPage--strict .boardPlayerCard .avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+  }
+  /* 红黑圆标紧贴头像右下角，脱离文档流不挤占名字空间 */
+  .boardPage--strict .mobileSideBadge {
+    position: absolute !important;
+    left: 20px !important;
+    bottom: -2px !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    font-size: 8px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1.2px solid #fff !important;
+    z-index: 2 !important;
+    line-height: 1 !important;
+  }
+  .boardPage--strict .mobileSideBadge.is-red {
+    background: var(--brand-cinnabar) !important;
+    color: #fff !important;
+  }
+  .boardPage--strict .mobileSideBadge.is-black {
+    background: #25221F !important;
+    color: #fff !important;
+  }
+  .boardPage--strict .mobileSideBadge.is-white {
+    background: #fbf9f5 !important;
+    color: #2c2a26 !important;
+    border-color: #8c8275 !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .userMeta {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .userMeta strong {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--text-ink) !important;
+    line-height: 1.2 !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 82px !important;
+  }
+  .boardPage--strict .boardPlayerCardTop .vipBadge {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    line-height: 1.15 !important;
+    margin-top: 1px !important;
+    white-space: nowrap !important;
+  }
+  .boardPage--strict .mobileDifficultyPill {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 0 4px !important;
+    height: 14px !important;
+    border-radius: 4px !important;
+    background: rgba(214, 180, 122, 0.45) !important;
+    color: #5a4320 !important;
+    font-size: 8px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    float: none !important;
+  }
+
+  /* 时钟展示框 - 居中对称、呼吸严谨 */
+  .boardPage--strict .boardPlayerClockBlock {
+    margin-top: 3px !important;
+    padding: 2px 4px !important;
+    border-radius: 5px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    background: rgba(42, 36, 31, 0.04) !important;
+  }
+  .boardPage--strict .boardPlayerCard[data-clock-card="RED"] .boardPlayerClockBlock,
+  .boardPage--strict .boardPlayerCard--self .boardPlayerClockBlock {
+    background: rgba(184, 46, 31, 0.07) !important;
+  }
+  .boardPage--strict .boardPlayerClock {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0.02em !important;
+    text-align: center !important;
+    width: 100% !important;
+    color: var(--text-ink) !important;
+  }
+  .boardPage--strict .boardPlayerCard[data-clock-card="RED"] .boardPlayerClock,
+  .boardPage--strict .boardPlayerCard--self .boardPlayerClock {
+    color: var(--brand-cinnabar) !important;
+  }
+  .boardPage--strict .clockTimingStatus {
+    display: block !important;
+    font-size: 9px !important;
+    color: var(--text-muted) !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin-top: 1px !important;
+  }
+  .boardPage--strict .turnBadge {
+    display: none !important;
+  }
+
+  /* 操作按钮组 - 浅米白微透明 ghost 质感，弱化认输 */
+  .boardPage--strict .woodActions button {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(210, 195, 175, 0.5) !important;
+    background: rgba(255, 255, 255, 0.72) !important;
+    color: var(--text-ink-soft) !important;
+    box-shadow: none !important;
+    font-size: 12px !important;
+  }
+  .boardPage--strict .woodActions button:disabled {
+    opacity: 0.55 !important;
+  }
+  .boardPage--strict .woodActions .actionBtn--resign,
+  .boardPage--strict .woodActions button.ghost.danger {
+    background: rgba(255, 255, 255, 0.55) !important;
+    border: 1px solid rgba(210, 195, 175, 0.35) !important;
+    color: var(--text-muted) !important;
+    opacity: 0.8 !important;
+  }
+
+  /* 02 & 03: 居中药丸「棋盘 / 棋谱」胶囊 Tab (白底细边框、平直朱砂红下划线标记) */
+  .boardPage--strict > .boardMobileTabs {
+    order: 3 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    max-width: 156px !important;
+    width: 156px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    margin: 4px auto 2px !important;
+    padding: 1px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(210, 195, 175, 0.5) !important;
+    box-sizing: border-box !important;
+  }
+  .boardPage--strict > .boardMobileTabs button {
+    flex: 1 1 50% !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    line-height: 24px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+    text-align: center !important;
+    position: relative !important;
+  }
+  .boardPage--strict > .boardMobileTabs button.btn,
+  .boardPage--strict > .boardMobileTabs button.is-active {
+    color: var(--brand-cinnabar) !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict > .boardMobileTabs button.btn::after,
+  .boardPage--strict > .boardMobileTabs button.is-active::after {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 2px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 22px !important;
+    height: 2px !important;
+    background: var(--brand-cinnabar) !important;
+    border-radius: 1px !important;
+  }
+
+  /* 04: 五子棋专属「棋盘 / 棋谱」药丸胶囊 (深朱砂实心选中态) */
+  .boardPage--strict.gomokuTheme > .boardMobileTabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0 !important;
+    max-width: 150px !important;
+    width: 150px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 2px !important;
+    border-radius: 999px !important;
+    background: rgba(240, 235, 225, 0.75) !important;
+    border: 1px solid rgba(210, 195, 175, 0.55) !important;
+    margin: 4px auto !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button {
+    height: 22px !important;
+    min-height: 22px !important;
+    line-height: 22px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button::after {
+    display: none !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button.btn,
+  .boardPage--strict.gomokuTheme > .boardMobileTabs button.is-active {
+    background: #8b2b24 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+  }
+
+  /* 底栏统一 - 宣纸底色与朱砂高亮 */
+  .mobileBottomNav,
+  .mobileBottomNav--strict {
+    background: var(--bg-paper-soft) !important;
+    border-top: 1px solid rgba(210, 195, 175, 0.45) !important;
+  }
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: var(--brand-cinnabar-deep) !important;
+  }
+}
+
+
+/* === 20260924m5 hand polish (post-agy): true ghost actions + wash ≤0.18 === */
+@media (max-width: 768px) {
+  /* Hero 山水淡洗：略提可见度但仍 ≤0.18，非摄影级 */
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.17 !important;
+  }
+
+  /* 操作钮真正透明 ghost（对齐 A 木纹描边感）；认输继续弱化 */
+  .boardPage--strict .woodActions button {
+    background: transparent !important;
+    border: 1px solid rgba(90, 70, 50, 0.18) !important;
+    color: var(--text-ink-soft) !important;
+    box-shadow: none !important;
+  }
+  .boardPage--strict .woodActions .actionBtn--resign,
+  .boardPage--strict .woodActions button.ghost.danger {
+    border-color: transparent !important;
+    color: var(--text-muted) !important;
+    background: transparent !important;
+    opacity: 0.78 !important;
+  }
+
+  /* 盘外氛围水墨孤舟 / 篓：可见但不遮盘 */
+  .boardStageWatermark {
+    opacity: 0.16 !important;
+    max-height: 42px !important;
+  }
+
+  /* 棋类卡再降阴影厚卡感 */
+  .mobileGamePickCard,
+  .mobileGamePick--strict .mobileGamePickCard {
+    box-shadow: none !important;
+  }
+}
+
+/* === 20260924m6 Home-only Strict Align (B→A; chatgpt-refs/01-home.png) === */
+@media (max-width: 768px) {
+  /* 01: 首页背景与整体纸感 */
+  .mobileHome--strict {
+    background:
+      radial-gradient(ellipse at 72% 6%, rgba(215, 95, 60, 0.08), transparent 32%),
+      radial-gradient(ellipse at 20% 18%, rgba(65, 88, 75, 0.05), transparent 35%),
+      linear-gradient(180deg, #FAF6EE 0%, #F5EFE4 45%, #EFE7DA 100%) !important;
+    padding-top: max(6px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(62px, calc(52px + env(safe-area-inset-bottom))) !important;
+  }
+
+  /* Header 品牌与右侧动作 */
+  .mobileAppHeader--strict {
+    padding: 6px 14px 2px !important;
+  }
+  .mobileBrand strong {
+    font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", serif !important;
+    font-size: 19px !important;
+    color: var(--text-ink) !important;
+    letter-spacing: 0.04em !important;
+  }
+  .mobileBrand strong::after {
+    content: "印" !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 12px !important;
+    height: 12px !important;
+    font-size: 8px !important;
+    background: var(--brand-cinnabar) !important;
+    color: #ffffff !important;
+    border-radius: 2px !important;
+    margin-left: 4px !important;
+    vertical-align: middle !important;
+    font-family: sans-serif !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+  }
+  .mobileBrand small {
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    letter-spacing: 0.06em !important;
+    margin-top: 1px !important;
+  }
+  .mobileHeaderActions .mobileProfileButton {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 35%, #F7EFE2, #E8D7BE) !important;
+    border: 1.5px solid rgba(184, 155, 120, 0.65) !important;
+    color: #5A3825 !important;
+    font-family: "Source Han Serif SC", "Songti SC", serif !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 2px 5px rgba(80, 55, 30, 0.1) !important;
+  }
+
+  /* 01.1: Hero 空间与山水淡洗氛围 (严守 opacity ≤ 0.18，纯 CSS 水墨淡洗，非摄影级) */
+  .mobileHero--strict {
+    margin: 2px 12px 6px !important;
+    padding: 6px 6px 4px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    text-align: center !important;
+  }
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.17 !important;
+    height: 160px !important;
+    top: -24px !important;
+    background:
+      /* 朝阳柔光 */
+      radial-gradient(circle at 74% 20%, rgba(225, 95, 55, 0.45) 0%, rgba(225, 115, 75, 0.18) 18%, transparent 35%),
+      /* 远山右翼层次 */
+      radial-gradient(ellipse at 88% 42%, rgba(55, 80, 85, 0.35) 0%, transparent 48%),
+      /* 远山左侧竹影墨意 */
+      radial-gradient(ellipse at 12% 48%, rgba(60, 85, 75, 0.28) 0%, transparent 46%),
+      /* 中景山水淡墨 */
+      radial-gradient(ellipse at 50% 66%, rgba(110, 95, 75, 0.22) 0%, transparent 54%),
+      /* 底部自然融入宣纸 */
+      linear-gradient(180deg, transparent 35%, var(--bg-paper) 92%) !important;
+    pointer-events: none !important;
+  }
+  .mobileHero--strict h1 {
+    font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "SimSun", serif !important;
+    font-size: 25px !important;
+    letter-spacing: 0.12em !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 3px 0 2px !important;
+    line-height: 1.25 !important;
+  }
+  .mobileHero--strict p {
+    font-size: 13px !important;
+    color: #7D7062 !important;
+    letter-spacing: 0.05em !important;
+    margin: 2px 0 14px !important;
+    line-height: 1.3 !important;
+  }
+
+  /* 01.2: 人机练习 主 CTA - 深朱砂印章 / 木牌入口 (内圈金细线与精致圆章) */
+  .mobileHero--strict .mobilePrimaryAction--cta {
+    position: relative !important;
+    min-height: 46px !important;
+    height: 46px !important;
+    max-width: 256px !important;
+    width: 256px !important;
+    margin: 0 auto !important;
+    padding: 0 18px !important;
+    border-radius: 10px !important;
+    border: 1px solid #5E140B !important;
+    background:
+      repeating-linear-gradient(-12deg, rgba(255,255,255,.035) 0 2px, transparent 2px 6px),
+      linear-gradient(180deg, #A43224 0%, #872318 60%, #6D1B10 100%) !important;
+    box-shadow:
+      0 4px 12px rgba(110, 28, 16, 0.28),
+      0 1px 2px rgba(0, 0, 0, 0.12) !important;
+    letter-spacing: .18em !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+  .mobileHero--strict .mobilePrimaryAction--cta::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 3px !important;
+    border: 1px solid rgba(235, 198, 142, 0.65) !important;
+    border-radius: 7px !important;
+    pointer-events: none !important;
+  }
+  .mobileHero--strict .mobilePrimaryAction--cta .mobileCtaGlyph {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 50% !important;
+    background: #FFFFFF !important;
+    color: #8B251B !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+    border: none !important;
+    flex-shrink: 0 !important;
+  }
+  .mobileHero--strict .mobilePrimaryAction--cta .mobileCtaGlyph .mobileIcon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  .mobileHero--strict .mobilePrimaryAction--cta .mobileCtaArrow {
+    font-size: 16px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    margin-left: 2px !important;
+  }
+
+  /* 01.3: 双功能卡 (在线对局 / 快速匹配) - 宣纸功能牌 */
+  .mobileDualEntry {
+    margin: 6px 12px 6px !important;
+    gap: 8px !important;
+  }
+  .mobileEntryCard {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 12px !important;
+    min-height: 48px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(220, 206, 188, 0.65) !important;
+    background: rgba(253, 249, 242, 0.92) !important;
+    box-shadow: 0 1px 4px rgba(100, 80, 50, 0.04) !important;
+  }
+  .mobileEntryCard .mobileEntryIcon {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: #EBDCC9 !important;
+    display: grid !important;
+    place-items: center !important;
+    color: #5A412B !important;
+    flex-shrink: 0 !important;
+  }
+  .mobileEntryCard .mobileEntryIcon .mobileIcon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .mobileEntryCard > span:nth-child(2) {
+    flex: 1 1 auto !important;
+    text-align: left !important;
+    margin-left: 8px !important;
+  }
+  .mobileEntryCard strong {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #281F18 !important;
+    display: block !important;
+    line-height: 1.25 !important;
+  }
+  .mobileEntryCard small {
+    font-size: 11px !important;
+    color: #827363 !important;
+    display: block !important;
+    line-height: 1.2 !important;
+    margin-top: 2px !important;
+  }
+  .mobileCardArrow {
+    color: #B0A292 !important;
+    font-size: 15px !important;
+    flex-shrink: 0 !important;
+    margin-left: 4px !important;
+  }
+
+  /* 01.4: 棋类选择卡 (象棋 木色朱砂 vs 五子棋 竹青墨绿) */
+  .mobileSection.mobileGamePick {
+    margin: 6px 12px 6px !important;
+  }
+  .mobileGamePick .mobileSectionHead {
+    margin-bottom: 6px !important;
+  }
+  .mobileGamePick .mobileSectionHead h2 {
+    font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", serif !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #241D17 !important;
+  }
+  .mobileGamePick .mobileSectionHead button {
+    font-size: 12px !important;
+    color: #8A7A6A !important;
+  }
+  .mobileGamePickGrid {
+    gap: 10px !important;
+  }
+  .mobileGamePickCard {
+    position: relative !important;
+    overflow: hidden !important;
+    min-height: 140px !important;
+    padding: 12px 12px 10px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 6px rgba(100, 80, 50, 0.05) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  .mobileGamePickCard--xiangqi {
+    background:
+      radial-gradient(circle at 82% 62%, rgba(205, 155, 95, 0.18) 0%, transparent 60%),
+      linear-gradient(180deg, #F9F4EC 0%, #F6ECE0 55%, #ECDCC8 100%) !important;
+    border: 1px solid rgba(216, 196, 172, 0.65) !important;
+  }
+  .mobileGamePickCard--gomoku {
+    background:
+      radial-gradient(circle at 82% 62%, rgba(95, 140, 115, 0.18) 0%, transparent 60%),
+      linear-gradient(180deg, #F7FAF8 0%, #EDF5F0 55%, #DCE8E0 100%) !important;
+    border: 1px solid rgba(192, 210, 198, 0.65) !important;
+  }
+  .mobileGamePickCard h3 {
+    font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", serif !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #241D17 !important;
+    margin: 0 0 2px !important;
+    line-height: 1.2 !important;
+  }
+  .mobileGamePickCard p {
+    font-size: 11px !important;
+    color: #827363 !important;
+    line-height: 1.25 !important;
+    margin: 0 0 10px !important;
+  }
+  /* 象棋木印艺术区 (CSS 近似，非真实外部插画) */
+  .mobileGamePickCard--xiangqi .mobileGamePickArt {
+    position: absolute !important;
+    right: 8px !important;
+    bottom: 8px !important;
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 35%, #F6DEB6, #D8AA6E 65%, #B98448 100%) !important;
+    border: 2px solid #B87B42 !important;
+    box-shadow: inset 0 0 0 2px #EED09D, inset 0 0 6px rgba(120, 60, 20, 0.35), 0 3px 8px rgba(90, 60, 30, 0.2) !important;
+    display: grid !important;
+    place-items: center !important;
+    pointer-events: none !important;
+  }
+  .mobileGamePickCard--xiangqi .mobileGamePickArt::after {
+    content: "帥" !important;
+    font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", serif !important;
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    color: #A8281B !important;
+    line-height: 1 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  }
+  /* 五子棋黑白子艺术区 (CSS 近似，非真实外部插画) */
+  .mobileGamePickCard--gomoku .mobileGamePickArt {
+    position: absolute !important;
+    right: 8px !important;
+    bottom: 10px !important;
+    width: 50px !important;
+    height: 38px !important;
+    pointer-events: none !important;
+  }
+  .mobileGamePickCard--gomoku .mobileGamePickArt::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 2px !important;
+    top: 5px !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, #FFFFFF 0%, #EBE7DF 55%, #CFC8BE 100%) !important;
+    box-shadow: 0 2px 5px rgba(40, 55, 45, 0.2), inset 0 1px 1px #FFF !important;
+  }
+  .mobileGamePickCard--gomoku .mobileGamePickArt::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 2px !important;
+    bottom: 0 !important;
+    width: 25px !important;
+    height: 25px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, #4A544F 0%, #202623 60%, #111413 100%) !important;
+    box-shadow: 0 3px 6px rgba(20, 30, 25, 0.3) !important;
+  }
+  .mobileGamePickBtn {
+    align-self: flex-start !important;
+    padding: 3px 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    border-radius: 999px !important;
+    line-height: 20px !important;
+    letter-spacing: 0.04em !important;
+  }
+  .mobileGamePickBtn.is-cinnabar {
+    background: linear-gradient(180deg, #992C23 0%, #7D1E15 100%) !important;
+    border: 1px solid #6B170F !important;
+    color: #FFFFFF !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(110, 28, 16, 0.18) !important;
+  }
+  .mobileGamePickBtn.is-pine {
+    background: linear-gradient(180deg, #3B5B4F 0%, #29443A 100%) !important;
+    border: 1px solid #1C322A !important;
+    color: #FFFFFF !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(35, 65, 50, 0.18) !important;
+  }
+
+  /* 01.5: 工具入口 (新手教学/棋谱库/赛事活动/排行榜) - 纯轻量温润四列 */
+  .mobileToolGrid {
+    margin: 6px 12px 6px !important;
+    gap: 6px !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .mobileToolGrid button {
+    padding: 3px 2px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .mobileToolGrid .mobileToolIcon {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    background: #EBDCC9 !important;
+    display: grid !important;
+    place-items: center !important;
+    color: #5A412B !important;
+    margin-bottom: 3px !important;
+    box-shadow: 0 1px 3px rgba(80, 60, 40, 0.08) !important;
+  }
+  .mobileToolGrid .mobileToolIcon .mobileIcon {
+    width: 19px !important;
+    height: 19px !important;
+  }
+  .mobileToolGrid button strong {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #281F18 !important;
+    margin-top: 1px !important;
+    line-height: 1.2 !important;
+  }
+  .mobileToolGrid button small {
+    font-size: 10px !important;
+    color: #827363 !important;
+    line-height: 1.15 !important;
+    transform: none !important;
+  }
+
+  /* 01.6: 最近对局 - 轻列表、首字印章头像、胜负与状态位置精准对齐 */
+  .mobileRecentSection {
+    margin: 6px 12px 6px !important;
+  }
+  .mobileRecentSection .mobileSectionHead {
+    margin-bottom: 4px !important;
+  }
+  .mobileRecentSection .mobileSectionHead h2 {
+    font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", serif !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #241D17 !important;
+  }
+  .mobileRecentSection .mobileSectionHead button {
+    font-size: 12px !important;
+    color: #8A7A6A !important;
+  }
+  .mobileRecentList--strict {
+    max-height: 114px !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+  }
+  .mobileRecentList--strict > button {
+    display: grid !important;
+    grid-template-columns: 32px minmax(0, 1fr) auto auto 12px !important;
+    align-items: center !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 2px 4px !important;
+    gap: 8px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(216, 202, 184, 0.35) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .mobileRecentAvatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 35%, #F6EEE0, #EBDCC7) !important;
+    color: #5A3C26 !important;
+    border: 1.5px solid rgba(195, 172, 142, 0.6) !important;
+    box-shadow: 0 1px 3px rgba(80, 60, 40, 0.08) !important;
+    display: grid !important;
+    place-items: center !important;
+    font-family: "Source Han Serif SC", "Songti SC", serif !important;
+  }
+  .mobileRecentMain {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+  }
+  .mobileRecentMain strong {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #261E17 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .mobileRecentTag {
+    font-size: 10px !important;
+    padding: 1px 5px !important;
+    border-radius: 4px !important;
+    margin-left: 6px !important;
+    font-weight: 500 !important;
+    flex-shrink: 0 !important;
+  }
+  .mobileRecentTag.is-xiangqi {
+    background: rgba(184, 46, 31, 0.1) !important;
+    color: #9E2A1C !important;
+  }
+  .mobileRecentTag.is-gomoku {
+    background: rgba(59, 91, 79, 0.12) !important;
+    color: #3B5B4F !important;
+  }
+  .mobileRecentResult {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    margin-right: 2px !important;
+    color: #7A6E60 !important;
+    flex-shrink: 0 !important;
+  }
+  .mobileRecentResult.is-win { color: #2E7D56 !important; }
+  .mobileRecentResult.is-loss { color: #A6392F !important; }
+  .mobileRecentTime {
+    font-size: 11px !important;
+    color: #9C8E7E !important;
+    margin-right: 2px !important;
+    flex-shrink: 0 !important;
+  }
+  .mobileRecentList--strict > button .mobileIcon {
+    color: #B8ABA0 !important;
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+
+/* === 20260924m6 hand polish (post-agy): home wash ≤0.18 + CTA plaque + pick ink === */
+@media (max-width: 768px) {
+  /* 山水淡洗：提高结构可读性，仍严守 opacity ≤ 0.18，非摄影级 */
+  .mobileHero--strict .mobileHeroWash {
+    opacity: 0.18 !important;
+    height: 175px !important;
+    top: -28px !important;
+    filter: saturate(0.7) contrast(1.05) !important;
+    background:
+      /* 朝阳 */
+      radial-gradient(circle at 76% 18%, rgba(230, 110, 55, 0.55) 0%, rgba(220, 100, 50, 0.22) 16%, transparent 34%),
+      /* 右翼远山/亭影 */
+      radial-gradient(ellipse 90px 55px at 88% 40%, rgba(55, 75, 80, 0.42) 0%, transparent 70%),
+      radial-gradient(ellipse 70px 40px at 70% 48%, rgba(70, 90, 95, 0.28) 0%, transparent 72%),
+      /* 左翼竹影墨意 */
+      radial-gradient(ellipse 60px 90px at 8% 35%, rgba(45, 75, 60, 0.32) 0%, transparent 68%),
+      radial-gradient(ellipse 40px 70px at 18% 55%, rgba(55, 85, 70, 0.22) 0%, transparent 70%),
+      /* 中景淡峦 */
+      radial-gradient(ellipse at 48% 62%, rgba(100, 90, 75, 0.26) 0%, transparent 55%),
+      /* 融入宣纸 */
+      linear-gradient(180deg, transparent 30%, rgba(250, 246, 238, 0.55) 70%, var(--bg-paper) 100%) !important;
+  }
+
+  /* 标题与 CTA 呼吸：略拉开间距；CTA 更近 A 的宽木牌（非胶囊） */
+  .mobileHero--strict h1 {
+    margin: 6px 0 4px !important;
+  }
+  .mobileHero--strict p {
+    margin: 0 0 16px !important;
+  }
+  .mobileHero--strict .mobilePrimaryAction--cta {
+    max-width: min(300px, calc(100% - 8px)) !important;
+    width: min(300px, calc(100% - 8px)) !important;
+    border-radius: 8px !important;
+    min-height: 48px !important;
+    height: 48px !important;
+  }
+  .mobileHero--strict .mobilePrimaryAction--cta::before {
+    inset: 4px !important;
+    border-color: rgba(245, 220, 175, 0.75) !important;
+    border-radius: 5px !important;
+  }
+
+  /* 品牌后微标：改为无字小方印，避免生硬「印」字 */
+  .mobileBrand strong::after {
+    content: "" !important;
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 2px !important;
+    background:
+      linear-gradient(135deg, #A43224 0%, #7A1C12 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35) !important;
+    margin-left: 5px !important;
+    vertical-align: 2px !important;
+  }
+
+  /* 棋类卡：补一层远山/竹青淡洗（CSS 近似），按钮不被艺术区遮挡 */
+  .mobileGamePickCard--xiangqi {
+    background:
+      radial-gradient(ellipse at 78% 28%, rgba(90, 110, 120, 0.14) 0%, transparent 55%),
+      radial-gradient(circle at 82% 70%, rgba(205, 155, 95, 0.22) 0%, transparent 58%),
+      linear-gradient(180deg, #F9F4EC 0%, #F3E8D8 58%, #E8D4BC 100%) !important;
+  }
+  .mobileGamePickCard--gomoku {
+    background:
+      radial-gradient(ellipse at 85% 22%, rgba(70, 110, 85, 0.16) 0%, transparent 50%),
+      radial-gradient(circle at 82% 70%, rgba(95, 140, 115, 0.2) 0%, transparent 58%),
+      linear-gradient(180deg, #F7FAF8 0%, #EAF3EE 58%, #D5E4DA 100%) !important;
+  }
+  .mobileGamePickCard--xiangqi .mobileGamePickArt,
+  .mobileGamePickCard--gomoku .mobileGamePickArt {
+    z-index: 1 !important;
+  }
+  .mobileGamePickBtn {
+    position: relative !important;
+    z-index: 2 !important;
+  }
+
+  /* 头像印章圆：略加强朱砂描边感（仍为首字，非写真） */
+  .mobileHeaderActions .mobileProfileButton {
+    border-color: rgba(168, 70, 50, 0.45) !important;
+    color: #7A2E22 !important;
+  }
+}
+
+/* === 20260924m7 gomoku layout order === */
+@media (max-width: 768px) {
+  /* 标题(0) → 玩家(1) → 棋盘(2) → 操作按钮(3) → 棋盘/棋谱 Tab(4) → 水印(5) → 底栏 */
+  .boardPage--strict.gomokuTheme .woodActions {
+    order: 3 !important;
+  }
+  .boardPage--strict.gomokuTheme > .boardMobileTabs,
+  .boardPage--strict.gomokuTheme .boardMobileTabs {
+    order: 4 !important;
+  }
+  .boardPage--strict.gomokuTheme .boardStageWatermark {
+    order: 5 !important;
+  }
+  .boardPage--strict.gomokuTheme .boardSidebar {
+    order: 6 !important;
+  }
+}
+
+
+/* === 20260924m8 tabs Strict Align === */
+@media (max-width: 768px) {
+  /* 00: 全局宣纸底色与页顶水墨淡洗 (≤0.18) */
+  .mobileLobby,
+  .mobileContentPage {
+    position: relative !important;
+    background: #FAF7F0 !important;
+    min-height: 100dvh !important;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+  }
+
+  .mobileLobby::before,
+  .mobileContentPage::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 190px !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    opacity: 0.16 !important;
+    filter: saturate(0.75) contrast(1.05) !important;
+    background:
+      /* 朝阳 */
+      radial-gradient(circle 38px at 80% 20%, rgba(225, 95, 45, 0.65) 0%, rgba(220, 100, 50, 0.22) 55%, transparent 100%),
+      /* 远山淡峦 (右) */
+      radial-gradient(ellipse 95px 60px at 88% 42%, rgba(55, 75, 80, 0.45) 0%, transparent 72%),
+      radial-gradient(ellipse 75px 45px at 72% 50%, rgba(70, 90, 95, 0.32) 0%, transparent 72%),
+      /* 左侧竹影墨意 */
+      radial-gradient(ellipse 65px 95px at 8% 30%, rgba(45, 75, 60, 0.38) 0%, transparent 68%),
+      radial-gradient(ellipse 45px 75px at 16% 50%, rgba(55, 85, 70, 0.25) 0%, transparent 70%),
+      /* 中景淡洗 */
+      radial-gradient(ellipse at 50% 60%, rgba(100, 90, 75, 0.24) 0%, transparent 55%),
+      /* 融入宣纸 */
+      linear-gradient(180deg, transparent 35%, rgba(250, 247, 240, 0.6) 75%, #FAF7F0 100%) !important;
+  }
+
+  .mobileContentHeader,
+  .mobileContentBody,
+  .mobileLobbyLead,
+  .mobileRoomDisclosure,
+  .profilePage,
+  .learnPage,
+  .watchHero,
+  .watchStage,
+  .watchReplayStage {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* 页头统一 */
+  .mobileContentHeader {
+    min-height: 70px !important;
+    padding: max(10px, env(safe-area-inset-top)) 16px 6px !important;
+    background: transparent !important;
+  }
+
+  .mobileContentHeader > button {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(210, 195, 175, 0.55) !important;
+    background: rgba(252, 249, 242, 0.9) !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 30, 0.04) !important;
+    color: var(--text-ink) !important;
+  }
+
+  .mobileContentHeader span {
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.16em !important;
+  }
+
+  .mobileContentHeader h1 {
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 2px 0 0 !important;
+  }
+
+  /* ===== 章 02：对局 A-02 Strict Align ===== */
+  .mobileLobbyLead {
+    margin: 8px 14px 12px !important;
+    padding: 18px 16px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+  }
+
+  .mobileLobbyLead .mobileEyebrow {
+    display: inline-block !important;
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em !important;
+  }
+
+  .mobileLobbyLead h2 {
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    font-size: 23px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 6px 0 14px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileLobbyPrimaryActions {
+    display: grid !important;
+    gap: 10px !important;
+  }
+
+  /* 快速匹配：朱砂主入口木牌质感 */
+  .mobileLobbyPrimaryActions > .mobilePrimaryAction {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-height: 64px !important;
+    padding: 10px 16px !important;
+    border: none !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, #A43224 0%, #832015 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.35), 0 4px 14px rgba(139, 43, 36, 0.22) !important;
+    color: #fff !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+
+  .mobilePrimaryAction .mobilePrimaryIcon,
+  .mobilePrimaryAction > .mobileIcon {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.18) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #FFDEB5 !important;
+  }
+
+  .mobilePrimaryAction .mobilePrimaryIcon .mobileIcon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .mobilePrimaryAction .mobileActionTexts,
+  .mobilePrimaryAction > div {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .mobilePrimaryAction span,
+  .mobilePrimaryAction strong {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .mobilePrimaryAction small {
+    color: rgba(255, 255, 255, 0.76) !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  .mobilePrimaryAction .mobileActionArrow,
+  .mobilePrimaryAction > svg:last-child {
+    color: rgba(255, 255, 255, 0.6) !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-left: auto !important;
+  }
+
+  /* 人机练习：次级描边纸牌 */
+  .mobileLobbyCta {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-height: 64px !important;
+    padding: 10px 16px !important;
+    border: 1px solid rgba(215, 200, 180, 0.65) !important;
+    border-radius: 14px !important;
+    background: #FAF6EF !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    color: #231C16 !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+
+  .mobileLobbyCta .mobileCtaIcon,
+  .mobileLobbyCta > .mobileIcon {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #5A4738 !important;
+  }
+
+  .mobileLobbyCta .mobileCtaIcon .mobileIcon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .mobileLobbyCta .mobileActionTexts {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .mobileLobbyCta span,
+  .mobileLobbyCta strong {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileLobbyCta small {
+    color: #7E7365 !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileLobbyCta .mobileActionArrow {
+    color: #B0A294 !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-left: auto !important;
+  }
+
+  /* 好友房 / 房间码区 */
+  .mobileRoomComposer {
+    padding: 12px 14px !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    border-radius: 14px !important;
+    background: #FAF6EF !important;
+  }
+
+  .mobileRoomComposer > .mobileCreateRoomBtn,
+  .mobileRoomComposer > button:first-child {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    padding: 4px 0 10px !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(215, 200, 180, 0.45) !important;
+    background: transparent !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+
+  .mobileCreateRoomBtn .mobileActionTexts,
+  .mobileRoomComposer .mobileActionTexts {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileCreateRoomBtn .mobileActionTexts strong {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileCreateRoomBtn .mobileActionTexts small {
+    font-size: 11px !important;
+    color: #7E7365 !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileComposerIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #5A4738 !important;
+  }
+
+  .mobileComposerIcon .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobilePieceDeco {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #A43224 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+    box-shadow: 0 2px 5px rgba(60, 45, 25, 0.12) !important;
+    margin-left: auto !important;
+  }
+
+  .mobileRoomComposer label {
+    display: block !important;
+    padding: 10px 0 2px !important;
+    color: #7E7365 !important;
+    font-size: 12px !important;
+  }
+
+  .mobileJoinRow {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 72px !important;
+    gap: 8px !important;
+    margin-top: 6px !important;
+  }
+
+  .mobileJoinRow input {
+    background: #FCFAF6 !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    border-radius: 10px !important;
+    min-height: 44px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    color: #231C16 !important;
+  }
+
+  .mobileJoinRow button {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  /* 公开候场 */
+  .mobileRoomDisclosure {
+    margin: 0 14px 16px !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    box-shadow: 0 3px 12px rgba(70, 50, 30, 0.03) !important;
+  }
+
+  .mobileRoomDisclosure > summary {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    min-height: 60px !important;
+    padding: 10px 14px !important;
+  }
+
+  .mobileDisclosureLeft {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  .mobileDisclosureIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #5A4738 !important;
+  }
+
+  .mobileDisclosureIcon .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobileRoomDisclosure summary strong {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileRoomDisclosure summary small {
+    color: #7E7365 !important;
+    font-size: 11px !important;
+  }
+
+  .mobileRoomDisclosure > summary > svg:last-child {
+    color: #B0A294 !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* ===== 章 03：棋谱 A-03 Strict Align ===== */
+  .mobileContentPage--learn .learnPage > .hero {
+    margin: 8px 14px 12px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 6px 0 4px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft p {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    line-height: 1.55 !important;
+    margin: 0 !important;
+  }
+
+  .mobileContentPage--learn .learnEndgameCta {
+    width: auto !important;
+    max-width: 280px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(139, 46, 33, 0.35) !important;
+    background: linear-gradient(180deg, #963529 0%, #7E261C 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 8px rgba(139, 46, 33, 0.18) !important;
+    color: #FFF9F0 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.04em !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    box-sizing: border-box !important;
+  }
+
+  @media (max-width: 480px) {
+    .mobileContentPage--learn .learnEndgameCta {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  }
+
+  .mobileContentPage--learn .learnEndgameCta:active {
+    background: linear-gradient(180deg, #7E261C 0%, #6E1E15 100%) !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .mobileContentPage--learn .learnEndgameCta .mobileIcon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .mobileContentPage--learn .searchFieldLabel {
+    display: none !important;
+  }
+
+  .mobileContentPage--learn .searchBar--learn {
+    background: #FCFAF6 !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    border-radius: 10px !important;
+    min-height: 42px !important;
+    padding: 0 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    margin-top: 4px !important;
+  }
+
+  .mobileContentPage--learn .searchBar--learn input {
+    background: transparent !important;
+    border: none !important;
+    font-size: 13px !important;
+    color: #231C16 !important;
+  }
+
+  /* 棋谱 filter pills: active 朱砂实心 */
+  .mobileContentPage--learn .learnTabs {
+    padding: 0 14px 8px !important;
+    margin-bottom: 8px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.6) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 6px 14px !important;
+    min-height: 32px !important;
+    font-weight: 500 !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill.is-active {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border-color: #8C2E21 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(140, 46, 33, 0.25) !important;
+  }
+
+  /* 棋谱卡片 */
+  .mobileContentPage--learn .learnCard {
+    margin: 0 14px 10px !important;
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before {
+    content: "帥" !important;
+    position: absolute !important;
+    right: 14px !important;
+    top: 18px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #A43224 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 25, 0.12) !important;
+    opacity: 0.8 !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    content: "將" !important;
+    position: absolute !important;
+    right: 14px !important;
+    top: 18px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #231C16 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 17px !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 25, 0.12) !important;
+    opacity: 0.8 !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--learn .learnCardBadge {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35) !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo h3 {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo .muted {
+    font-size: 11px !important;
+    color: #8C7D6E !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-learn-complete] {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-action="view-tutorial-detail"] {
+    background: #FAF6EE !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    color: #4A3E33 !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-size: 13px !important;
+  }
+
+  /* ===== 章 04：观战 A-04 Strict Align ===== */
+  .mobileContentPage--watch .watchHero {
+    margin: 8px 14px 12px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  .mobileContentPage--watch .watchHero::after {
+    content: "觀" !important;
+    position: absolute !important;
+    right: 8px !important;
+    top: -10px !important;
+    font-size: 110px !important;
+    font-family: var(--font-serif, "Noto Serif SC", "Songti SC", serif) !important;
+    color: #6B5542 !important;
+    opacity: 0.08 !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchEyebrow {
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveDot {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--brand-cinnabar) !important;
+    display: inline-block !important;
+  }
+
+  .mobileContentPage--watch .watchHero h1 {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 6px 0 4px !important;
+  }
+
+  .mobileContentPage--watch .watchHero p {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+    max-width: 240px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount {
+    position: relative !important;
+    z-index: 1 !important;
+    background: rgba(245, 238, 225, 0.9) !important;
+    border: 1px solid rgba(215, 195, 175, 0.6) !important;
+    border-radius: 999px !important;
+    padding: 5px 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 3px !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount strong {
+    color: var(--brand-cinnabar) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount span {
+    font-size: 11px !important;
+    color: #5A4738 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchToolbar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 14px 10px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters {
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.6) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 5px 14px !important;
+    min-height: 32px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button.is-active {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border-color: #8C2E21 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(140, 46, 33, 0.25) !important;
+  }
+
+  .mobileContentPage--watch .watchRefresh {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.6) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 5px 12px !important;
+    min-height: 32px !important;
+    white-space: nowrap !important;
+  }
+
+  /* 观战对局卡 */
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 10px !important;
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--watch .watchMatchCard::before {
+    content: "帥" !important;
+    position: absolute !important;
+    right: 18px !important;
+    top: 36px !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    border: 1.5px solid #C4A57B !important;
+    color: #A43224 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 18px !important;
+    box-shadow: 0 2px 6px rgba(60, 45, 25, 0.14) !important;
+    opacity: 0.9 !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--watch .watchGameTag {
+    background: rgba(215, 195, 170, 0.3) !important;
+    color: #5A4738 !important;
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+  }
+
+  .mobileContentPage--watch .watchNow {
+    color: var(--brand-cinnabar) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+
+  .mobileContentPage--watch .watchNow i {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--brand-cinnabar) !important;
+    display: inline-block !important;
+    margin-right: 3px !important;
+  }
+
+  .watchGameSeal {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 13px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+  }
+  .watchGameSeal.is-red {
+    background: #8C2E21 !important;
+  }
+  .watchGameSeal.is-green {
+    background: #315C4D !important;
+  }
+
+  .mobileContentPage--watch .watchCardTop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    max-width: 230px !important;
+  }
+
+  .mobileContentPage--watch .watchCardTop .watchNow {
+    margin-left: auto !important;
+  }
+
+  .mobileContentPage--watch .watchPlayers {
+    font-size: 14px !important;
+    margin: 10px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    max-width: 230px !important;
+  }
+
+  .watchPlayer {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .watchAvatar {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    border: 1px solid rgba(190, 165, 140, 0.4) !important;
+    color: #5A4738 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .watchPlayerInfo {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+  }
+
+  .watchPlayerInfo strong {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 72px !important;
+  }
+
+  .watchPlayerInfo small {
+    font-size: 10px !important;
+    color: #8C7D6E !important;
+  }
+
+  .watchVs {
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-style: italic !important;
+    color: #A43224 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    padding: 0 2px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed rgba(215, 200, 180, 0.45) !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot span {
+    font-size: 11px !important;
+    color: #8C7D6E !important;
+  }
+
+  /* 实时观战 CTA 按钮：朱砂实心 */
+  .mobileContentPage--watch .watchCardFoot button {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 7px 16px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(140, 46, 33, 0.2) !important;
+  }
+
+  /* ===== 章 05：我的 A-05 Strict Align ===== */
+  .mobileContentPage--me .profileSidebar {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 6px 14px 12px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 52px !important;
+    padding: 8px 10px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    gap: 8px !important;
+    text-align: left !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #5A4738 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active {
+    background: #F7ECE6 !important;
+    border-color: rgba(164, 50, 36, 0.35) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarIcon {
+    background: #8C2E21 !important;
+    color: #FFFFFF !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts small {
+    font-size: 10px !important;
+    color: #8C7D6E !important;
+    margin-top: 1px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarChevron {
+    color: #B0A294 !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 个人资料卡 */
+  .mobileContentPage--me .profileHeaderCard {
+    margin: 0 14px 12px !important;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 4px 18px rgba(70, 50, 30, 0.03) !important;
+  }
+
+  .mobileContentPage--me .profileUserRow {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 35%, #A83628 0%, #751D12 100%) !important;
+    color: #FFFFFF !important;
+    font-size: 26px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3), 0 3px 10px rgba(120, 30, 20, 0.2) !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta strong {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta .vipBadge {
+    display: block !important;
+    font-size: 11px !important;
+    color: #8C7D6E !important;
+    margin-top: 1px !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileSlogan {
+    font-size: 10.5px !important;
+    color: #9A8C7E !important;
+    margin: 2px 0 0 !important;
+    font-style: italic !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn {
+    background: #FAF6EE !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    border-radius: 10px !important;
+    color: #4A3E33 !important;
+    font-size: 11px !important;
+    padding: 5px 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  /* 4格战绩水平排布，带竖线分割 */
+  .mobileContentPage--me .profileStatsGrid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0 !important;
+    margin-top: 14px !important;
+    padding-top: 14px !important;
+    border-top: 1px solid rgba(215, 200, 180, 0.45) !important;
+  }
+
+  .mobileContentPage--me .statBox {
+    position: relative !important;
+    text-align: center !important;
+    padding: 0 2px !important;
+  }
+
+  .mobileContentPage--me .statBox:not(:last-child)::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 15% !important;
+    height: 70% !important;
+    width: 1px !important;
+    background: rgba(215, 200, 180, 0.45) !important;
+  }
+
+  .mobileContentPage--me .statBox strong {
+    display: block !important;
+    color: #8C2E21 !important;
+    font-size: 20px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--me .statBox span {
+    display: block !important;
+    color: #7E7365 !important;
+    font-size: 11px !important;
+    margin-top: 2px !important;
+  }
+
+  /* 我的页面二级导航 (对局统计 / 我喜欢的棋谱 / 最近对局) */
+  .profileSecondaryNav {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin: 0 14px 16px !important;
+  }
+
+  .profileSecondaryItem {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 52px !important;
+    padding: 10px 14px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    gap: 12px !important;
+    text-align: left !important;
+    color: #231C16 !important;
+    text-decoration: none !important;
+  }
+
+  .profileSecIcon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #5A4738 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .profileSecIcon .mobileIcon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .profileSecTexts {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .profileSecTexts strong {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .profileSecTexts small {
+    font-size: 10px !important;
+    color: #8C7D6E !important;
+    margin-top: 1px !important;
+  }
+
+  .profileSecondaryItem .mobileIcon:last-child {
+    color: #B0A294 !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* ===== 六、共用底栏 5 项 Strict ===== */
+  .mobileBottomNav,
+  .mobileBottomNav--strict {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 9999 !important;
+    min-height: calc(56px + env(safe-area-inset-bottom)) !important;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid rgba(215, 200, 180, 0.45) !important;
+    background: #FAF6EF !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .mobileBottomNav a,
+  .mobileBottomNav--strict a {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    min-height: 48px !important;
+    color: #7E7365 !important;
+    font-size: 10px !important;
+    text-decoration: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .mobileBottomNav a .mobileIcon,
+  .mobileBottomNav--strict a .mobileIcon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: #8C2E21 !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileBottomNav a.is-active::before,
+  .mobileBottomNav--strict a.is-active::before {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .profileSidebarTexts small,
+  .profileSidebarChevron,
+  .profileSecondaryNav {
+    display: none !important;
+  }
+}
+
+
+
+
+
+/* === 20260924m9 tabs Strict Align === */
+@media (max-width: 768px) {
+  /* Tokens / paper */
+  .mobileLobby,
+  .mobileLobby--strict,
+  .mobileContentPage {
+    background: #F7F1E7 !important;
+  }
+
+  /* Stronger but ≤0.18 ink wash; taller wash band */
+  .mobileLobby::before,
+  .mobileLobby--strict::before,
+  .mobileContentPage::before {
+    height: 240px !important;
+    opacity: 0.175 !important;
+    background:
+      radial-gradient(circle 46px at 82% 18%, rgba(225, 95, 45, 0.72) 0%, rgba(220, 100, 50, 0.24) 52%, transparent 100%),
+      radial-gradient(ellipse 110px 70px at 90% 40%, rgba(50, 70, 78, 0.5) 0%, transparent 72%),
+      radial-gradient(ellipse 88px 52px at 70% 52%, rgba(65, 85, 90, 0.34) 0%, transparent 72%),
+      radial-gradient(ellipse 78px 110px at 6% 28%, rgba(40, 72, 58, 0.42) 0%, transparent 68%),
+      radial-gradient(ellipse 55px 88px at 18% 48%, rgba(50, 80, 65, 0.28) 0%, transparent 70%),
+      radial-gradient(ellipse 40px 70px at 28% 22%, rgba(55, 85, 70, 0.22) 0%, transparent 70%),
+      radial-gradient(ellipse at 48% 58%, rgba(95, 85, 70, 0.22) 0%, transparent 55%),
+      linear-gradient(180deg, transparent 30%, rgba(247, 241, 231, 0.55) 72%, #F7F1E7 100%) !important;
+  }
+
+  /* Taller airy headers */
+  .mobileContentHeader {
+    min-height: 96px !important;
+    padding: max(14px, env(safe-area-inset-top)) 16px 18px !important;
+    align-items: flex-start !important;
+  }
+
+  .mobileContentHeader > div {
+    padding-top: 4px !important;
+  }
+
+  .mobileContentHeader span {
+    color: #9D3023 !important;
+    font-size: 11px !important;
+    letter-spacing: 0.18em !important;
+  }
+
+  .mobileContentHeader h1 {
+    font-size: 24px !important;
+    margin-top: 4px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileHeaderSubtitle {
+    margin: 6px 0 0 !important;
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    letter-spacing: 0.08em !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+  }
+
+  /* Eliminate double gutter: body 0, cards keep ~14px */
+  .mobileContentPage--learn .mobileContentBody,
+  .mobileContentPage--watch .mobileContentBody,
+  .mobileContentPage--me .mobileContentBody {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ===== Play ===== */
+  .mobileLobby--strict .mobileLobbyLead {
+    margin: 12px 14px 14px !important;
+    padding: 22px 16px 20px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    box-shadow: 0 3px 14px rgba(68, 48, 29, 0.035) !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyLead h2 {
+    margin: 8px 0 18px !important;
+    font-size: 24px !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyPrimaryActions {
+    gap: 12px !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction {
+    min-height: 72px !important;
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, #A43224 0%, #7B2118 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.4), 0 4px 14px rgba(139, 43, 36, 0.24) !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon,
+  .mobileLobby--strict .mobilePrimaryAction > .mobileIcon {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon .mobileIcon {
+    width: 22px !important;
+    height: 22px !important;
+    color: #FFF6E8 !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction span,
+  .mobileLobby--strict .mobilePrimaryAction strong {
+    font-size: 18px !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta {
+    min-height: 68px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border-color: rgba(157, 48, 35, 0.28) !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta--bamboo::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 8px !important;
+    top: 4px !important;
+    bottom: 4px !important;
+    width: 72px !important;
+    pointer-events: none !important;
+    opacity: 0.16 !important;
+    background:
+      radial-gradient(ellipse 18px 40px at 70% 30%, rgba(45, 80, 55, 0.7) 0%, transparent 70%),
+      radial-gradient(ellipse 14px 34px at 40% 55%, rgba(55, 90, 65, 0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 12px 28px at 85% 70%, rgba(40, 70, 50, 0.45) 0%, transparent 70%) !important;
+  }
+
+  .mobileLobby--strict .mobileRoomComposer {
+    margin-top: 2px !important;
+    padding: 12px 12px 14px !important;
+    border-radius: 14px !important;
+    background: rgba(250, 246, 239, 0.9) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+  }
+
+  .mobileLobby--strict .mobileCreateRoomBtn {
+    min-height: 58px !important;
+  }
+
+  .mobileLobby--strict .mobilePieceDeco {
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 18px !important;
+    box-shadow: inset 0 0 0 1px rgba(140, 90, 40, 0.35), 0 2px 6px rgba(80, 50, 20, 0.12) !important;
+  }
+
+  .mobileLobby--strict .mobileJoinRow input {
+    background: #FCFAF6 !important;
+    border: 1px solid rgba(210, 195, 175, 0.7) !important;
+    min-height: 40px !important;
+    border-radius: 10px !important;
+  }
+
+  .mobileLobby--strict .mobileJoinRow button {
+    background: #9D3023 !important;
+    min-height: 40px !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure {
+    margin: 0 14px 16px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(215, 200, 180, 0.55) !important;
+    box-shadow: 0 3px 14px rgba(68, 48, 29, 0.035) !important;
+    overflow: hidden !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure summary {
+    min-height: 64px !important;
+    padding: 12px 14px !important;
+    position: relative !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure--ink .mobileDisclosureDeco {
+    position: absolute !important;
+    right: 36px !important;
+    top: 8px !important;
+    bottom: 8px !important;
+    width: 88px !important;
+    pointer-events: none !important;
+    opacity: 0.15 !important;
+    background:
+      radial-gradient(ellipse 50px 28px at 60% 55%, rgba(55, 75, 85, 0.55) 0%, transparent 72%),
+      radial-gradient(ellipse 22px 10px at 35% 70%, rgba(40, 55, 60, 0.5) 0%, transparent 70%),
+      radial-gradient(circle 5px at 42% 68%, rgba(30, 40, 45, 0.65) 0%, transparent 100%) !important;
+  }
+
+  /* ===== Learn: full content width ===== */
+  .mobileContentPage--learn .learnPage > .hero {
+    margin: 10px 14px 14px !important;
+    padding: 20px 16px 18px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-size: 26px !important;
+  }
+
+  .mobileContentPage--learn .learnEndgameCta {
+    height: 42px !important;
+    min-height: 42px !important;
+    border-radius: 10px !important;
+    background: linear-gradient(180deg, #963529 0%, #7E261C 100%) !important;
+    font-size: 14px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs {
+    padding: 0 14px 10px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill.is-active {
+    background: #9D3023 !important;
+    border-color: #9D3023 !important;
+  }
+
+  .mobileContentPage--learn .learnCard {
+    margin: 0 14px 12px !important;
+    padding: 16px 16px 14px !important;
+    min-height: 118px !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before,
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 20px !important;
+    opacity: 0.92 !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button {
+    min-height: 36px !important;
+    padding: 8px 14px !important;
+  }
+
+  /* ===== Watch ===== */
+  .mobileContentPage--watch .watchHero {
+    margin: 10px 14px 14px !important;
+    padding: 22px 16px 18px !important;
+    min-height: 148px !important;
+    border-radius: 20px !important;
+  }
+
+  .mobileContentPage--watch .watchHero::after {
+    font-size: 96px !important;
+    opacity: 0.09 !important;
+    right: 10px !important;
+    top: 4px !important;
+  }
+
+  .mobileContentPage--watch .watchHero h1 {
+    font-size: 26px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters,
+  .mobileContentPage--watch .watchToolbar,
+  .mobileContentPage--watch .watchStage {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters .pill.is-active,
+  .mobileContentPage--watch .watchToolbar .pill.is-active {
+    background: #9D3023 !important;
+    border-color: #9D3023 !important;
+  }
+
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 12px !important;
+    padding: 16px 14px 14px !important;
+    min-height: 138px !important;
+    border-radius: 18px !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--watch .watchPlayers {
+    position: relative !important;
+    min-height: 52px !important;
+    padding-right: 48px !important;
+    margin: 10px 0 12px !important;
+  }
+
+  .mobileContentPage--watch .watchPieceDeco {
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #8C2E21 !important;
+    background: linear-gradient(135deg, #F0DFCA 0%, #D8BE9A 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(140, 90, 40, 0.35) !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--watch .watchAvatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 14px !important;
+  }
+
+  .mobileContentPage--watch .watchPlayerInfo strong {
+    max-width: 96px !important;
+    font-size: 13px !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot button {
+    background: #9D3023 !important;
+    padding: 8px 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .mobileContentPage--watch .watchReplayStage {
+    margin: 8px 14px 20px !important;
+  }
+
+  /* ===== Me: order card → menu → secondary; wider ===== */
+  .mobileContentPage--me .profilePage--m9 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+
+  .mobileContentPage--me .profilePage--m9 .profileMain--top {
+    order: 1 !important;
+  }
+
+  .mobileContentPage--me .profilePage--m9 .profileSidebar {
+    order: 2 !important;
+    margin: 4px 14px 12px !important;
+    gap: 9px !important;
+  }
+
+  .mobileContentPage--me .profilePage--m9 .profileMain--bottom {
+    order: 3 !important;
+  }
+
+  .mobileContentPage--me .profileHeaderCard {
+    margin: 8px 14px 12px !important;
+    padding: 20px 16px !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(160deg, #B83A2A 0%, #7B2118 100%) !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 230, 190, 0.35), 0 2px 8px rgba(120, 40, 30, 0.18) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar span {
+    font-size: 28px !important;
+    color: #FFF8EE !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta strong {
+    font-size: 17px !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid {
+    margin-top: 16px !important;
+    gap: 0 !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox strong {
+    font-size: 22px !important;
+    color: #9D3023 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    min-height: 62px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 15px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    font-size: 13px !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryNav {
+    margin: 0 14px 16px !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryItem {
+    min-height: 56px !important;
+    padding: 12px 14px !important;
+  }
+
+  /* Hide dense overview extras on first-screen density (still in DOM below secondary) */
+  .mobileContentPage--me .profilePage--m9 .profileOverviewGrid {
+    margin: 0 14px 20px !important;
+  }
+
+  /* Bottom nav cinnabar unify */
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: #9D3023 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active {
+    background: #F6E8E2 !important;
+    border-color: rgba(157, 48, 35, 0.32) !important;
+  }
+
+  .mobileLobby--strict .mobilePieceDeco {
+    background: linear-gradient(145deg, #E8CFA8 0%, #C9A574 55%, #B8915C 100%) !important;
+    color: #8C2E21 !important;
+  }
+
+  /* play page header air: lobby header spacing */
+  .mobileLobby--strict > .mobileContentHeader {
+    min-height: 100px !important;
+    padding-bottom: 20px !important;
+  }
+}
+
+/* === 20260924m10 tabs Strict Align === */
+@media (max-width: 768px) {
+  /* 1. Global Viewport & Paper Base */
+  .mobileLobby,
+  .mobileLobby--strict,
+  .mobileContentPage {
+    background: #F7F1E7 !important;
+  }
+
+  /* Atmosphere ink wash: mountain/bamboo/morning sun CSS wash, strictly opacity ≤ 0.18 */
+  .mobileLobby::before,
+  .mobileLobby--strict::before,
+  .mobileContentPage::before {
+    height: 260px !important;
+    opacity: 0.178 !important;
+    background:
+      /* Morning sun warm radial glow in top right */
+      radial-gradient(circle 52px at 82% 16%, rgba(228, 92, 42, 0.78) 0%, rgba(224, 110, 55, 0.28) 48%, transparent 100%),
+      /* Distant misty mountain ridges */
+      radial-gradient(ellipse 125px 75px at 92% 38%, rgba(45, 68, 76, 0.52) 0%, transparent 72%),
+      radial-gradient(ellipse 95px 56px at 72% 50%, rgba(58, 80, 88, 0.36) 0%, transparent 72%),
+      radial-gradient(ellipse 110px 58px at 52% 44%, rgba(65, 85, 92, 0.28) 0%, transparent 70%),
+      /* Bamboo silhouettes on the left flank */
+      radial-gradient(ellipse 85px 120px at 5% 26%, rgba(35, 70, 54, 0.46) 0%, transparent 68%),
+      radial-gradient(ellipse 60px 96px at 16% 46%, rgba(45, 78, 62, 0.32) 0%, transparent 70%),
+      radial-gradient(ellipse 44px 76px at 26% 20%, rgba(50, 82, 66, 0.26) 0%, transparent 70%),
+      /* Water mist and soft ground paper blending */
+      radial-gradient(ellipse 180px 70px at 50% 56%, rgba(100, 90, 75, 0.22) 0%, transparent 60%),
+      linear-gradient(180deg, transparent 28%, rgba(247, 241, 231, 0.55) 70%, #F7F1E7 100%) !important;
+  }
+
+  /* 2. Page Header: Taller, Airier, Stylized Eyebrow Lines */
+  .mobileContentHeader {
+    min-height: 104px !important;
+    padding: max(16px, env(safe-area-inset-top)) 16px 18px !important;
+    align-items: flex-start !important;
+  }
+
+  .mobileLobby--strict > .mobileContentHeader {
+    min-height: 108px !important;
+    padding-bottom: 22px !important;
+  }
+
+  .mobileContentHeader > button {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(215, 200, 180, 0.65) !important;
+    background: rgba(254, 252, 248, 0.92) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.05) !important;
+    color: #4C3C30 !important;
+  }
+
+  .mobileContentHeader span {
+    color: #9D3023 !important;
+    font-size: 11.5px !important;
+    letter-spacing: 0.2em !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    display: inline-block !important;
+  }
+
+  .mobileContentHeader span::before {
+    content: "— ";
+    opacity: 0.55;
+    margin-right: 2px;
+  }
+
+  .mobileContentHeader span::after {
+    content: " —";
+    opacity: 0.55;
+    margin-left: 2px;
+  }
+
+  .mobileContentHeader h1 {
+    font-size: 25px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin-top: 4px !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileHeaderSubtitle {
+    margin: 5px 0 0 !important;
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    letter-spacing: 0.06em !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+  }
+
+  /* 3. Strict 14-16px Content Margins */
+  .mobileContentPage--learn .mobileContentBody,
+  .mobileContentPage--watch .mobileContentBody,
+  .mobileContentPage--me .mobileContentBody {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ===== Tab 02: 对局 / Play ===== */
+  .mobileLobby--strict .mobileLobbyLead {
+    margin: 10px 14px 14px !important;
+    padding: 22px 18px 20px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* Cloud & mist wash in top right of lead card */
+  .mobileLobby--strict .mobileLobbyLead::before {
+    content: "" !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 130px !important;
+    height: 70px !important;
+    pointer-events: none !important;
+    opacity: 0.14 !important;
+    background:
+      radial-gradient(ellipse 65px 35px at 85% 20%, rgba(55, 75, 85, 0.6) 0%, transparent 70%),
+      radial-gradient(circle 24px at 60% 40%, rgba(180, 140, 90, 0.5) 0%, transparent 70%) !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyLead .mobileEyebrow {
+    font-size: 13px !important;
+    color: #9D3023 !important;
+    font-weight: 700 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    letter-spacing: 0.08em !important;
+    display: block !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyLead h2 {
+    margin: 6px 0 16px !important;
+    font-size: 24px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  /* Quick Match CTA: cinnabar wood plaque + gold inner ring + lightning circle */
+  .mobileLobby--strict .mobilePrimaryAction {
+    min-height: 74px !important;
+    padding: 13px 18px !important;
+    border-radius: 16px !important;
+    background: linear-gradient(180deg, #A43224 0%, #8C2619 50%, #721C13 100%) !important;
+    border: none !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(245, 220, 165, 0.6),
+      inset 0 0 0 2.5px rgba(100, 24, 16, 0.7),
+      inset 0 0 0 3.5px rgba(245, 220, 165, 0.3),
+      0 5px 16px rgba(139, 43, 36, 0.28) !important;
+    align-items: center !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle, rgba(70, 15, 10, 0.82) 0%, rgba(38, 8, 5, 0.92) 100%) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 165, 0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryIcon .mobileIcon {
+    width: 24px !important;
+    height: 24px !important;
+    color: #FFF8EE !important;
+    stroke-width: 2 !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction .mobileActionTexts strong {
+    font-size: 19px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #FFF8EE !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction .mobileActionTexts small {
+    font-size: 12.5px !important;
+    color: rgba(255, 238, 220, 0.88) !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileLobby--strict .mobilePrimaryAction .mobileActionArrow {
+    color: rgba(255, 238, 220, 0.82) !important;
+  }
+
+  /* Human-AI practice CTA with refined bamboo ink wash */
+  .mobileLobby--strict .mobileLobbyCta {
+    min-height: 70px !important;
+    padding: 12px 16px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 248, 241, 0.96) !important;
+    border: 1px solid rgba(220, 205, 185, 0.8) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileLobby--strict .mobileCtaIcon {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta .mobileActionTexts strong {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta .mobileActionTexts small {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileLobby--strict .mobileLobbyCta--bamboo::after {
+    content: "" !important;
+    position: absolute !important;
+    right: 8px !important;
+    top: 4px !important;
+    bottom: 4px !important;
+    width: 90px !important;
+    pointer-events: none !important;
+    opacity: 0.17 !important;
+    background:
+      radial-gradient(ellipse 20px 45px at 70% 30%, rgba(40, 75, 52, 0.85) 0%, transparent 70%),
+      radial-gradient(ellipse 16px 38px at 45% 60%, rgba(50, 85, 60, 0.7) 0%, transparent 70%),
+      radial-gradient(ellipse 14px 30px at 85% 72%, rgba(35, 65, 45, 0.6) 0%, transparent 70%) !important;
+  }
+
+  /* Room composer & Create friend room */
+  .mobileLobby--strict .mobileRoomComposer {
+    margin-top: 2px !important;
+    padding: 14px 14px 16px !important;
+    border-radius: 16px !important;
+    background: rgba(250, 246, 239, 0.92) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+  }
+
+  .mobileLobby--strict .mobileCreateRoomBtn {
+    min-height: 64px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 248, 240, 0.95) !important;
+    border: 1px solid rgba(220, 205, 185, 0.7) !important;
+    padding: 10px 14px !important;
+  }
+
+  .mobileLobby--strict .mobileComposerIcon {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobileCreateRoomBtn .mobileActionTexts strong {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  /* 3D wooden piece "帥" decoration */
+  .mobileLobby--strict .mobilePieceDeco {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, #F6E7CF 0%, #DEC398 50%, #C4A16E 85%, #A88350 100%) !important;
+    border: 1.5px solid rgba(145, 100, 50, 0.55) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.85),
+      inset 0 -2px 3px rgba(85, 55, 20, 0.35),
+      0 3px 8px rgba(70, 45, 20, 0.18) !important;
+    color: #9D281B !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Join code row */
+  .mobileLobby--strict .mobileJoinRow input {
+    background: #FCFAF6 radial-gradient(ellipse 40px 24px at 88% 50%, rgba(45, 75, 55, 0.12) 0%, transparent 70%) !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    padding: 0 14px !important;
+    font-size: 14px !important;
+    color: #3C3026 !important;
+  }
+
+  .mobileLobby--strict .mobileJoinRow button {
+    background: linear-gradient(180deg, #A43224 0%, #822218 100%) !important;
+    min-height: 44px !important;
+    padding: 0 20px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.35), 0 3px 10px rgba(139, 43, 36, 0.22) !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    color: #FFF8EE !important;
+  }
+
+  /* Public waiting rooms disclosure with ink landscape / boat decoration */
+  .mobileLobby--strict .mobileRoomDisclosure {
+    margin: 0 14px 18px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 3px 14px rgba(68, 48, 29, 0.035) !important;
+    overflow: hidden !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure summary {
+    min-height: 68px !important;
+    padding: 12px 16px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .mobileLobby--strict .mobileDisclosureIcon {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileLobby--strict .mobileDisclosureLeft .mobileActionTexts small {
+    font-size: 11.5px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileLobby--strict .mobileDisclosureLeft .mobileActionTexts strong {
+    font-size: 16.5px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileLobby--strict .mobileRoomDisclosure--ink .mobileDisclosureDeco {
+    position: absolute !important;
+    right: 40px !important;
+    top: 6px !important;
+    bottom: 6px !important;
+    width: 110px !important;
+    pointer-events: none !important;
+    opacity: 0.17 !important;
+    background:
+      radial-gradient(ellipse 65px 32px at 60% 55%, rgba(50, 72, 82, 0.6) 0%, transparent 75%),
+      radial-gradient(ellipse 26px 12px at 35% 72%, rgba(35, 52, 58, 0.55) 0%, transparent 72%),
+      radial-gradient(circle 6px at 42% 70%, rgba(25, 38, 42, 0.75) 0%, transparent 100%) !important;
+  }
+
+  /* ===== Tab 03: 棋谱 / Learn ===== */
+  .mobileContentPage--learn .learnPage > .hero {
+    margin: 10px 14px 14px !important;
+    padding: 22px 18px 20px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* Board & bamboo subtle watermark on learn hero */
+  .mobileContentPage--learn .learnPage > .hero::before {
+    content: "" !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 140px !important;
+    height: 100px !important;
+    pointer-events: none !important;
+    opacity: 0.14 !important;
+    background:
+      radial-gradient(ellipse 80px 50px at 80% 30%, rgba(45, 75, 60, 0.6) 0%, transparent 70%),
+      radial-gradient(ellipse 50px 30px at 60% 60%, rgba(160, 120, 70, 0.45) 0%, transparent 70%) !important;
+  }
+
+  .mobileContentPage--learn .heroLeft .pill {
+    background: #A43224 !important;
+    color: #FFF8EE !important;
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--learn .heroLeft h1 {
+    font-size: 27px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 8px 0 6px !important;
+  }
+
+  .mobileContentPage--learn .heroLeft p {
+    font-size: 13px !important;
+    color: #706354 !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Full-width cinnabar endgame CTA */
+  .mobileContentPage--learn .learnEndgameCta {
+    height: 42px !important;
+    min-height: 42px !important;
+    border-radius: 10px !important;
+    background: linear-gradient(180deg, #963529 0%, #7E261C 100%) !important;
+    border: 1px solid rgba(139, 46, 33, 0.35) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 8px rgba(139, 46, 33, 0.18) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    color: #FFF8EE !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  .mobileContentPage--learn .searchBar--learn {
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    background: #FCFAF5 !important;
+    border: 1px solid rgba(215, 200, 180, 0.75) !important;
+  }
+
+  /* Filter pills: cinnabar active, paper inactive */
+  .mobileContentPage--learn .learnTabs {
+    padding: 0 14px 12px !important;
+    gap: 8px !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill {
+    min-height: 36px !important;
+    padding: 0 16px !important;
+    border-radius: 999px !important;
+    font-size: 13px !important;
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    color: #4A3E33 !important;
+  }
+
+  .mobileContentPage--learn .learnTabs .pill.is-active {
+    background: #9D3023 !important;
+    border-color: #9D3023 !important;
+    color: #FFF8EE !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.25) !important;
+  }
+
+  /* Tutorial card: taller, wider, elegant cinnabar seal + 3D wood piece */
+  .mobileContentPage--learn .learnCard {
+    margin: 0 14px 14px !important;
+    padding: 18px 16px 16px !important;
+    min-height: 128px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(218, 204, 186, 0.6) !important;
+    box-shadow: 0 3px 12px rgba(65, 45, 25, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--learn .learnCardBadge {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(150deg, #BA3828 0%, #9D281B 50%, #761C12 100%) !important;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 235, 200, 0.4), 0 2px 8px rgba(118, 28, 18, 0.22) !important;
+    color: #FFF8EE !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before,
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    right: 14px !important;
+    top: 16px !important;
+    background: radial-gradient(circle at 35% 30%, #F6E7CF 0%, #DEC398 50%, #C4A16E 85%, #A88350 100%) !important;
+    border: 1.5px solid rgba(145, 100, 50, 0.55) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.85),
+      inset 0 -2px 3px rgba(85, 55, 20, 0.35),
+      0 3px 8px rgba(70, 45, 20, 0.18) !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 20px !important;
+    opacity: 0.95 !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(odd)::before {
+    color: #9D281B !important;
+  }
+
+  .mobileContentPage--learn .learnCard:nth-child(even)::before {
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo h3 {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--learn .learnCardInfo .muted {
+    font-size: 11.5px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileContentPage--learn .learnSummaryOneLine {
+    font-size: 12.5px !important;
+    color: #63574A !important;
+    line-height: 1.45 !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-learn-complete] {
+    background: #9D3023 !important;
+    color: #FFF8EE !important;
+    border: none !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-weight: 700 !important;
+    font-size: 13.5px !important;
+    box-shadow: 0 2px 6px rgba(157, 48, 35, 0.22) !important;
+  }
+
+  .mobileContentPage--learn .learnAction > button[data-action="view-tutorial-detail"] {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    color: #4A3E33 !important;
+    border-radius: 10px !important;
+    min-height: 38px !important;
+    font-size: 13.5px !important;
+  }
+
+  /* ===== Tab 04: 观战 / Watch ===== */
+  .mobileContentPage--watch .watchHero {
+    margin: 10px 14px 14px !important;
+    padding: 22px 18px 20px !important;
+    min-height: 154px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+  }
+
+  /* Calligraphy watermark "觀" in hero */
+  .mobileContentPage--watch .watchHero::after {
+    content: "觀" !important;
+    position: absolute !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 104px !important;
+    font-weight: 700 !important;
+    opacity: 0.11 !important;
+    color: #725D45 !important;
+    right: 12px !important;
+    top: 8px !important;
+    pointer-events: none !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--watch .watchEyebrow {
+    font-size: 11.5px !important;
+    color: #7E7365 !important;
+  }
+
+  .mobileContentPage--watch .watchLiveDot {
+    background: #9D3023 !important;
+    width: 6px !important;
+    height: 6px !important;
+    display: inline-block !important;
+    border-radius: 50% !important;
+    margin-right: 5px !important;
+  }
+
+  .mobileContentPage--watch .watchHero h1 {
+    font-size: 28px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    margin: 4px 0 6px !important;
+  }
+
+  .mobileContentPage--watch .watchHero p {
+    font-size: 13px !important;
+    color: #706354 !important;
+    line-height: 1.5 !important;
+    max-width: 240px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount {
+    background: #FAF4EB !important;
+    border: 1px solid rgba(215, 195, 175, 0.7) !important;
+    border-radius: 999px !important;
+    padding: 6px 14px !important;
+    min-width: auto !important;
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 3px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount strong {
+    color: #9D3023 !important;
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount span {
+    color: #5A4738 !important;
+    font-size: 12px !important;
+  }
+
+  .mobileContentPage--watch .watchLiveCount::after {
+    content: " ›" !important;
+    color: #7E7365 !important;
+    font-size: 14px !important;
+    margin-left: 2px !important;
+  }
+
+  /* Watch toolbar & filters: single line alignment */
+  .mobileContentPage--watch .watchToolbar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    padding: 0 14px 12px !important;
+    gap: 6px !important;
+  }
+
+  .mobileContentPage--watch .watchFilters {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    gap: 6px !important;
+    box-shadow: none !important;
+    overflow-x: visible !important;
+    width: auto !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12.5px !important;
+    padding: 5px 12px !important;
+    min-height: 34px !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--watch .watchFilters button.is-active {
+    background: #9D3023 !important;
+    color: #FFF8EE !important;
+    border-color: #9D3023 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.25) !important;
+  }
+
+  .mobileContentPage--watch .watchRefresh {
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.65) !important;
+    color: #4A3E33 !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    padding: 5px 12px !important;
+    min-height: 34px !important;
+    white-space: nowrap !important;
+    margin-left: auto !important;
+  }
+
+  /* Watch match card: taller, wider, remove duplicate "帥" pseudo-element */
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 14px !important;
+    padding: 16px 16px 14px !important;
+    min-height: 148px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(218, 204, 186, 0.6) !important;
+    box-shadow: 0 3px 12px rgba(65, 45, 25, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* CRITICAL FIX: eliminate duplicate "帥" from m8 ::before */
+  .mobileContentPage--watch .watchMatchCard::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  .mobileContentPage--watch .watchCardTop {
+    max-width: 260px !important;
+  }
+
+  .mobileContentPage--watch .watchPlayers {
+    max-width: 260px !important;
+    padding-right: 52px !important;
+  }
+
+  .mobileContentPage--watch .watchPieceDeco {
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, #F6E7CF 0%, #DEC398 50%, #C4A16E 85%, #A88350 100%) !important;
+    border: 1.5px solid rgba(145, 100, 50, 0.55) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.85),
+      inset 0 -2px 3px rgba(85, 55, 20, 0.35),
+      0 3px 8px rgba(70, 45, 20, 0.18) !important;
+    color: #9D281B !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+  }
+
+  .mobileContentPage--watch .watchAvatar {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    border: 1px solid rgba(210, 195, 175, 0.7) !important;
+  }
+
+  .mobileContentPage--watch .watchPlayerInfo strong {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--watch .watchVs {
+    font-style: italic !important;
+    color: #9D3023 !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+  }
+
+  /* Cinnabar CTA button on watch card */
+  .mobileContentPage--watch .watchCardFoot button {
+    background: linear-gradient(180deg, #A43224 0%, #822218 100%) !important;
+    color: #FFF8EE !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    padding: 9px 18px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 220, 175, 0.4), 0 3px 10px rgba(139, 43, 36, 0.22) !important;
+  }
+
+  .mobileContentPage--watch .watchCardFoot button::after {
+    content: " ›" !important;
+    font-size: 15px !important;
+    margin-left: 2px !important;
+  }
+
+  /* ===== Tab 05: 我的 / Profile ===== */
+  .mobileContentPage--me .profileHeaderCard {
+    margin: 8px 14px 14px !important;
+    padding: 20px 14px 18px !important;
+    border-radius: 20px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(215, 200, 180, 0.6) !important;
+    box-shadow: 0 4px 18px rgba(68, 48, 29, 0.04) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--me .profileUserRow {
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn {
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    border-radius: 999px !important;
+    background: #FAF6EF !important;
+    border: 1px solid rgba(210, 195, 175, 0.75) !important;
+    color: #4A3E33 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobileContentPage--me .profileEditBtn .mobileIcon {
+    display: none !important;
+  }
+
+  /* Seal avatar 68px (strict 64-72px requirement) with refined seal concentric border */
+  .mobileContentPage--me .profileSealAvatar {
+    width: 68px !important;
+    height: 68px !important;
+    min-width: 68px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(150deg, #BA3828 0%, #9D281B 50%, #761C12 100%) !important;
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 235, 200, 0.45),
+      inset 0 0 0 4px rgba(118, 28, 18, 0.85),
+      inset 0 0 0 5.5px rgba(255, 235, 200, 0.28),
+      0 3px 12px rgba(118, 28, 18, 0.28) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSealAvatar span {
+    font-size: 32px !important;
+    color: #FFF8EE !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileContentPage--me .profileUserMeta strong {
+    font-size: 16px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileSlogan {
+    font-size: 12px !important;
+    color: #7E7365 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid {
+    margin-top: 18px !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox {
+    text-align: center !important;
+    padding: 0 2px !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox strong {
+    font-size: 23px !important;
+    color: #9D3023 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    display: block !important;
+  }
+
+  .mobileContentPage--me .profileStatsGrid .statBox span {
+    font-size: 11px !important;
+    color: #7E7365 !important;
+    white-space: nowrap !important;
+    display: block !important;
+  }
+
+  /* Two-column menu: taller cards, cinnabar active wash */
+  .mobileContentPage--me .profilePage--m9 .profileSidebar {
+    margin: 4px 14px 14px !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    min-height: 68px !important;
+    padding: 12px 14px !important;
+    border-radius: 16px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(220, 205, 185, 0.6) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    font-size: 14.5px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts small {
+    font-size: 11px !important;
+    color: #8A7D6E !important;
+  }
+
+  /* Cinnabar active wash for profile sidebar active item */
+  .mobileContentPage--me .profileSidebarItem.is-active {
+    background: #FAF0EC !important;
+    border: 1.5px solid rgba(157, 48, 35, 0.35) !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.08) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarTexts strong {
+    color: #9D3023 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarIcon {
+    background: linear-gradient(150deg, #BA3828 0%, #9D281B 50%, #761C12 100%) !important;
+    color: #FFF8EE !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 235, 200, 0.4), 0 2px 6px rgba(130, 35, 25, 0.22) !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem.is-active .profileSidebarChevron {
+    color: #9D3023 !important;
+  }
+
+  /* Secondary list */
+  .mobileContentPage--me .profileSecondaryNav {
+    margin: 0 14px 18px !important;
+    border-radius: 18px !important;
+    background: rgba(252, 249, 242, 0.96) !important;
+    border: 1px solid rgba(220, 205, 185, 0.6) !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--me .profileSecondaryItem {
+    min-height: 60px !important;
+    padding: 14px 16px !important;
+  }
+
+  .mobileContentPage--me .profileSecIcon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    background: #EDE4D4 !important;
+    color: #4C3C30 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobileContentPage--me .profileSecTexts strong {
+    font-size: 15px !important;
+    font-family: var(--font-serif, "Noto Serif SC", serif) !important;
+    font-weight: 700 !important;
+    color: #231C16 !important;
+  }
+
+  .mobileContentPage--me .profileSecTexts small {
+    font-size: 11.5px !important;
+    color: #8A7D6E !important;
+  }
+
+  /* ===== Bottom Navigation: 5-item Cinnabar #9D3023 Active ===== */
+  .mobileBottomNav a.is-active,
+  .mobileBottomNav--strict a.is-active {
+    color: #9D3023 !important;
+    font-weight: 700 !important;
+  }
+
+  .mobileBottomNav a.is-active span,
+  .mobileBottomNav--strict a.is-active span {
+    color: #9D3023 !important;
+  }
+
+  .mobileBottomNav a.is-active .mobileIcon,
+  .mobileBottomNav--strict a.is-active .mobileIcon {
+    stroke: #9D3023 !important;
+    stroke-width: 2.2 !important;
+  }
+}
+
+
+/* === 20260925m101 watch/me center === */
+@media (max-width: 768px) {
+  /* Root cause: early mobile.css gives learn/watch/me .shell padding 16px 16px,
+     while play/home shell is horizontal 0. Cards then add margin 14 → ~30px double gutter. */
+  .site.route-watch .shell,
+  .site.route-me .shell {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobileContentPage--watch .mobileContentBody,
+  .mobileContentPage--me .mobileContentBody {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* watchStage must not re-add horizontal padding (m9 had 14px on stage+toolbar) */
+  .mobileContentPage--watch .watchStage,
+  .mobileContentPage--watch .watchLiveGrid,
+  .mobileContentPage--watch .watchFilters {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .mobileContentPage--watch .watchToolbar {
+    padding: 0 14px 12px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  .mobileContentPage--watch .watchHero {
+    margin: 10px 14px 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--watch .watchMatchCard {
+    margin: 0 14px 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--watch .watchReplayStage {
+    margin: 8px 14px 20px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--watch .watchSectionHead {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Me: 14px content column matching play */
+  .mobileContentPage--me .profileHeaderCard {
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .mobileContentPage--me .profileHeaderCard {
+    margin-left: 14px !important;
+    margin-right: 14px !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  /* Profile Refactor & Responsiveness */
+  .mobileContentPage--me .profileMobileOverview,
+  .mobileContentPage--me .profileMobileSubpage {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    padding: 0 14px calc(72px + env(safe-area-inset-bottom, 16px)) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobileContentPage--me .profileMobileOverview .profileHeaderCard,
+  .mobileContentPage--me .profileMobileOverview .profileSidebar,
+  .mobileContentPage--me .profileMobileOverview .profileSection {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobileContentPage--me .profileMobileTabsWrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 -14px 4px !important;
+    padding: 0 14px 8px !important;
+    scrollbar-width: none !important;
+  }
+  .mobileContentPage--me .profileMobileTabsWrap::-webkit-scrollbar {
+    display: none !important;
+  }
+  .mobileContentPage--me .profileMobileTabs {
+    display: flex !important;
+    gap: 8px !important;
+    width: max-content !important;
+  }
+  .mobileContentPage--me .profileMobileTabs .pill {
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    border-radius: 20px !important;
+    white-space: nowrap !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(220, 205, 185, 0.7) !important;
+    color: var(--ink, #2C2825) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+  }
+  .mobileContentPage--me .profileMobileTabs .pill.is-active {
+    background: var(--brand-red, #9D3023) !important;
+    color: #FFF !important;
+    border-color: var(--brand-red, #9D3023) !important;
+    box-shadow: 0 2px 8px rgba(157, 48, 35, 0.25) !important;
+  }
+
+  .mobileContentPage--me .profileSidebar {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .mobileContentPage--me .profileSidebarGroup {
+    display: contents !important;
+  }
+
+  .mobileContentPage--me .profileSidebarLabel {
+    display: none !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem {
+    min-width: 0 !important;
+    min-height: 64px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+    background: rgba(252, 249, 242, 0.95) !important;
+    border: 1px solid rgba(220, 205, 185, 0.6) !important;
+    box-shadow: 0 2px 8px rgba(60, 45, 30, 0.02) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .mobileContentPage--me .profileSidebarIcon {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    flex: 0 0 34px !important;
+    font-size: 15px !important;
+    border-radius: 10px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts {
+    min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    text-align: left !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts strong {
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 13.5px !important;
+    line-height: 1.25 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarTexts small {
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 11px !important;
+    color: #8A7D6E !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileContentPage--me .profileSidebarChevron {
+    display: flex !important;
+    flex-shrink: 0 !important;
+    opacity: 0.5 !important;
+  }
+
+  .mobileContentPage--me .profileSidebarItem--full {
+    grid-column: 1 / -1 !important;
+  }
+
+  .mobileContentPage--me .profileOverviewGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  .mobileContentPage--me .profileOverviewGrid > * {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .mobileContentPage--me .profileGrowth {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobileContentPage--me .moves {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .mobileContentPage--me .statBox--study .statIcon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 20px !important;
+    font-family: "KaiTi", serif !important;
+    font-weight: bold !important;
+    color: var(--brand-red, #8C2E21) !important;
+    background: var(--brand-soft, #F6E8E2) !important;
+    border-radius: 12px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+
+  .mobileContentPage--me .profileGuestPage {
+    padding: 0 14px 20px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .mobileContentPage--me .profileGuestCard {
+    margin: 4px 0 12px !important;
+    padding: 24px 16px !important;
+  }
+
+  .mobileContentPage--me .profileGuestCard .profileSlogan {
+    white-space: normal !important;
+    word-break: break-word !important;
+    text-align: center !important;
+    line-height: 1.5 !important;
+    max-width: 100% !important;
+  }
+
+  .mobileContentPage--me .profileGuestFeatures {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .mobileContentPage--me .profileStudyStatsGrid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* 320px screen extreme compactness */
+  @media (max-width: 360px) {
+    .mobileContentPage--me .profileSidebarItem {
+      padding: 8px 8px !important;
+      gap: 6px !important;
+      min-height: 58px !important;
+    }
+    .mobileContentPage--me .profileSidebarIcon {
+      width: 28px !important;
+      height: 28px !important;
+      min-width: 28px !important;
+      min-height: 28px !important;
+      flex: 0 0 28px !important;
+      font-size: 13px !important;
+    }
+    .mobileContentPage--me .profileSidebarTexts strong {
+      font-size: 12.5px !important;
+    }
+    .mobileContentPage--me .profileSidebarTexts small {
+      font-size: 10px !important;
+    }
+    .mobileContentPage--me .profileStatsGrid strong {
+      font-size: 18px !important;
+    }
+    .mobileContentPage--me .profileSealAvatar {
+      width: 52px !important;
+      height: 52px !important;
+      min-width: 52px !important;
+      min-height: 52px !important;
+      flex: 0 0 52px !important;
+    }
+    .mobileContentPage--me .profileSealAvatar span {
+      font-size: 24px !important;
+    }
   }
 }

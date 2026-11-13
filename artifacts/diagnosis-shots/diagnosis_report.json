@@ -1,0 +1,23 @@
+{
+  "consoleErrors": [
+    "[desktop-1440][http://127.0.0.1:18388/online#/home] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[tablet-768][http://127.0.0.1:18388/online#/home] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[mobile-375][http://127.0.0.1:18388/online#/home] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[mobile-320][http://127.0.0.1:18388/online#/home] Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "[interactive][http://127.0.0.1:18388/online#/home] Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [],
+  "overflows": [],
+  "pageMetrics": {
+    "domInteractive": 17.300000000745058,
+    "domComplete": 48.400000002235174,
+    "loadEventEnd": 48.70000000298023,
+    "fcp": 72
+  },
+  "gameFlows": {
+    "xiangqiBoardRendered": true,
+    "xiangqiPiecesCount": 32,
+    "gomokuBoardRendered": true
+  }
+}

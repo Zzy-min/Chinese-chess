@@ -20,6 +20,8 @@ public final class ConfigurableXiangqiEngine implements XiangqiEngine {
     private XiangqiEngine selected;
     private String selectedId;
     private String selectedText;
+    private volatile String executionState = "IDLE";
+    private volatile boolean engineFallback;
 
     public ConfigurableXiangqiEngine() {
         this.pikafishCmdText = readSetting("xq.xiangqi.pikafish.cmd", "XQ_XIANGQI_PIKAFISH_CMD",
@@ -36,18 +38,38 @@ public final class ConfigurableXiangqiEngine implements XiangqiEngine {
         }
         if (selected != builtin) {
             Move m;
+            ExternalEngineGate.Lease lease = null;
             try {
+                executionState = "QUEUED";
+                lease = ExternalEngineGate.global().tryAcquire(ExternalEngineGate.DEFAULT_WAIT_MILLIS);
+                if (lease == null) {
+                    executionState = "FALLBACK";
+                    engineFallback = true;
+                    return builtin.findBestMove(board, aiColor, difficulty);
+                }
+                executionState = "THINKING";
                 m = selected.findBestMove(board, aiColor, difficulty);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                m = null;
             } catch (Exception ignored) {
                 m = null;
+            } finally {
+                selected.close();
+                if (lease != null) {
+                    lease.close();
+                }
             }
             if (m != null) {
+                executionState = "IDLE";
+                engineFallback = false;
                 return m;
             }
-            selected.close();
             selected = builtin;
             selectedId = builtin.getEngineId();
             selectedText = builtin.getEngineText() + "（外部引擎异常已回退）";
+            executionState = "FALLBACK";
+            engineFallback = true;
         }
         return builtin.findBestMove(board, aiColor, difficulty);
     }
@@ -64,6 +86,14 @@ public final class ConfigurableXiangqiEngine implements XiangqiEngine {
 
     public synchronized String getPreferredEngine() {
         return preferredEngine;
+    }
+
+    public String getExecutionState() {
+        return executionState;
+    }
+
+    public boolean isEngineFallback() {
+        return engineFallback;
     }
 
     public synchronized void setPreferredEngine(String preference) {
@@ -97,6 +127,8 @@ public final class ConfigurableXiangqiEngine implements XiangqiEngine {
         selected = next;
         selectedId = next.getEngineId();
         selectedText = next.getEngineText();
+        executionState = "IDLE";
+        engineFallback = false;
     }
 
     private XiangqiEngine chooseEngine(String preference) {

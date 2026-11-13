@@ -19,6 +19,8 @@ import com.xiangqi.online.game.PlayerSide;
 import com.xiangqi.online.game.XiangqiMatch;
 import com.xiangqi.online.server.OnlineStore;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,29 +31,52 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-public final class PracticeGameHub {
+public final class PracticeGameHub implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(PracticeGameHub.class.getName());
-    private static final ExecutorService AI_EXECUTOR = Executors.newFixedThreadPool(
-        Math.max(2, Runtime.getRuntime().availableProcessors() - 1),
-        new ThreadFactory() {
-            private int index = 0;
-
-            @Override
-            public synchronized Thread newThread(Runnable runnable) {
-                Thread thread = new Thread(runnable, "practice-ai-" + (++index));
-                thread.setDaemon(true);
-                return thread;
-            }
-        }
-    );
+    private static final Duration DEFAULT_IDLE_TIMEOUT = Duration.ofMinutes(15);
     private final ConcurrentHashMap<String, ActivePracticeGame> gamesById = new ConcurrentHashMap<String, ActivePracticeGame>();
     private final OnlineStore store;
+    private final Clock clock;
+    private final Duration idleTimeout;
+    private final ExecutorService aiExecutor;
+    private final ScheduledExecutorService sweeper;
 
     public PracticeGameHub(OnlineStore store) {
+        this(store, Clock.systemUTC(), DEFAULT_IDLE_TIMEOUT, true);
+    }
+
+    public PracticeGameHub(OnlineStore store, Clock clock, Duration idleTimeout, boolean startSweeper) {
         this.store = store;
+        this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.idleTimeout = idleTimeout == null ? DEFAULT_IDLE_TIMEOUT : idleTimeout;
+        this.aiExecutor = Executors.newFixedThreadPool(
+            Math.max(2, Runtime.getRuntime().availableProcessors() - 1),
+            new ThreadFactory() {
+                private int index = 0;
+
+                @Override
+                public synchronized Thread newThread(Runnable runnable) {
+                    Thread thread = new Thread(runnable, "practice-ai-" + (++index));
+                    thread.setDaemon(true);
+                    return thread;
+                }
+            }
+        );
+        if (startSweeper) {
+            this.sweeper = Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "practice-idle-sweeper");
+                thread.setDaemon(true);
+                return thread;
+            });
+            this.sweeper.scheduleAtFixedRate(this::expireIdleGamesSafely, 1L, 1L, TimeUnit.MINUTES);
+        } else {
+            this.sweeper = null;
+        }
     }
 
     public Map<String, Object> createGame(AuthUser user, CreatePracticeGameRequest request) {
@@ -80,7 +105,8 @@ public final class PracticeGameHub {
             game.difficultyKey = game.difficulty.name();
         }
         game.enginePreference = request.preferredEngine() == null ? "" : request.preferredEngine().trim();
-        game.updatedAt = Instant.now();
+        game.updatedAt = now();
+        game.lastActivityAt = game.updatedAt;
         game.status = "PLAYING";
         game.opponentType = "AI";
         game.initialFen = initialFen;
@@ -156,10 +182,13 @@ public final class PracticeGameHub {
     public Map<String, Object> gameSnapshotById(String gameId, AuthUser viewer) {
         ActivePracticeGame game = gamesById.get(gameId);
         if (game == null) {
-            return store.loadGameAnalysis(gameId);
+            return decorateStoredSnapshot(store.loadGameAnalysis(gameId), viewer);
         }
         synchronized (game) {
             drainPendingAiIfReady(game);
+            if (viewer != null && game.human.id().equals(viewer.id()) && "PLAYING".equals(game.status)) {
+                touch(game);
+            }
             return snapshot(game, viewer);
         }
     }
@@ -180,6 +209,7 @@ public final class PracticeGameHub {
         synchronized (game) {
             ensureHumanParticipant(game, actor);
             ensurePlayable(game);
+            touch(game);
             LOG.info(() -> "practice.move.request gameId=" + game.gameId
                 + " actor=" + actor.username()
                 + " side=" + game.humanSide
@@ -206,8 +236,32 @@ public final class PracticeGameHub {
         synchronized (game) {
             ensureHumanParticipant(game, actor);
             ensurePlayable(game);
+            touch(game);
             finalizeGame(game, game.aiSide, actor.username() + " resigned", "RESIGN");
             return snapshot(game, actor);
+        }
+    }
+
+    public Map<String, Object> abandon(String gameId, AuthUser actor) {
+        ActivePracticeGame game = gamesById.get(gameId);
+        if (game == null) {
+            Map<String, Object> stored = decorateStoredSnapshot(store.loadGameAnalysis(gameId), actor);
+            if (stored.isEmpty()) {
+                throw new IllegalArgumentException("game not found");
+            }
+            ensureStoredParticipant(stored, actor);
+            if ("ABANDONED".equals(asString(stored.get("status")))) {
+                return stored;
+            }
+            throw new IllegalArgumentException("only playing practice game can be abandoned");
+        }
+        synchronized (game) {
+            ensureHumanParticipant(game, actor);
+            if ("ABANDONED".equals(game.status)) {
+                return snapshot(game, actor);
+            }
+            ensurePlayable(game);
+            return abandonGame(game, "USER_ABANDONED", "练习已结束", actor);
         }
     }
 
@@ -215,6 +269,7 @@ public final class PracticeGameHub {
         ActivePracticeGame game = game(gameId);
         synchronized (game) {
             ensureHumanParticipant(game, actor);
+            touch(game);
             if (!"PLAYING".equals(game.status)) {
                 throw new IllegalArgumentException("only playing practice game can undo");
             }
@@ -242,7 +297,7 @@ public final class PracticeGameHub {
         }
         game.aiPending = true;
         game.aiStartedAtNanos = System.nanoTime();
-        game.updatedAt = Instant.now();
+        game.updatedAt = now();
         final String aiSide = game.aiSide;
         if (game.gameType == GameType.GOMOKU) {
             final GomokuBoard snapshot = new GomokuBoard(((GomokuMatch) game.match).boardState());
@@ -250,7 +305,7 @@ public final class PracticeGameHub {
             final GomokuDifficultyProfile difficulty = game.gomokuDifficulty;
             game.aiFuture = CompletableFuture.supplyAsync(
                 () -> computeGomokuAiPayload(snapshot, engine, difficulty, aiSide),
-                AI_EXECUTOR
+                aiExecutor
             );
             return;
         }
@@ -259,7 +314,7 @@ public final class PracticeGameHub {
         final ConfigurableXiangqiEngine engine = game.xiangqiEngine;
         game.aiFuture = CompletableFuture.supplyAsync(
             () -> computeXiangqiAiPayload(snapshot, engine, difficulty, aiSide),
-            AI_EXECUTOR
+            aiExecutor
         );
     }
 
@@ -307,9 +362,10 @@ public final class PracticeGameHub {
         move.put("notation", base.get("notation"));
         move.put("payload", payload);
         move.put("actorUserId", actorUserId);
-        move.put("createdAt", Instant.now().toString());
+        move.put("createdAt", now().toString());
         game.moves.add(move);
-        game.updatedAt = Instant.now();
+        game.updatedAt = now();
+        game.lastActivityAt = game.updatedAt;
         store.appendMove(
             game.gameId,
             game.moves.size(),
@@ -336,12 +392,11 @@ public final class PracticeGameHub {
         game.winnerSide = winnerSide == null ? "" : winnerSide;
         game.resultText = resultText == null ? "" : resultText;
         game.terminationReason = terminationReason == null ? "" : terminationReason;
-        game.updatedAt = Instant.now();
-        game.aiPending = false;
-        game.aiFuture = null;
-        game.aiStartedAtNanos = 0L;
+        game.updatedAt = now();
+        cancelPendingAi(game);
         store.updateGameRecord(snapshot(game, null));
         closeEngines(game);
+        gamesById.remove(game.gameId, game);
         LOG.info(() -> "practice.finish gameId=" + game.gameId
             + " winner=" + game.winnerSide
             + " reason=" + game.terminationReason
@@ -353,7 +408,7 @@ public final class PracticeGameHub {
         game.status = game.match.finished() ? "FINISHED" : "PLAYING";
         game.winnerSide = game.match.winnerSide();
         game.resultText = game.match.resultText();
-        game.updatedAt = Instant.now();
+        game.updatedAt = now();
     }
 
     private int keepMoveCountBeforeLatestHumanMove(ActivePracticeGame game) {
@@ -537,6 +592,8 @@ public final class PracticeGameHub {
         snapshot.put("isTraining", true);
         snapshot.put("opponentType", game.opponentType);
         snapshot.put("aiPending", game.aiPending);
+        snapshot.put("aiState", aiState(game));
+        snapshot.put("engineFallback", engineFallback(game));
         snapshot.put("aiEngine", aiEngineId(game));
         snapshot.put("difficulty", game.difficultyKey);
         snapshot.put("ai", aiMap(game));
@@ -619,7 +676,7 @@ public final class PracticeGameHub {
         item.put("difficulty", game.difficultyKey);
         item.put("side", game.aiSide);
         item.put("preferredEngine", game.enginePreference);
-        item.put("engineFallback", game.gomokuEngine != null && game.gomokuEngine.isEngineFallback());
+        item.put("engineFallback", engineFallback(game));
         return item;
     }
 
@@ -693,6 +750,140 @@ public final class PracticeGameHub {
         }
     }
 
+    public int expireIdleGames() {
+        Instant cutoff = now().minus(idleTimeout);
+        int expired = 0;
+        for (ActivePracticeGame game : gamesById.values()) {
+            synchronized (game) {
+                if (!"PLAYING".equals(game.status) || game.lastActivityAt == null || game.lastActivityAt.isAfter(cutoff)) {
+                    continue;
+                }
+                abandonGame(game, "IDLE_TIMEOUT", "练习因长时间无操作已结束", null);
+                expired++;
+            }
+        }
+        return expired;
+    }
+
+    @Override
+    public void close() {
+        if (sweeper != null) {
+            sweeper.shutdownNow();
+        }
+        aiExecutor.shutdownNow();
+        for (ActivePracticeGame game : gamesById.values()) {
+            synchronized (game) {
+                cancelPendingAi(game);
+                closeEngines(game);
+            }
+        }
+        gamesById.clear();
+    }
+
+    private void expireIdleGamesSafely() {
+        try {
+            int expired = expireIdleGames();
+            if (expired > 0) {
+                LOG.info(() -> "practice.cleanup expired=" + expired);
+            }
+        } catch (RuntimeException ex) {
+            LOG.warning(() -> "practice.cleanup.failed type=" + ex.getClass().getSimpleName());
+        }
+    }
+
+    private Map<String, Object> abandonGame(ActivePracticeGame game, String reason, String resultText, AuthUser viewer) {
+        if (!"PLAYING".equals(game.status)) {
+            return snapshot(game, viewer);
+        }
+        game.status = "ABANDONED";
+        game.currentTurn = "";
+        game.winnerSide = "";
+        game.resultText = resultText;
+        game.terminationReason = reason;
+        game.updatedAt = now();
+        cancelPendingAi(game);
+        Map<String, Object> result = snapshot(game, viewer);
+        store.updateGameRecord(result);
+        closeEngines(game);
+        gamesById.remove(game.gameId, game);
+        LOG.info(() -> "practice.abandon gameId=" + game.gameId + " reason=" + reason);
+        return result;
+    }
+
+    private void cancelPendingAi(ActivePracticeGame game) {
+        CompletableFuture<Map<String, Object>> future = game.aiFuture;
+        if (future != null) {
+            future.cancel(true);
+        }
+        game.aiFuture = null;
+        game.aiPending = false;
+        game.aiStartedAtNanos = 0L;
+    }
+
+    private void touch(ActivePracticeGame game) {
+        game.lastActivityAt = now();
+    }
+
+    private Instant now() {
+        return clock.instant();
+    }
+
+    private String aiState(ActivePracticeGame game) {
+        if (!game.aiPending) {
+            return engineFallback(game) ? "FALLBACK" : "IDLE";
+        }
+        String state = game.xiangqiEngine != null
+            ? game.xiangqiEngine.getExecutionState()
+            : game.gomokuEngine.getExecutionState();
+        return "IDLE".equals(state) ? "THINKING" : state;
+    }
+
+    private boolean engineFallback(ActivePracticeGame game) {
+        return game.xiangqiEngine != null
+            ? game.xiangqiEngine.isEngineFallback()
+            : game.gomokuEngine.isEngineFallback();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> decorateStoredSnapshot(Map<String, Object> stored, AuthUser viewer) {
+        if (stored == null || stored.isEmpty()) {
+            return stored == null ? new LinkedHashMap<String, Object>() : stored;
+        }
+        stored.put("aiPending", false);
+        stored.put("aiState", "IDLE");
+        stored.putIfAbsent("engineFallback", false);
+        if (viewer != null) {
+            Map<String, Object> players = (Map<String, Object>) stored.get("players");
+            if (players != null) {
+                for (Object value : players.values()) {
+                    Map<String, Object> player = (Map<String, Object>) value;
+                    if (viewer.id().equals(asString(player.get("id")))) {
+                        stored.put("viewerSide", asString(player.get("side")));
+                        break;
+                    }
+                }
+            }
+        }
+        return stored;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void ensureStoredParticipant(Map<String, Object> stored, AuthUser actor) {
+        if (actor == null) {
+            throw new IllegalArgumentException("user is not in practice game");
+        }
+        Map<String, Object> players = (Map<String, Object>) stored.get("players");
+        if (players != null) {
+            for (Object value : players.values()) {
+                Map<String, Object> player = (Map<String, Object>) value;
+                if (actor.id().equals(asString(player.get("id")))) {
+                    return;
+                }
+            }
+        }
+        throw new IllegalArgumentException("user is not in practice game");
+    }
+
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
@@ -725,6 +916,7 @@ public final class PracticeGameHub {
         private Board initialXiangqiBoard;
         private GomokuBoard initialGomokuBoard;
         private Instant updatedAt;
+        private Instant lastActivityAt;
         private boolean aiPending;
         private long aiStartedAtNanos;
         private CompletableFuture<Map<String, Object>> aiFuture;
