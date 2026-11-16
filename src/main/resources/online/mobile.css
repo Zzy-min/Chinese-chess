@@ -5787,18 +5787,7 @@
   }
 
   .mobileLobby--strict .mobileLobbyCta--bamboo::after {
-    content: "" !important;
-    position: absolute !important;
-    right: 8px !important;
-    top: 4px !important;
-    bottom: 4px !important;
-    width: 72px !important;
-    pointer-events: none !important;
-    opacity: 0.16 !important;
-    background:
-      radial-gradient(ellipse 18px 40px at 70% 30%, rgba(45, 80, 55, 0.7) 0%, transparent 70%),
-      radial-gradient(ellipse 14px 34px at 40% 55%, rgba(55, 90, 65, 0.55) 0%, transparent 70%),
-      radial-gradient(ellipse 12px 28px at 85% 70%, rgba(40, 70, 50, 0.45) 0%, transparent 70%) !important;
+    display: none !important;
   }
 
   .mobileLobby--strict .mobileRoomComposer {
@@ -5850,17 +5839,7 @@
   }
 
   .mobileLobby--strict .mobileRoomDisclosure--ink .mobileDisclosureDeco {
-    position: absolute !important;
-    right: 36px !important;
-    top: 8px !important;
-    bottom: 8px !important;
-    width: 88px !important;
-    pointer-events: none !important;
-    opacity: 0.15 !important;
-    background:
-      radial-gradient(ellipse 50px 28px at 60% 55%, rgba(55, 75, 85, 0.55) 0%, transparent 72%),
-      radial-gradient(ellipse 22px 10px at 35% 70%, rgba(40, 55, 60, 0.5) 0%, transparent 70%),
-      radial-gradient(circle 5px at 42% 68%, rgba(30, 40, 45, 0.65) 0%, transparent 100%) !important;
+    display: none !important;
   }
 
   /* ===== Learn: full content width ===== */
@@ -6346,18 +6325,7 @@
   }
 
   .mobileLobby--strict .mobileLobbyCta--bamboo::after {
-    content: "" !important;
-    position: absolute !important;
-    right: 8px !important;
-    top: 4px !important;
-    bottom: 4px !important;
-    width: 90px !important;
-    pointer-events: none !important;
-    opacity: 0.17 !important;
-    background:
-      radial-gradient(ellipse 20px 45px at 70% 30%, rgba(40, 75, 52, 0.85) 0%, transparent 70%),
-      radial-gradient(ellipse 16px 38px at 45% 60%, rgba(50, 85, 60, 0.7) 0%, transparent 70%),
-      radial-gradient(ellipse 14px 30px at 85% 72%, rgba(35, 65, 45, 0.6) 0%, transparent 70%) !important;
+    display: none !important;
   }
 
   /* Room composer & Create friend room */
@@ -6484,17 +6452,7 @@
   }
 
   .mobileLobby--strict .mobileRoomDisclosure--ink .mobileDisclosureDeco {
-    position: absolute !important;
-    right: 40px !important;
-    top: 6px !important;
-    bottom: 6px !important;
-    width: 110px !important;
-    pointer-events: none !important;
-    opacity: 0.17 !important;
-    background:
-      radial-gradient(ellipse 65px 32px at 60% 55%, rgba(50, 72, 82, 0.6) 0%, transparent 75%),
-      radial-gradient(ellipse 26px 12px at 35% 72%, rgba(35, 52, 58, 0.55) 0%, transparent 72%),
-      radial-gradient(circle 6px at 42% 70%, rgba(25, 38, 42, 0.75) 0%, transparent 100%) !important;
+    display: none !important;
   }
 
   /* ===== Tab 03: 棋谱 / Learn ===== */

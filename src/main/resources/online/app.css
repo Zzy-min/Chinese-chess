@@ -5394,7 +5394,7 @@ h1, h2, h3, .sectionTitle, .brandText strong, .stampTitle {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  padding: 6px 0 !important;
+  padding: 6px 8px !important;
   border-bottom: 1px dashed var(--line) !important;
 }
 .rankNum {
@@ -5449,6 +5449,8 @@ h1, h2, h3, .sectionTitle, .brandText strong, .stampTitle {
   font-size: 13px !important;
   font-weight: 700 !important;
   color: var(--cinnabar) !important;
+  flex-shrink: 0 !important;
+  padding-right: 4px !important;
 }
 
 /* 4. Screen 2: 对局大厅 (Play Lobby) */
@@ -5668,6 +5670,20 @@ h1, h2, h3, .sectionTitle, .brandText strong, .stampTitle {
   padding: 18px 16px !important;
   box-shadow: var(--shadow) !important;
 }
+.deskLobbyAside .deskSectionHeader {
+  gap: 8px !important;
+}
+.deskLobbyAside .deskSectionHeader h3 {
+  font-size: 14px !important;
+  white-space: nowrap !important;
+}
+.deskLobbyAside .deskRankTabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
 .lobbyActionGrid {
   display: grid !important;
   grid-template-columns: 1fr !important;
@@ -5695,6 +5711,11 @@ h1, h2, h3, .sectionTitle, .brandText strong, .stampTitle {
   padding: 10px 14px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
+}
+.actionBtn--join .actionText strong,
+.actionBtn--join .actionText span,
+.actionBtn--join .actionIcon {
+  color: #FFFFFF !important;
 }
 
 /* 5. Screen 3 & Screen 4: 棋桌与操作区 (Board Stage & Sidebar - 宣纸卡 + 认输彻底降权) */

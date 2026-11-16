@@ -158,7 +158,17 @@ window.setInterval(() => {
 
 async function boot() {
   initOnlineAudio();
-  await Promise.all([loadBootstrap(), loadMe()]);
+  await loadBootstrap();
+  if (state.bootstrap && Object.prototype.hasOwnProperty.call(state.bootstrap, 'me')) {
+    state.me = state.bootstrap.me || null;
+    if (!state.me) {
+      state.learnProgress = null;
+      state.profileDashboard = null;
+      state.profile = null;
+    }
+  } else {
+    await loadMe();
+  }
   if (state.me) {
     await Promise.all([loadProfilePreferences(), loadProfileDashboard(false)]);
   }
@@ -520,7 +530,7 @@ function clearRouteError(type, id) {
   }
 }
 
-function renderRouteErrorPanel({ badge, title, message, backNav, backText, actionNav, actionText, retryType, retryId }) {
+function renderRouteErrorPanel({ badge, title, message, backNav, backText, actionNav, actionText, retryType, retryId, showAuth }) {
   return `
     <section class="panel routeErrorPanel">
       <div class="routeErrorCard">
@@ -529,6 +539,7 @@ function renderRouteErrorPanel({ badge, title, message, backNav, backText, actio
         <h2 class="sectionTitle">${escapeHtml(title || '页面不存在')}</h2>
         <p class="muted">${escapeHtml(message || '请求的资源未找到或已失效。')}</p>
         <div class="roomRow routeErrorActions">
+          ${showAuth ? '<button class="btn btn-red" data-action="show-auth">立即登录</button>' : ''}
           <button class="btn" data-nav="${escapeHtml(backNav || 'play')}">${escapeHtml(backText || '返回对局大厅')}</button>
           ${actionNav ? `<button class="ghost" data-nav="${escapeHtml(actionNav)}">${escapeHtml(actionText || '前往')}</button>` : ''}
           ${retryType && retryId ? `<button class="ghost" data-action="retry-route" data-retry-type="${escapeHtml(retryType)}" data-retry-id="${escapeHtml(retryId)}">重新加载</button>` : ''}
@@ -657,6 +668,12 @@ function render() {
     return;
   }
   const route = currentRoute();
+  if (state.endGameModal) {
+    const modalGameId = state.endGameModal.game && state.endGameModal.game.gameId;
+    if ((route.page !== 'game' && route.page !== 'practice') || (route.id && modalGameId && modalGameId !== route.id)) {
+      state.endGameModal = null;
+    }
+  }
   const isBoardRoute = isBoardRoutePage(route.page);
   const isMobileBoardRoute = isBoardRoute && isMobileLayout();
   document.body.classList.toggle('mobile-board-route', isMobileBoardRoute);
@@ -970,6 +987,9 @@ function renderGameEndModal() {
   }
   const modal = state.endGameModal;
   const game = modal.game || {};
+  if (!route.id || !game.gameId || game.gameId !== route.id) {
+    return '';
+  }
   const isPractice = !!game.isTraining;
   const winner = game.winnerSide ? `${sideLabel(game.gameType, game.winnerSide)}胜` : (game.terminationReason === 'DRAW' || game.terminationReason === 'AGREED_DRAW' ? '双方战和' : '无');
   const resultText = escapeHtml(formatGameResultText(game));
@@ -1643,29 +1663,29 @@ function renderLearnPracticeTab(content) {
         <h3 style="margin:0 0 12px">快速创建 AI 练习</h3>
         <div class="stack">
           <div class="field">
-            <label>棋种</label>
-            <select data-learn-field="gameType">
+            <label for="learnPracticeGameType">棋种</label>
+            <select id="learnPracticeGameType" aria-label="棋种" data-learn-field="gameType">
               <option value="XIANGQI" ${state.learnConfig.gameType === 'XIANGQI' ? 'selected' : ''}>中国象棋</option>
               <option value="GOMOKU" ${state.learnConfig.gameType === 'GOMOKU' ? 'selected' : ''}>五子棋</option>
             </select>
           </div>
           <div class="field">
-            <label>难度</label>
-            <select data-learn-field="difficulty">
+            <label for="learnPracticeDifficulty">难度</label>
+            <select id="learnPracticeDifficulty" aria-label="难度" data-learn-field="difficulty">
               ${difficulties.map(item => `<option value="${item.value}" ${state.learnConfig.difficulty === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
             </select>
             <small class="fieldHint">${escapeHtml(selectedDifficulty.description)}</small>
           </div>
           <div class="field">
-            <label>先后手</label>
-            <select data-learn-field="humanFirst">
+            <label for="learnPracticeHumanFirst">先后手</label>
+            <select id="learnPracticeHumanFirst" aria-label="先后手" data-learn-field="humanFirst">
               <option value="true" ${state.learnConfig.humanFirst ? 'selected' : ''}>我先手</option>
               <option value="false" ${!state.learnConfig.humanFirst ? 'selected' : ''}>AI 先手</option>
             </select>
           </div>
           <div class="field">
-            <label>引擎</label>
-            <select data-learn-field="preferredEngine">
+            <label for="learnPracticeEngine">引擎</label>
+            <select id="learnPracticeEngine" aria-label="引擎" data-learn-field="preferredEngine">
               ${engines.map(item => `<option value="${item.value}" ${state.learnConfig.preferredEngine === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
             </select>
           </div>
@@ -2024,15 +2044,16 @@ function renderRoom(roomId) {
   const err = getRouteError('room', roomId);
   if (err) {
     return renderRouteErrorPanel({
-      badge: '房间异常',
-      title: '该房间不存在或已关闭',
+      badge: err.status === 401 ? '需要登录' : '房间异常',
+      title: err.title || '该房间不存在或已关闭',
       message: err.message || '房间可能已被房主解散、超时关闭，或房间链接不正确。',
       backNav: 'play',
       backText: '返回对局大厅',
       actionNav: 'play/xiangqi',
       actionText: '创建新房间',
       retryType: 'room',
-      retryId: roomId
+      retryId: roomId,
+      showAuth: err.status === 401
     });
   }
   const room = state.room;
@@ -2542,8 +2563,8 @@ function renderPracticeView(game) {
                 </div>
               </div>
               <div class="boardPlayerClockBlock">
-                <div class="boardPlayerClock ${playerActive ? 'is-ticking' : ''}">14:32</div>
-                <div class="clockTimingStatus ${playerActive ? 'is-active' : 'is-idle'}">步时 01:00 | 剩余 08:15</div>
+                <div class="boardPlayerClock ${playerActive ? 'is-ticking' : ''}">不限时</div>
+                <div class="clockTimingStatus ${playerActive ? 'is-active' : 'is-idle'}">人机练习 · 无步时限制</div>
               </div>
               ${playerActive ? '<div class="turnBadge active">我的回合</div>' : '<div class="turnBadge is-waiting-turn">等待AI走棋</div>'}
             </div>
@@ -2555,19 +2576,19 @@ function renderPracticeView(game) {
                 <img class="avatar" src="${getAvatar('AI', aiColor)}" />
                 <div class="userMeta">
                   <strong>AI 棋桌</strong>
-                  <span class="vipBadge">${sideLabel(game.gameType, aiSide)} · 人机练习 <span class="difficultyPill mobileDifficultyPill">${escapeHtml((ai.difficulty || 'MEDIUM').toString().toUpperCase())}</span></span>
+                  <span class="vipBadge">${sideLabel(game.gameType, aiSide)} · 人机练习 <span class="difficultyPill mobileDifficultyPill">${escapeHtml(practiceDifficultyLabel(ai.difficulty))}</span></span>
                 </div>
               </div>
               <div class="boardPlayerClockBlock">
-                <div class="boardPlayerClock ${aiActive ? 'is-ticking' : ''}">${aiActive ? '思考中' : '13:48'}</div>
-                <div class="clockTimingStatus ${aiActive ? 'is-active' : 'is-idle'}">步时 01:00 | 剩余 08:32</div>
+                <div class="boardPlayerClock ${aiActive ? 'is-ticking' : ''}">${aiActive ? '思考中' : '不限时'}</div>
+                <div class="clockTimingStatus ${aiActive ? 'is-active' : 'is-idle'}">${aiActive ? 'AI 正在计算着法' : '人机练习 · 无步时限制'}</div>
               </div>
               ${aiActive ? '<div class="turnBadge active">AI回合</div>' : '<div class="turnBadge is-waiting-turn">等待玩家走棋</div>'}
             </div>
           </div>
 
           <div class="boardRailNote">
-            <div>AI 难度: <strong>${escapeHtml(ai.difficulty || '普通')}</strong></div>
+            <div>AI 难度: <strong>${escapeHtml(practiceDifficultyLabel(ai.difficulty))}</strong></div>
             <div>AI 阵营: <strong>${sideLabel(game.gameType, aiSide)}</strong></div>
             <div>状态: <strong>${escapeHtml(practiceStatusText(game))}</strong></div>
           </div>
@@ -2652,7 +2673,7 @@ function renderClockCard(game, slot) {
       <div class="boardPlayerClockBlock">
         <div class="boardPlayerClock ${active ? 'is-ticking' : ''}" data-clock-value="${side}" data-remaining-base="${baseRemaining}">${formatClock(remaining)}</div>
         <div class="clockTimingStatus ${active ? 'is-active' : 'is-idle'}">
-          步时 01:00 | 剩余 ${formatClock(remaining)}
+          步时 不限 | 剩余 ${formatClock(remaining)}
         </div>
       </div>
       ${turnBadgeHtml}
@@ -4257,7 +4278,13 @@ async function submitAuth() {
       await refreshBootstrapAndProfile();
       await Promise.all([loadLearnProgress(), loadProfilePreferences(), loadProfileDashboard(false)]);
       showToast(state.authMode === 'login' ? `欢迎回来，${username}` : `注册成功，已登录 ${username}`, 'success');
-      render();
+      const activeRoute = currentRoute();
+      if (activeRoute.page === 'room' && activeRoute.id) {
+        delete state.routeLoadError[`room:${activeRoute.id}`];
+        await handleRoute();
+      } else {
+        render();
+      }
       return true;
     } catch (error) {
       state.authError = friendlyAuthErrorMessage(error, state.authMode);
@@ -4799,9 +4826,28 @@ async function loadRoom(roomId) {
   state.routeLoading[key] = true;
   delete state.routeLoadError[key];
   try {
-    const data = await fetchJson(`${API_BASE}/rooms/${roomId}`);
+    let data;
+    try {
+      data = await fetchJson(`${API_BASE}/rooms/${roomId}`);
+    } catch (firstErr) {
+      if (firstErr && firstErr.status === 403 && state.me) {
+        data = await fetchJson(`${API_BASE}/rooms/${roomId}/join`, { method: 'POST', body: '{}' });
+      } else {
+        throw firstErr;
+      }
+    }
     if (!data || !data.roomId) {
       throw new Error('room not found');
+    }
+    if (state.me && !data.guest && data.status === 'WAITING' && (!data.host || data.host.id !== state.me.id)) {
+      try {
+        const joined = await fetchJson(`${API_BASE}/rooms/${roomId}/join`, { method: 'POST', body: '{}' });
+        if (joined && joined.roomId) {
+          data = joined;
+        }
+      } catch (_) {
+        // Keep readable room snapshot so user can see status or retry joining manually.
+      }
     }
     state.room = data;
     delete state.routeLoading[key];
@@ -4810,10 +4856,16 @@ async function loadRoom(roomId) {
   } catch (error) {
     state.room = null;
     delete state.routeLoading[key];
+    const isAuth = error && error.status === 401;
+    const isJoinBlocked = error && (error.status === 400 || error.status === 403 || error.status === 409);
     state.routeLoadError[key] = {
       type: 'room',
       id: roomId,
-      message: error.message === 'room not found' ? '该房间不存在或已解散' : (error.message || '房间加载失败')
+      status: error && error.status ? error.status : 0,
+      title: isAuth ? '请先登录后加入房间' : (isJoinBlocked ? '无法加入该房间' : '该房间不存在或已关闭'),
+      message: isAuth
+        ? '您当前尚未登录，登录后即可通过此分享链接加入好友房间。'
+        : (error.message === 'room not found' ? '该房间不存在或已解散' : (error.message || '房间加载失败'))
     };
     render();
   }
@@ -4825,6 +4877,9 @@ async function loadGame(gameId) {
   state.routeLoading[key] = true;
   delete state.routeLoadError[key];
   stopPracticePolling();
+  if (state.endGameModal && (!state.endGameModal.game || state.endGameModal.game.gameId !== gameId)) {
+    state.endGameModal = null;
+  }
   try {
     const raw = await fetchJson(`${API_BASE}/games/${gameId}`);
     if (!raw || !raw.gameId) {
@@ -4851,6 +4906,9 @@ async function loadPractice(gameId) {
   if (state.routeLoading[key]) return;
   state.routeLoading[key] = true;
   delete state.routeLoadError[key];
+  if (state.endGameModal && (!state.endGameModal.game || state.endGameModal.game.gameId !== gameId)) {
+    state.endGameModal = null;
+  }
   try {
     const raw = await fetchJson(`${API_BASE}/learn/practice-games/${gameId}`);
     if (!raw || !raw.gameId) {
@@ -6154,6 +6212,18 @@ function gameLabel(game) {
   return game && game.isTraining ? `${typeLabel} · AI 练习` : typeLabel;
 }
 
+function practiceDifficultyLabel(difficulty) {
+  const key = String(difficulty || 'MEDIUM').trim().toUpperCase();
+  return {
+    NOVICE: '入门',
+    EASY: '简单',
+    MEDIUM: '中等',
+    HARD: '困难',
+    MASTER: '大师',
+    EXPERT: '大师'
+  }[key] || difficulty || '中等';
+}
+
 function practiceAiMeta(game) {
   return game.ai || {
     engineId: game.aiEngine || '-',
@@ -6180,7 +6250,10 @@ async function fetchJson(url, options = {}) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    throw new Error(data && data.error ? data.error : `Request failed (${response.status})`);
+    const err = new Error(data && data.error ? data.error : `Request failed (${response.status})`);
+    err.status = response.status;
+    err.code = data && data.code ? data.code : '';
+    throw err;
   }
   return data;
 }
@@ -6680,8 +6753,12 @@ function renderPlayLobbyDesk() {
   }
   const leaderboard = state.communityLeaderboard || { winBoard: [], byGameType: {} };
   const xqBoard = leaderboardBucket(leaderboard, 'XIANGQI');
-  const activeXq = 12564 + ((b.activeRooms || 0) * 12);
-  const activeGm = 9642 + ((b.activeRooms || 0) * 8);
+  const xqStats = (b.gameStats && b.gameStats.XIANGQI) || {};
+  const gmStats = (b.gameStats && b.gameStats.GOMOKU) || {};
+  const xqActiveRooms = Number(xqStats.activeRooms || 0);
+  const gmActiveRooms = Number(gmStats.activeRooms || 0);
+  const activeXqLabel = xqActiveRooms > 0 ? `${xqActiveRooms} 间活跃房间` : `累计 ${Number(xqStats.totalGames || 0)} 局`;
+  const activeGmLabel = gmActiveRooms > 0 ? `${gmActiveRooms} 间活跃房间` : `累计 ${Number(gmStats.totalGames || 0)} 局`;
   return `
     <div class="deskLobby">
       <aside class="panel deskSidebar">
@@ -6723,7 +6800,7 @@ function renderPlayLobbyDesk() {
               <h3>在线象棋</h3>
               <p>楚河汉界，智策对决</p>
               <div class="deskModePanelMeta">
-                <span class="onlineCountTag"><span class="onlineDot">●</span> ${activeXq} 人在线</span>
+                <span class="onlineCountTag"><span class="onlineDot">●</span> ${escapeHtml(activeXqLabel)}</span>
               </div>
               <button class="btn btn-red" data-nav="play/xiangqi">进入大厅</button>
             </div>
@@ -6735,7 +6812,7 @@ function renderPlayLobbyDesk() {
               <h3>五子棋</h3>
               <p>黑白相间，落子无悔</p>
               <div class="deskModePanelMeta">
-                <span class="onlineCountTag"><span class="onlineDot">●</span> ${activeGm} 人在线</span>
+                <span class="onlineCountTag"><span class="onlineDot">●</span> ${escapeHtml(activeGmLabel)}</span>
               </div>
               <button class="btn btn-charcoal" data-nav="play/gomoku">进入大厅</button>
             </div>
@@ -6788,7 +6865,7 @@ function renderPlayLobbyDesk() {
                       <span class="muted">积分场 · 已归档</span>
                     </div>
                     <span class="recentResultTag ${tagClass}">${escapeHtml(resultText)}</span>
-                    <span class="gameTime">已完赛</span>
+                    ${resultText === '已完赛' ? '' : '<span class="gameTime">已完赛</span>'}
                     <button class="ghost btn-tiny recentActionBtn" data-nav="analysis/${game.gameId}">回顾</button>
                   </div>
                 `;

@@ -1033,14 +1033,20 @@ public final class OnlineStore {
             config.setPassword("");
             config.setDriverClassName("org.h2.Driver");
         } else {
-            config.setJdbcUrl(toJdbcUrl(rawUrl));
+            String jdbcUrl = toJdbcUrl(rawUrl);
+            config.setJdbcUrl(jdbcUrl);
+            boolean isH2 = jdbcUrl.toLowerCase(java.util.Locale.ROOT).startsWith("jdbc:h2:");
             if (username != null && !username.trim().isEmpty()) {
                 config.setUsername(username);
+            } else if (isH2) {
+                config.setUsername("sa");
             }
             if (password != null && !password.trim().isEmpty()) {
                 config.setPassword(password);
+            } else if (isH2) {
+                config.setPassword("");
             }
-            config.setDriverClassName("org.postgresql.Driver");
+            config.setDriverClassName(isH2 ? "org.h2.Driver" : "org.postgresql.Driver");
         }
         config.setMaximumPoolSize(6);
         config.setMinimumIdle(1);

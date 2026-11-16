@@ -1154,6 +1154,29 @@ class PublicSiteServerTest {
     }
 
 
+    @Test
+    void legacyAudioAssetsReturn200() throws Exception {
+        OnlineStore store = newStore();
+        PublicSiteServer server = new PublicSiteServer(store);
+        int port = findFreePort();
+        server.start("127.0.0.1", port);
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            for (String path : new String[]{
+                "/assets/audio/move.wav",
+                "/assets/audio/capture.wav",
+                "/assets/audio/check.wav",
+                "/assets/audio/mate.wav"
+            }) {
+                HttpResponse<byte[]> resp = client.send(getRequest(port, path, ""), HttpResponse.BodyHandlers.ofByteArray());
+                assertEquals(200, resp.statusCode(), "Expected 200 for " + path);
+                assertTrue(resp.body().length > 0, "Expected non-empty body for " + path);
+            }
+        } finally {
+            server.stop();
+        }
+    }
+
     private HttpRequest headRequest(int port, String path) {
         return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
             .method("HEAD", HttpRequest.BodyPublishers.noBody())
