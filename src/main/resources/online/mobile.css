@@ -7438,12 +7438,17 @@
     }
   }
 
+  [data-live-rule-alert] {
+    top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+    width: min(calc(100vw - 24px), 380px) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
   .ruleAlertBanner {
-    padding: 7px 10px !important;
-    margin-bottom: 8px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 0 !important;
     font-size: 12px !important;
     gap: 8px !important;
-    border-radius: 10px !important;
+    border-radius: 14px !important;
   }
   .ruleAlertBadge {
     font-size: 11px !important;

@@ -859,6 +859,7 @@ function render() {
         ${renderPage(route)}
       </main>
       ${renderBottomNav(route.page)}
+      <div data-live-rule-alert>${isBoardRoutePage(route.page) ? renderRuleAlertBanner(state.game) : ''}</div>
       ${renderGameEndModal()}
       ${renderConfirmModal()}
       ${shouldShowAuthOverlay(route) ? renderAuthOverlay() : ''}
@@ -2587,7 +2588,6 @@ function renderOnlineGameView(game) {
           </div>
           <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
-          <div data-live-rule-alert>${renderRuleAlertBanner(game)}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           <div class="boardStageWatermark" aria-hidden="true">${renderBoardAtmosphereSvg(game.gameType)}</div>
           <div class="roomRow woodActions" data-live-game-actions>
@@ -2759,7 +2759,6 @@ function renderPracticeView(game) {
         <!-- 中栏 (自适应棋盘区) -->
         <section class="boardWrap boardPane boardPane--practice boardStage">
           <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : practiceStatusText(game)}</div>
-          <div data-live-rule-alert>${renderRuleAlertBanner(game)}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           <div class="boardStageWatermark" aria-hidden="true">${renderBoardAtmosphereSvg(game.gameType)}</div>
           
