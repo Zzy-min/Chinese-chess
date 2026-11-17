@@ -74,8 +74,9 @@ public class XiangqiMatch implements OnlineMatchEngine {
             return MatchEvent.rejected("not your turn");
         }
         Move move = new Move(input.fromRow(), input.fromCol(), input.toRow(), input.toCol());
-        if (!board.isValidMove(move)) {
-            return MatchEvent.rejected("illegal move");
+        String illegalReason = board.getIllegalMoveReason(move);
+        if (!illegalReason.isEmpty()) {
+            return MatchEvent.rejected(illegalReason);
         }
         return MatchEvent.accepted("move accepted");
     }
@@ -153,6 +154,15 @@ public class XiangqiMatch implements OnlineMatchEngine {
     public String inCheckSide() {
         PieceColor currentSide = board.getCurrentTurn();
         return board.isInCheck(currentSide) ? currentSide.name() : "";
+    }
+
+    @Override
+    public String checkTactic() {
+        PieceColor currentSide = board.getCurrentTurn();
+        if (!board.isInCheck(currentSide)) {
+            return "";
+        }
+        return com.xiangqi.model.TacticDetector.detect(board);
     }
 
     @Override

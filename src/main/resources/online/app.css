@@ -6161,4 +6161,337 @@ h1, h2, h3, .sectionTitle, .brandText strong, .stampTitle {
   display: none !important; /* Hide candy-pink move banner over board */
 }
 
+/* ==================== 9. 全站按钮温润实体质感升级 ==================== */
+.btn,
+.ghost,
+.danger,
+.btn-continue,
+.btn-block,
+.btn-back-custom,
+.btn-star-custom,
+.woodActions button,
+.endGameSecondaryActions button {
+  position: relative;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    filter 0.2s ease;
+}
+
+.btn {
+  background: linear-gradient(180deg, #9B3737 0%, #832727 100%);
+  border-color: #7A2323;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(40, 10, 10, 0.18),
+    0 3px 10px rgba(139, 46, 46, 0.24);
+}
+.btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #A83E3E 0%, #8D2C2C 100%);
+  border-color: #832727;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(40, 10, 10, 0.2),
+    0 6px 16px rgba(139, 46, 46, 0.32);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow:
+    inset 0 2px 4px rgba(35, 8, 8, 0.28),
+    0 1px 3px rgba(139, 46, 46, 0.2);
+}
+
+.ghost {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAF5EC 100%);
+  border-color: #DDD4C4;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 6px rgba(44, 42, 38, 0.06);
+}
+.ghost:hover:not(:disabled) {
+  background: linear-gradient(180deg, #FFFDF9 0%, #F5EDE0 100%);
+  border-color: #CBBBA2;
+  color: var(--cinnabar);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 12px rgba(99, 61, 28, 0.11);
+}
+.ghost:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  background: linear-gradient(180deg, #F3ECE0 0%, #FAF5EC 100%);
+  box-shadow:
+    inset 0 1px 3px rgba(99, 61, 28, 0.14),
+    0 1px 2px rgba(44, 42, 38, 0.05);
+}
+
+.danger {
+  background: linear-gradient(180deg, #BE4837 0%, #9E3324 100%);
+  border-color: #8E2C1E;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 3px 10px rgba(177, 63, 47, 0.24);
+}
+.danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #CB513F 0%, #A93828 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 6px 16px rgba(177, 63, 47, 0.32);
+}
+.danger:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: inset 0 2px 4px rgba(50, 12, 8, 0.26);
+}
+
+.btn-red,
+.btn-block.btn-red {
+  background: linear-gradient(180deg, #9C3838 0%, #822626 100%) !important;
+  border-color: #772121 !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(35, 8, 8, 0.2),
+    0 4px 12px rgba(139, 46, 46, 0.26) !important;
+}
+.btn-red:hover:not(:disabled),
+.btn-block.btn-red:hover:not(:disabled) {
+  background: linear-gradient(180deg, #A93F3F 0%, #8D2C2C 100%) !important;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 18px rgba(139, 46, 46, 0.34) !important;
+}
+.btn-red:active:not(:disabled),
+.btn-block.btn-red:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: inset 0 2px 5px rgba(35, 8, 8, 0.3) !important;
+}
+
+.btn-green,
+.btn-block.btn-green {
+  background: linear-gradient(180deg, #597663 0%, #445C4C 100%) !important;
+  border-color: #3B5142 !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(18, 30, 22, 0.2),
+    0 4px 12px rgba(77, 103, 86, 0.26) !important;
+}
+.btn-green:hover:not(:disabled),
+.btn-block.btn-green:hover:not(:disabled) {
+  background: linear-gradient(180deg, #62826D 0%, #4B6654 100%) !important;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 6px 18px rgba(77, 103, 86, 0.34) !important;
+}
+.btn-green:active:not(:disabled),
+.btn-block.btn-green:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: inset 0 2px 5px rgba(18, 30, 22, 0.3) !important;
+}
+
+.btn-continue {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAF6EE 100%);
+  border-color: #DCD2C1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 6px rgba(44, 42, 38, 0.07);
+}
+.btn-continue:hover:not(:disabled) {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(139, 46, 46, 0.14);
+}
+.btn-continue:active:not(:disabled) {
+  transform: translateY(1px) scale(0.975);
+}
+
+.btn-back-custom,
+.btn-star-custom {
+  background: rgba(255, 252, 246, 0.92);
+  backdrop-filter: blur(6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 8px rgba(44, 42, 38, 0.12);
+}
+.btn-back-custom:hover:not(:disabled),
+.btn-star-custom:hover:not(:disabled) {
+  background: #FFFFFF;
+  color: var(--cinnabar);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(44, 42, 38, 0.16);
+}
+.btn-back-custom:active:not(:disabled),
+.btn-star-custom:active:not(:disabled) {
+  transform: translateY(1px) scale(0.95);
+}
+
+.woodActions button.ghost {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F7F1E6 100%);
+  border-color: #D8CEBC;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 2px 5px rgba(99, 61, 28, 0.08);
+}
+.woodActions button.ghost:hover:not(:disabled) {
+  background: linear-gradient(180deg, #FFFDF9 0%, #F2E8D8 100%);
+  border-color: #C6A35A;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 4px 10px rgba(164, 118, 72, 0.16);
+}
+.woodActions button.ghost:active:not(:disabled) {
+  transform: translateY(1px) scale(0.975);
+  box-shadow: inset 0 1px 3px rgba(99, 61, 28, 0.16);
+}
+.woodActions button.ghost.danger:active:not(:disabled),
+.woodActions .actionBtn--resign:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985) !important;
+}
+
+button:focus-visible,
+.btn:focus-visible,
+.ghost:focus-visible,
+.danger:focus-visible {
+  outline: 2px solid rgba(139, 46, 46, 0.42);
+  outline-offset: 2px;
+}
+
+/* ==================== 10. 对局特殊规则触发提醒与棋盘联动 ==================== */
+.ruleAlertBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid #E5D4B8;
+  background: linear-gradient(135deg, #FFFBF2 0%, #FDF3E1 100%);
+  color: #4A3418;
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 4px 12px rgba(145, 75, 20, 0.1);
+  animation: ruleAlertPop 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ruleAlertBanner.is-check {
+  border-color: rgba(177, 45, 36, 0.42);
+  background: linear-gradient(135deg, #FFF5F3 0%, #FCE6E2 100%);
+  color: #6B1A14;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 4px 14px rgba(177, 45, 36, 0.16);
+}
+.ruleAlertBanner.is-forbidden {
+  border-color: rgba(168, 56, 30, 0.44);
+  background: linear-gradient(135deg, #FFF7F0 0%, #FDE9DC 100%);
+  color: #702412;
+}
+.ruleAlertBanner.is-tactic {
+  border-color: rgba(198, 163, 90, 0.55);
+  background: linear-gradient(135deg, #FFFCF3 0%, #F9F0D8 100%);
+  color: #543E14;
+}
+.ruleAlertBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(180deg, #B86B1B 0%, #945210 100%);
+  box-shadow: 0 2px 6px rgba(148, 82, 16, 0.26);
+}
+.ruleAlertBanner.is-check .ruleAlertBadge {
+  background: linear-gradient(180deg, #B93529 0%, #8F2218 100%);
+  box-shadow: 0 2px 6px rgba(143, 34, 24, 0.3);
+}
+.ruleAlertBanner.is-forbidden .ruleAlertBadge {
+  background: linear-gradient(180deg, #C24527 0%, #992F17 100%);
+}
+.ruleAlertText {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+}
+.ruleAlertClose {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.58;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.ruleAlertClose:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+@keyframes ruleAlertPop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.xiangqiCell.is-rule-blocked::after,
+.gomokuCell.is-rule-blocked::after {
+  content: '';
+  position: absolute;
+  inset: 14%;
+  left: 14%;
+  top: 14%;
+  right: 14%;
+  bottom: 14%;
+  width: auto;
+  height: auto;
+  transform: none;
+  border-radius: 50%;
+  border: 2.5px solid #C23829;
+  background: rgba(194, 56, 41, 0.16);
+  box-shadow: 0 0 12px rgba(194, 56, 41, 0.45);
+  pointer-events: none;
+  z-index: 6;
+  animation: ruleCellPulse 0.85s ease-in-out infinite;
+}
+
+.xiangqiCell.is-rule-blocker .piece {
+  box-shadow: 0 0 0 3px rgba(198, 128, 34, 0.85), 0 0 14px rgba(198, 128, 34, 0.55) !important;
+  animation: ruleCellPulse 0.85s ease-in-out infinite;
+}
+
+@keyframes ruleCellPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.68;
+  }
+}
+
+
 

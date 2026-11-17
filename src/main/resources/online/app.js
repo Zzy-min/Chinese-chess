@@ -97,7 +97,8 @@ const state = {
   routeLoading: {},
   routeLoadError: {},
   interactionError: '',
-  interactionErrorExpireAt: 0
+  interactionErrorExpireAt: 0,
+  ruleAlert: null
 };
 
 const API_BASE = '/online/api';
@@ -553,6 +554,15 @@ function translateInteractionError(raw) {
   if (!raw) return '';
   const text = String(raw).trim();
   const lower = text.toLowerCase();
+  if (text.includes('三三禁手')) {
+    return '触发「三三禁手」：黑棋禁止一子同时形成两个活三';
+  }
+  if (text.includes('四四禁手')) {
+    return '触发「四四禁手」：黑棋禁止一子同时形成两个四（活四或冲四）';
+  }
+  if (text.includes('长连禁手')) {
+    return '触发「长连禁手」：黑棋禁止形成六子及以上的长连';
+  }
   if (lower.includes('illegal move') || lower === 'illegal move') {
     return '非法走子：该步走法不符合规则（请注意别马腿、象不过河或将帅照面）';
   }
@@ -569,6 +579,152 @@ function translateInteractionError(raw) {
     return '用户名或密码不正确';
   }
   return text;
+}
+
+function parseRuleAlertFromError(game, payload, rawError) {
+  if (!rawError) return null;
+  const text = String(rawError).trim();
+  const gameId = game && game.gameId ? game.gameId : '';
+  const targetCell = payload && Number.isInteger(payload.toRow) && Number.isInteger(payload.toCol)
+    ? { row: payload.toRow, col: payload.toCol }
+    : (payload && Number.isInteger(payload.row) && Number.isInteger(payload.col)
+      ? { row: payload.row, col: payload.col }
+      : null);
+
+  if (text.includes('三三禁手')) {
+    return { title: '三三禁手', detail: '黑棋禁止一子同时形成两个活三，请改选其他落点。', level: 'forbidden', gameId, cell: targetCell, blockerCell: null };
+  }
+  if (text.includes('四四禁手')) {
+    return { title: '四四禁手', detail: '黑棋禁止一子同时形成两个四（活四或冲四），请改选其他落点。', level: 'forbidden', gameId, cell: targetCell, blockerCell: null };
+  }
+  if (text.includes('长连禁手')) {
+    return { title: '长连禁手', detail: '黑棋禁止形成六子及以上的长连，请改选其他落点。', level: 'forbidden', gameId, cell: targetCell, blockerCell: null };
+  }
+
+  let blockerCell = null;
+  if (text.includes('蹩马腿') && payload && Number.isInteger(payload.fromRow) && Number.isInteger(payload.toRow)) {
+    const dRow = Math.abs(payload.toRow - payload.fromRow);
+    const dCol = Math.abs(payload.toCol - payload.fromCol);
+    if (dRow === 2 && dCol === 1) {
+      blockerCell = { row: payload.fromRow + (payload.toRow > payload.fromRow ? 1 : -1), col: payload.fromCol };
+    } else if (dRow === 1 && dCol === 2) {
+      blockerCell = { row: payload.fromRow, col: payload.fromCol + (payload.toCol > payload.fromCol ? 1 : -1) };
+    }
+    return { title: '蹩马腿', detail: '马腿处有棋子阻挡，无法跳向该位置。', level: 'rule', gameId, cell: targetCell, blockerCell };
+  }
+  if (text.includes('塞象眼') && payload && Number.isInteger(payload.fromRow) && Number.isInteger(payload.toRow)) {
+    blockerCell = { row: Math.trunc((payload.fromRow + payload.toRow) / 2), col: Math.trunc((payload.fromCol + payload.toCol) / 2) };
+    return { title: '塞象眼', detail: '象眼处有棋子阻挡，相/象无法飞过。', level: 'rule', gameId, cell: targetCell, blockerCell };
+  }
+
+  const xiangqiRules = [
+    ['象不过河', '相/象只能在己方半场活动，不能越过楚河汉界。', 'rule'],
+    ['将帅照面', '两方将帅不可在同一直线上直接面对。', 'rule'],
+    ['必须应将', '当前正被将军，此步未能解除将军状态，请先应将。', 'check'],
+    ['不能送将', '走此步后己方将帅将被将军，不能送将。', 'rule'],
+    ['炮隔山打牛', '炮吃子时中间必须恰好隔一个棋子（炮架）。', 'rule'],
+    ['炮行不越子', '炮不吃子时路径上不能有棋子阻挡。', 'rule'],
+    ['车行不越子', '车行进路径上不能有棋子阻挡。', 'rule'],
+    ['兵卒不退', '兵/卒只能前进或过河后横走，不能后退。', 'rule'],
+    ['未过河兵卒', '兵/卒过河前只能直行前进，不能横走。', 'rule'],
+    ['九宫限制', '将/帅与仕/士只能在己方九宫格内活动。', 'rule']
+  ];
+  for (const [key, detail, level] of xiangqiRules) {
+    if (text.includes(key)) {
+      return { title: key, detail, level, gameId, cell: targetCell, blockerCell: null };
+    }
+  }
+  return null;
+}
+
+function setRuleAlert(alertObj, durationMs = 4200) {
+  if (!alertObj) return;
+  const safeDuration = Math.max(2400, durationMs);
+  const expireAt = Date.now() + safeDuration;
+  state.ruleAlert = Object.assign({}, alertObj, { expireAt });
+  refreshLiveRuleAlert();
+  refreshLiveBoardSurface();
+  window.setTimeout(() => {
+    if (state.ruleAlert && state.ruleAlert.expireAt === expireAt) {
+      state.ruleAlert = null;
+      refreshLiveRuleAlert();
+      refreshLiveBoardSurface();
+    }
+  }, safeDuration + 60);
+}
+
+function clearRuleAlert() {
+  if (!state.ruleAlert) return;
+  state.ruleAlert = null;
+  refreshLiveRuleAlert();
+  refreshLiveBoardSurface();
+}
+
+function activeRuleAlert(game) {
+  const alertObj = state.ruleAlert;
+  if (!alertObj || Date.now() >= alertObj.expireAt) {
+    return null;
+  }
+  if (game && alertObj.gameId && game.gameId !== alertObj.gameId) {
+    return null;
+  }
+  return alertObj;
+}
+
+function renderRuleAlertBanner(game) {
+  if (!game) return '';
+  const alertObj = activeRuleAlert(game);
+  if (alertObj) {
+    const levelClass = alertObj.level === 'check'
+      ? 'is-check'
+      : (alertObj.level === 'forbidden' ? 'is-forbidden' : 'is-rule');
+    return `
+      <div class="ruleAlertBanner ${levelClass}" data-rule-alert-banner role="status">
+        <span class="ruleAlertBadge">${escapeHtml(alertObj.title)}</span>
+        <span class="ruleAlertText">${escapeHtml(alertObj.detail)}</span>
+        <button type="button" class="ruleAlertClose" data-action="dismiss-rule-alert" aria-label="关闭提醒">×</button>
+      </div>
+    `;
+  }
+  if (game.gameType === 'XIANGQI' && game.status === 'PLAYING' && game.inCheckSide) {
+    const tactic = game.checkTactic ? String(game.checkTactic).trim() : '将军';
+    const text = onlineCheckNotice(game) || '将军！请立即应将';
+    return `
+      <div class="ruleAlertBanner is-check" data-rule-alert-banner role="status">
+        <span class="ruleAlertBadge">${escapeHtml(tactic)}</span>
+        <span class="ruleAlertText">${escapeHtml(text)}</span>
+      </div>
+    `;
+  }
+  if (game.gameType === 'XIANGQI' && game.status === 'FINISHED' && game.checkTactic === '绝杀') {
+    return `
+      <div class="ruleAlertBanner is-check" data-rule-alert-banner role="status">
+        <span class="ruleAlertBadge">绝杀</span>
+        <span class="ruleAlertText">${escapeHtml(game.resultText || '绝杀分胜负')}</span>
+      </div>
+    `;
+  }
+  if (game.gameType === 'GOMOKU' && game.status === 'FINISHED' && game.winnerSide) {
+    return `
+      <div class="ruleAlertBanner is-tactic" data-rule-alert-banner role="status">
+        <span class="ruleAlertBadge">五子连珠</span>
+        <span class="ruleAlertText">${escapeHtml(game.resultText || '五子连珠胜出')}</span>
+      </div>
+    `;
+  }
+  return '';
+}
+
+function refreshLiveRuleAlert(route = currentRoute()) {
+  if (!state.game || !isBoardRoutePage(route.page)) {
+    return false;
+  }
+  const host = document.querySelector('[data-live-rule-alert]');
+  if (!host) {
+    return false;
+  }
+  host.innerHTML = renderRuleAlertBanner(state.game);
+  return true;
 }
 
 function setBoardInteractionError(message, durationMs = 2600) {
@@ -1295,10 +1451,11 @@ function onlineCheckNotice(game) {
   if (!game || game.gameType !== 'XIANGQI' || game.status !== 'PLAYING' || !game.inCheckSide) {
     return '';
   }
+  const tactic = game.checkTactic ? String(game.checkTactic).trim() : '将军';
   const viewerSide = game.viewerSide || inferViewerSide(game);
   return game.inCheckSide === viewerSide
-    ? '将军！你的将帅正在被攻击，请立即应将'
-    : '将军！对手的将帅正在被攻击';
+    ? `${tactic}！你的将帅正在被攻击，请立即应将`
+    : `${tactic}！对手的将帅正在被攻击`;
 }
 
 function shouldShowAuthOverlay(route) {
@@ -2430,6 +2587,7 @@ function renderOnlineGameView(game) {
           </div>
           <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : onlineGameStatusText(game)}</div>
           <div data-live-draw-offer>${drawOffer ? renderDrawOfferBanner(drawOffer, canRespondDraw) : ''}</div>
+          <div data-live-rule-alert>${renderRuleAlertBanner(game)}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           <div class="boardStageWatermark" aria-hidden="true">${renderBoardAtmosphereSvg(game.gameType)}</div>
           <div class="roomRow woodActions" data-live-game-actions>
@@ -2601,6 +2759,7 @@ function renderPracticeView(game) {
         <!-- 中栏 (自适应棋盘区) -->
         <section class="boardWrap boardPane boardPane--practice boardStage">
           <div class="status ${state.interactionError && Date.now() < state.interactionErrorExpireAt ? 'status--error' : (onlineCheckNotice(game) ? 'status--check' : '')}" data-live-status>${state.interactionError && Date.now() < state.interactionErrorExpireAt ? escapeHtml(state.interactionError) : practiceStatusText(game)}</div>
+          <div data-live-rule-alert>${renderRuleAlertBanner(game)}</div>
           <div class="boardHost" data-live-board-host>${board}</div>
           <div class="boardStageWatermark" aria-hidden="true">${renderBoardAtmosphereSvg(game.gameType)}</div>
           
@@ -3467,6 +3626,7 @@ function renderXiangqiBoard(game, options = {}) {
   const legalTargets = (state.selectedFrom && canInteractWithBoard(game))
     ? new Set(getLegalXiangqiTargets(rows, state.selectedFrom.row, state.selectedFrom.col, game.viewerSide).map(t => `${t.row},${t.col}`))
     : new Set();
+  const ruleAlert = activeRuleAlert(game);
   const cells = [];
   for (let displayRow = 0; displayRow < XIANGQI_ROWS; displayRow += 1) {
     for (let displayCol = 0; displayCol < XIANGQI_COLS; displayCol += 1) {
@@ -3484,6 +3644,8 @@ function renderXiangqiBoard(game, options = {}) {
       if (game.inCheckSide === 'BLACK' && piece === '将') cls.push('is-in-check');
       if (state.selectedFrom && state.selectedFrom.row === r && state.selectedFrom.col === c) cls.push('is-selected');
       if (legalTargets.has(`${r},${c}`)) cls.push('is-hint-target');
+      if (ruleAlert && ruleAlert.cell && ruleAlert.cell.row === r && ruleAlert.cell.col === c) cls.push('is-rule-blocked');
+      if (ruleAlert && ruleAlert.blockerCell && ruleAlert.blockerCell.row === r && ruleAlert.blockerCell.col === c) cls.push('is-rule-blocker');
       cells.push(`<button class="${cls.join(' ')}" data-board="xiangqi" data-row="${r}" data-col="${c}" data-display-row="${displayRow}" data-display-col="${displayCol}" ${disabled ? 'disabled' : ''}>${renderXiangqiCellLines(displayRow, displayCol)}${renderXiangqiMarkerGlyph(displayRow, displayCol)}${renderXiangqiLastMoveMarker(marker, r, c)}${piece ? `<span class="piece">${escapeHtml(piece)}</span>` : ''}</button>`);
     }
   }
@@ -3516,6 +3678,7 @@ function renderGomokuBoard(game, options = {}) {
   const disabled = !canInteractWithBoard(game);
   const marker = currentMoveMarker(game);
   const flipped = !!options.flipped;
+  const ruleAlert = activeRuleAlert(game);
   const cells = [];
   for (let displayRow = 0; displayRow < GOMOKU_SIZE; displayRow += 1) {
     for (let displayCol = 0; displayCol < GOMOKU_SIZE; displayCol += 1) {
@@ -3528,6 +3691,7 @@ function renderGomokuBoard(game, options = {}) {
       if (isGomokuStarPoint(displayRow, displayCol)) cls.push('is-star');
       if (cell === 'BLACK') cls.push('is-black');
       if (cell === 'WHITE') cls.push('is-white');
+      if (ruleAlert && ruleAlert.cell && ruleAlert.cell.row === r && ruleAlert.cell.col === c) cls.push('is-rule-blocked');
       cells.push(`<button class="${cls.join(' ')}" data-board="gomoku" data-row="${r}" data-col="${c}" data-display-row="${displayRow}" data-display-col="${displayCol}" ${disabled ? 'disabled' : ''}><span class="gomokuStone"></span>${renderGomokuLastMoveMarker(marker, r, c)}</button>`);
     }
   }
@@ -4067,6 +4231,15 @@ function bindCommon(route) {
     el.dataset.boundCloseModal = '1';
     el.addEventListener('click', closeEndGameModal);
   });
+  if (!document.documentElement.dataset.boundDismissRuleAlert) {
+    document.documentElement.dataset.boundDismissRuleAlert = '1';
+    document.addEventListener('click', event => {
+      const btn = event.target && event.target.closest ? event.target.closest('[data-action="dismiss-rule-alert"]') : null;
+      if (btn) {
+        clearRuleAlert();
+      }
+    });
+  }
   document.querySelectorAll('[data-end-game-card]').forEach(el => el.addEventListener('click', event => event.stopPropagation()));
   document.querySelectorAll('[data-action="cancel-confirm"]').forEach(el => {
     if (el.dataset.boundConfirmCancel === '1') return;
@@ -4801,6 +4974,7 @@ async function resignGame() {
 async function sendGameAction(url, body) {
   try {
     state.status = '';
+    state.ruleAlert = null;
     state.game = applyServerGameSnapshot(await fetchJson(url, { method: 'POST', body: JSON.stringify(body) }));
     if (!isPracticeAiPending(state.game) || state.game.status !== 'PLAYING') {
       stopPracticePolling();
@@ -5123,8 +5297,9 @@ function refreshOnlineGameMetaPills() {
 function refreshGameInteractionUi(route = currentRoute()) {
   const board = refreshLiveBoardSurface(route);
   const status = refreshLiveStatusLine(route);
+  const ruleAlert = refreshLiveRuleAlert(route);
   const meta = refreshOnlineGameMetaPills();
-  return board || status || meta;
+  return board || status || ruleAlert || meta;
 }
 
 function patchOnlineGameRealtimeView() {
@@ -5282,6 +5457,7 @@ async function sendMove(payload) {
     }
     state.game = snapshot;
     state.moveInFlight = false;
+    state.ruleAlert = null;
     clearPendingMoveMarker();
     if (isPracticeAiPending(state.game)) {
       startPracticePolling(state.game.gameId, false);
@@ -5296,6 +5472,10 @@ async function sendMove(payload) {
     }
     if (optimisticGame) {
       state.game = gameBeforeMove;
+    }
+    const parsedRuleAlert = parseRuleAlertFromError(gameBeforeMove, payload, error && error.message);
+    if (parsedRuleAlert) {
+      setRuleAlert(parsedRuleAlert, 4200);
     }
     setBoardInteractionError(error.message);
     state.moveInFlight = false;
@@ -5573,7 +5753,7 @@ function maybeNotifyCheck(previousGame, nextGame) {
       && previousGame.inCheckSide === nextGame.inCheckSide)) {
     return;
   }
-  showToast(onlineCheckNotice(nextGame), 'move', 4200);
+  showToast(onlineCheckNotice(nextGame), 'warning', 4200);
   notifyOpponentMoveHaptic();
 }
 
@@ -6250,7 +6430,7 @@ async function fetchJson(url, options = {}) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    const err = new Error(data && data.error ? data.error : `Request failed (${response.status})`);
+    const err = new Error(data && (data.error || data.message) ? (data.error || data.message) : `Request failed (${response.status})`);
     err.status = response.status;
     err.code = data && data.code ? data.code : '';
     throw err;

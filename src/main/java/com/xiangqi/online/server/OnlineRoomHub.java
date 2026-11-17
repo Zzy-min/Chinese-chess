@@ -546,6 +546,7 @@ public final class OnlineRoomHub {
         snapshot.put("moveCount", game.engine.moves().size());
         snapshot.put("stateId", game.engine.stateId());
         snapshot.put("inCheckSide", game.engine.inCheckSide());
+        snapshot.put("checkTactic", game.engine.checkTactic());
         snapshot.put("moves", game.engine.moves());
         attachReplayBoards(snapshot);
         snapshot.put("updatedAt", game.updatedAt.toString());

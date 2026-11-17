@@ -7437,4 +7437,16 @@
       font-size: 24px !important;
     }
   }
+
+  .ruleAlertBanner {
+    padding: 7px 10px !important;
+    margin-bottom: 8px !important;
+    font-size: 12px !important;
+    gap: 8px !important;
+    border-radius: 10px !important;
+  }
+  .ruleAlertBadge {
+    font-size: 11px !important;
+    padding: 2px 7px !important;
+  }
 }

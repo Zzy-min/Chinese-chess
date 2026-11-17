@@ -216,14 +216,37 @@ public class Board {
     }
 
     public boolean isValidMove(Move move) {
-        Piece piece = getPiece(move.getFromRow(),move.getFromCol());
+        return getIllegalMoveReason(move).isEmpty();
+    }
+
+    public String getIllegalMoveReason(Move move) {
+        if (move == null) {
+            return "illegal move";
+        }
+        int fromRow = move.getFromRow();
+        int fromCol = move.getFromCol();
+        int toRow = move.getToRow();
+        int toCol = move.getToCol();
+        if (toRow < 0 || toRow >= ROWS || toCol < 0 || toCol >= COLS
+                || fromRow < 0 || fromRow >= ROWS || fromCol < 0 || fromCol >= COLS) {
+            return "illegal move";
+        }
+        Piece piece = getPiece(fromRow, fromCol);
         if (piece == null || piece.getColor() != currentTurn) {
-            return false;
+            return "illegal move";
+        }
+        if (fromRow == toRow && fromCol == toCol) {
+            return "illegal move";
         }
 
-        Piece captured = getPiece(move.getToRow(), move.getToCol());
+        Piece captured = getPiece(toRow, toCol);
         if (captured != null && captured.getColor() == piece.getColor()) {
-            return false;
+            return "不能吃己方棋子";
+        }
+
+        String pieceReason = getIllegalPieceMoveReason(piece, toRow, toCol);
+        if (!pieceReason.isEmpty()) {
+            return pieceReason;
         }
 
         // 检查移动后是否会被将军
@@ -232,15 +255,123 @@ public class Board {
 
         // 检查将帅是否在同一直线上直接对面
         if (testBoard.areGeneralsFacing()) {
-            return false;
+            return "触发「将帅照面」规则：两方将帅不可在同一直线上直接面对";
         }
 
         // 检查自己是否被将军
         if (testBoard.isInCheck(piece.getColor())) {
-            return false;
+            if (isInCheck(piece.getColor())) {
+                return "触发「必须应将」规则：当前正被将军，该步未能解除将军状态";
+            }
+            return "触发「不能送将」规则：走此步后己方将帅将被将军";
         }
 
-        return isValidMoveForPiece(piece, move.getToRow(), move.getToCol());
+        return "";
+    }
+
+    private String getIllegalPieceMoveReason(Piece piece, int toRow, int toCol) {
+        int fromRow = piece.getRow();
+        int fromCol = piece.getCol();
+        PieceColor color = piece.getColor();
+        switch (piece.getType()) {
+            case CHE:
+            case CHE_RED:
+                if (fromRow != toRow && fromCol != toCol) {
+                    return "车走直线：车只能横行或竖行";
+                }
+                if (countPiecesBetween(fromRow, fromCol, toRow, toCol) != 0) {
+                    return "触发「车行不越子」规则：行进路径上有棋子阻挡";
+                }
+                return "";
+            case MA:
+            case MA_RED: {
+                int dRow = Math.abs(toRow - fromRow);
+                int dCol = Math.abs(toCol - fromCol);
+                if (!((dRow == 2 && dCol == 1) || (dRow == 1 && dCol == 2))) {
+                    return "马走日字：马只能沿日字对角线跳跃";
+                }
+                int legRow = dRow == 2 ? fromRow + (toRow > fromRow ? 1 : -1) : fromRow;
+                int legCol = dRow == 2 ? fromCol : fromCol + (toCol > fromCol ? 1 : -1);
+                if (board[legRow][legCol] != null) {
+                    return "触发「蹩马腿」规则：马腿处有棋子阻挡，无法跳向该位置";
+                }
+                return "";
+            }
+            case XIANG:
+            case XIANG_RED: {
+                int dRow = Math.abs(toRow - fromRow);
+                int dCol = Math.abs(toCol - fromCol);
+                if (dRow != 2 || dCol != 2) {
+                    return "相/象走田字：只能沿田字对角线移动";
+                }
+                if ((color == PieceColor.RED && toRow < 5) || (color == PieceColor.BLACK && toRow > 4)) {
+                    return "触发「象不过河」规则：相/象不能越过楚河汉界";
+                }
+                int eyeRow = (fromRow + toRow) / 2;
+                int eyeCol = (fromCol + toCol) / 2;
+                if (board[eyeRow][eyeCol] != null) {
+                    return "触发「塞象眼」规则：象眼处有棋子阻挡，无法飞过";
+                }
+                return "";
+            }
+            case SHI:
+            case SHI_RED: {
+                int dRow = Math.abs(toRow - fromRow);
+                int dCol = Math.abs(toCol - fromCol);
+                if (dRow != 1 || dCol != 1) {
+                    return "仕/士走斜线：每次只能沿九宫斜线走一格";
+                }
+                if (!isInPalace(toRow, toCol, color)) {
+                    return "触发「九宫限制」规则：仕/士不能离开己方九宫";
+                }
+                return "";
+            }
+            case JIANG:
+            case SHUAI: {
+                int dRow = Math.abs(toRow - fromRow);
+                int dCol = Math.abs(toCol - fromCol);
+                if (dRow + dCol != 1) {
+                    return "将/帅步幅限制：每次只能横走或竖走一格";
+                }
+                if (!isInPalace(toRow, toCol, color)) {
+                    return "触发「九宫限制」规则：将/帅不能离开己方九宫";
+                }
+                return "";
+            }
+            case PAO:
+            case PAO_RED: {
+                if (fromRow != toRow && fromCol != toCol) {
+                    return "炮走直线：炮只能横行或竖行";
+                }
+                Piece target = board[toRow][toCol];
+                int between = countPiecesBetween(fromRow, fromCol, toRow, toCol);
+                if (target == null && between != 0) {
+                    return "触发「炮行不越子」规则：炮不吃子时路径上不能有棋子";
+                }
+                if (target != null && between != 1) {
+                    return "触发「炮隔山打牛」规则：炮吃子必须恰好隔一个棋子（炮架）";
+                }
+                return "";
+            }
+            case ZU:
+            case ZU_RED: {
+                int dRow = toRow - fromRow;
+                int dCol = Math.abs(toCol - fromCol);
+                boolean crossedRiver = (color == PieceColor.RED) ? (fromRow <= 4) : (fromRow >= 5);
+                if ((color == PieceColor.RED && dRow > 0) || (color == PieceColor.BLACK && dRow < 0)) {
+                    return "触发「兵卒不退」规则：兵/卒只能前进，不能后退";
+                }
+                if (!crossedRiver && dCol != 0) {
+                    return "触发「未过河兵卒」规则：兵/卒过河前只能直行前进，不能横走";
+                }
+                if (!isValidZuMove(color, fromRow, fromCol, toRow, toCol)) {
+                    return "兵/卒步幅限制：每次只能走一格";
+                }
+                return "";
+            }
+            default:
+                return "该走法不符合棋子行棋规则";
+        }
     }
 
     private void moveWithoutValidation(Move move) {

@@ -26,6 +26,10 @@ public interface OnlineMatchEngine {
         return "";
     }
 
+    default String checkTactic() {
+        return "";
+    }
+
     default long stateId() {
         return 0;
     }
