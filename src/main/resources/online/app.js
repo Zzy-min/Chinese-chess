@@ -98,7 +98,8 @@ const state = {
   routeLoadError: {},
   interactionError: '',
   interactionErrorExpireAt: 0,
-  ruleAlert: null
+  ruleAlert: null,
+  boardCellCache: null
 };
 
 const API_BASE = '/online/api';
@@ -881,43 +882,62 @@ function render() {
   }
 }
 
+function applyBoardFitNow(route = currentRoute(), force = false) {
+  const host = document.querySelector('.boardPane .boardHost');
+  const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
+  if (!host || !board) {
+    state.boardFitKey = '';
+    queueBoardRefit(route);
+    return false;
+  }
+  const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
+  const cssVar = boardType === 'XIANGQI' ? '--xi-cell-size' : '--go-cell-size';
+  const contextId = route.page === 'analysis'
+    ? ((state.analysis && state.analysis.gameId) || route.id || '')
+    : ((state.game && state.game.gameId) || route.id || '');
+  const layoutKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${state.boardPaneTab}`;
+
+  if (!force && state.boardCellCache && state.boardCellCache.key === layoutKey && state.boardCellCache.cell > 0) {
+    board.style.setProperty(cssVar, `${state.boardCellCache.cell}px`, 'important');
+    board.setAttribute('data-fit-key', layoutKey);
+    state.boardFitKey = layoutKey;
+    return true;
+  }
+
+  const measured = measureBoardHostSpace(host);
+  const availableWidth = Math.floor(measured.availableWidth);
+  const availableHeight = Math.floor(measured.availableHeight);
+  if (availableWidth <= 0 || availableHeight <= 0) {
+    state.boardFitKey = '';
+    queueBoardRefit(route);
+    return false;
+  }
+
+  const finalCell = boardType === 'XIANGQI'
+    ? fitXiangqiBoardToHost(board, host, measured)
+    : fitGomokuBoardToHost(board, host, measured);
+  if (Number.isFinite(finalCell) && finalCell > 0) {
+    state.boardCellCache = { key: layoutKey, cssVar, cell: finalCell };
+  }
+  board.setAttribute('data-fit-key', layoutKey);
+  state.boardFitKey = layoutKey;
+  return true;
+}
+
 function fitBoardToViewport(route = currentRoute(), force = false) {
   if (!isBoardFitRoute(route)) {
     state.boardFitKey = '';
+    state.boardCellCache = null;
+    return;
+  }
+  if (force) {
+    state.boardCellCache = null;
+  }
+  if (applyBoardFitNow(route, force)) {
     return;
   }
   window.requestAnimationFrame(() => {
-    const host = document.querySelector('.boardPane .boardHost');
-    const board = host ? host.querySelector('.xiangqiBoard, .gomokuBoard') : null;
-    if (!host || !board) {
-      state.boardFitKey = '';
-      queueBoardRefit(route);
-      return;
-    }
-    const measured = measureBoardHostSpace(host);
-    const availableWidth = Math.floor(measured.availableWidth);
-    const availableHeight = Math.floor(measured.availableHeight);
-    if (availableWidth <= 0 || availableHeight <= 0) {
-      state.boardFitKey = '';
-      queueBoardRefit(route);
-      return;
-    }
-    const boardType = board.classList.contains('xiangqiBoard') ? 'XIANGQI' : 'GOMOKU';
-    const contextId = route.page === 'analysis'
-      ? ((state.analysis && state.analysis.gameId) || route.id || '')
-      : ((state.game && state.game.gameId) || route.id || '');
-    const fitKey = `${route.page}|${contextId}|${boardType}|${window.innerWidth}x${window.innerHeight}|${availableWidth}x${availableHeight}|${state.boardPaneTab}`;
-    const boardAppliedKey = board.getAttribute('data-fit-key') || '';
-    if (!force && fitKey === state.boardFitKey && boardAppliedKey === fitKey) {
-      return;
-    }
-    if (boardType === 'XIANGQI') {
-      fitXiangqiBoardToHost(board, host, measured);
-    } else {
-      fitGomokuBoardToHost(board, host, measured);
-    }
-    board.setAttribute('data-fit-key', fitKey);
-    state.boardFitKey = fitKey;
+    applyBoardFitNow(route, force);
   });
 }
 
@@ -945,7 +965,7 @@ function isBoardFitRoute(route) {
 }
 
 function fitXiangqiBoardToHost(board, host, measured = null) {
-  fitBoardToHost({
+  return fitBoardToHost({
     board,
     host,
     measured,
@@ -958,7 +978,7 @@ function fitXiangqiBoardToHost(board, host, measured = null) {
 }
 
 function fitGomokuBoardToHost(board, host, measured = null) {
-  fitBoardToHost({
+  return fitBoardToHost({
     board,
     host,
     measured,
@@ -985,7 +1005,7 @@ function fitBoardToHost({ board, host, measured, cssVar, cols, rows, fallbackCel
   const targetCell = Math.max(minCell, Math.min(Math.floor(baseCell), byWidth, byHeight));
   const initialCell = Number.isFinite(targetCell) && targetCell > 0 ? targetCell : minCell;
   board.style.setProperty(cssVar, `${initialCell}px`, 'important');
-  shrinkBoardToHost(board, cssVar, minCell, initialCell, availableWidth, availableHeight);
+  return shrinkBoardToHost(board, cssVar, minCell, initialCell, availableWidth, availableHeight);
 }
 
 function readBoardCellBase(board, cssVar, fallbackCell) {
@@ -1019,6 +1039,7 @@ function shrinkBoardToHost(board, cssVar, minCell, startCell, limitWidth, limitH
     cell -= 1;
     board.style.setProperty(cssVar, `${cell}px`, 'important');
   }
+  return cell;
 }
 
 function measureBoardHostSpace(host) {
@@ -1026,24 +1047,19 @@ function measureBoardHostSpace(host) {
   const fallbackWidth = Math.max(0, (host.clientWidth || fallbackRect.width) - 2);
   const fallbackHeight = Math.max(0, (host.clientHeight || fallbackRect.height) - 2);
   const pane = host.closest('.boardPane');
-  const shell = host.closest('.shell') || document.querySelector('.shell');
   const paneRect = pane ? pane.getBoundingClientRect() : null;
-  const shellRect = shell ? shell.getBoundingClientRect() : null;
   const viewportHeight = (window.visualViewport && Number.isFinite(window.visualViewport.height))
     ? window.visualViewport.height
     : window.innerHeight;
   const viewportWidth = (window.visualViewport && Number.isFinite(window.visualViewport.width))
     ? window.visualViewport.width
     : window.innerWidth;
-  const visibleBottom = tightestPositive([
-    viewportHeight,
-    paneRect ? paneRect.bottom : 0,
-    shellRect ? shellRect.bottom : 0
-  ], viewportHeight);
+  // Use viewportHeight rather than auto-sized paneRect.bottom so re-fitting
+  // never creates a ratcheting shrink feedback loop against the board's own height.
+  const visibleBottom = viewportHeight;
   const visibleRight = tightestPositive([
     viewportWidth,
-    paneRect ? paneRect.right : 0,
-    shellRect ? shellRect.right : 0
+    paneRect ? paneRect.right : 0
   ], viewportWidth);
 
   let belowHostSpace = 0;
@@ -1082,22 +1098,14 @@ function measureBoardHostSpace(host) {
   const viewportLimitedHeight = Math.max(0, visibleBottom - Math.max(0, fallbackRect.top) - belowHostSpace - 2);
   const viewportLimitedWidth = Math.max(0, visibleRight - Math.max(0, fallbackRect.left) - 2);
 
-  let paneRowHeight = 0;
   let preferredWidth = host.clientWidth || fallbackRect.width;
   if (pane) {
-    const paneStyle = getComputedStyle(pane);
-    const rowGap = parseFloat(paneStyle.rowGap || paneStyle.gap) || 0;
-    const siblings = Array.from(pane.children).filter((child) => child !== host);
-    const occupiedHeight = siblings.reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
-    const totalGaps = Math.max(0, (pane.children.length - 1) * rowGap);
-    paneRowHeight = pane.clientHeight - occupiedHeight - totalGaps;
     preferredWidth = host.clientWidth || pane.clientWidth || fallbackRect.width;
   }
-  const paneLimitedHeight = Math.max(0, paneRowHeight - 2);
   const paneLimitedWidth = Math.max(0, preferredWidth - 2);
   return {
     availableWidth: tightestPositive([paneLimitedWidth, viewportLimitedWidth], fallbackWidth),
-    availableHeight: tightestPositive([paneLimitedHeight, viewportLimitedHeight], fallbackHeight)
+    availableHeight: tightestPositive([viewportLimitedHeight], fallbackHeight)
   };
 }
 
@@ -5220,16 +5228,16 @@ function refreshLiveBoardSurface(route = currentRoute()) {
   const previousGoCell = previousBoard ? parseFloat(getComputedStyle(previousBoard).getPropertyValue('--go-cell-size')) : 0;
   host.innerHTML = renderPlayableBoardByGameType(state.game, resolveBoardRenderOptions(state.game, route));
   const board = host.querySelector('.xiangqiBoard, .gomokuBoard');
-  if (route.page === 'practice' && board) {
+  if (board) {
     if (board.classList.contains('xiangqiBoard') && previousXiCell > 0) {
-      board.style.setProperty('--xi-cell-size', `${previousXiCell}px`);
+      board.style.setProperty('--xi-cell-size', `${previousXiCell}px`, 'important');
     }
     if (board.classList.contains('gomokuBoard') && previousGoCell > 0) {
-      board.style.setProperty('--go-cell-size', `${previousGoCell}px`);
+      board.style.setProperty('--go-cell-size', `${previousGoCell}px`, 'important');
     }
   }
   if (board && isBoardFitRoute(route)) {
-    fitBoardToViewport(route, true);
+    fitBoardToViewport(route, false);
   }
   bindBoardCellEvents(host);
   return true;

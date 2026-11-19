@@ -3924,7 +3924,12 @@ select:focus-visible,
   box-shadow:0 0 0 3px rgba(177,63,47,.15)!important;
   animation:shakeX .35s ease;
 }
+.boardStage {
+  min-width: 0;
+}
 .boardStage .status {
+  min-width: 0;
+  max-width: 100%;
   padding: 4px 10px;
   border: 1px solid transparent;
   border-radius: 8px;
